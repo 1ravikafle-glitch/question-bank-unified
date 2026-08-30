@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -218,6 +218,18 @@ async def root(request: Request):
     if device == "mobile":
         return RedirectResponse(url="/mobile", status_code=302)
     return RedirectResponse(url="/desktop", status_code=302)
+
+
+# ── SPA catch-all: any non-API, non-file path serves index.html ────────────────
+# This makes page reloads work on /questions, /quiz, /progress, etc.
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+async def spa_catchall(request: Request, full_path: str = ""):
+    # Never intercept /desktop or /mobile paths (they have their own routes)
+    if full_path.startswith("desktop/") or full_path.startswith("mobile/"):
+        raise HTTPException(status_code=404, detail=f"Not found: /{full_path}")
+    device = detect_device(request)
+    directory = MOBILE_DIR if device == "mobile" else DESKTOP_DIR
+    return serve_spa(directory, full_path)
 
 
 if __name__ == "__main__":
