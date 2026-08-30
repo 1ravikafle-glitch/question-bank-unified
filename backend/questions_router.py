@@ -61,6 +61,17 @@ def get_categories(db: Session = Depends(database.get_db)):
     return [category[0] for category in categories if category[0] is not None]
 
 
+@router.get("/category-counts/")
+def get_category_counts(db: Session = Depends(database.get_db)):
+    from sqlalchemy import func
+    rows = (
+        db.query(models.Question.category, func.count(models.Question.id))
+        .group_by(models.Question.category)
+        .all()
+    )
+    return {r[0] or "Uncategorized": r[1] for r in rows}
+
+
 @router.get("/{question_id}", response_model=schemas.Question)
 def get_question(question_id: int, db: Session = Depends(database.get_db)):
     question = db.query(models.Question).filter(models.Question.id == question_id).first()
