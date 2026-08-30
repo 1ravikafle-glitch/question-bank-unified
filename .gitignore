@@ -9,7 +9,7 @@ __pycache__/
 *.backup
 *.zip
 node_modules/
-__pycache__/
+venv/
 *.log
 .DS_Store
 Thumbs.db
