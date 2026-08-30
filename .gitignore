@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.local
+.env.production
+*.db
+*.sqlite
+*.backup
+*.zip
+node_modules/
+__pycache__/
+*.log
+.DS_Store
+Thumbs.db
