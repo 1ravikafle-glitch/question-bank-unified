@@ -13,3 +13,6 @@ venv/
 *.log
 .DS_Store
 Thumbs.db
+question_bank.db-shm
+question_bank.db-wal
+skills-lock.json

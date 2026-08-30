@@ -9,9 +9,9 @@ import bcrypt
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Elfak").strip()
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Kafle").strip()
-ADMIN_USERS = [ADMIN_USERNAME.lower()]
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "").strip()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
+ADMIN_USERS = [ADMIN_USERNAME.lower()] if ADMIN_USERNAME else []
 
 
 def hash_password(password: str) -> str:
@@ -45,9 +45,9 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
 
     try:
         # Admin login
-        if username.lower() == ADMIN_USERNAME.lower():
-            if password != ADMIN_PASSWORD:
-                raise HTTPException(status_code=401, detail="Incorrect admin password")
+        if ADMIN_USERNAME and username.lower() == ADMIN_USERNAME.lower():
+            if not ADMIN_PASSWORD or password != ADMIN_PASSWORD:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
             existing = db.query(models.User).filter(models.User.username == ADMIN_USERNAME).first()
             if not existing:
                 admin_user = models.User(username=ADMIN_USERNAME, password=hash_password(ADMIN_PASSWORD))
@@ -61,10 +61,10 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
         if existing:
             if existing.password.startswith("$2"):
                 if not verify_password(password, existing.password):
-                    raise HTTPException(status_code=401, detail="Incorrect password for this username")
+                    raise HTTPException(status_code=401, detail="Invalid credentials")
             else:
                 if existing.password != password:
-                    raise HTTPException(status_code=401, detail="Incorrect password for this username")
+                    raise HTTPException(status_code=401, detail="Invalid credentials")
                 existing.password = hash_password(password)
                 db.commit()
             return AuthResponse(user_identifier=username, is_new=False)
@@ -79,7 +79,7 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Login failed")
 
 
 def verify_admin_user(x_admin_user: Optional[str] = Header(None)):
