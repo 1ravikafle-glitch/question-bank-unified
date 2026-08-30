@@ -5,10 +5,17 @@ from typing import List, Optional
 import models
 import database
 import schemas
+import hashlib
+import json
 
 
 class QuestionIdsRequest(BaseModel):
     question_ids: List[int]
+
+
+class DeltaSyncRequest(BaseModel):
+    known_ids: List[int] = []
+    last_sync: Optional[str] = None
 
 
 router = APIRouter(prefix="/questions", tags=["questions"])
@@ -90,3 +97,35 @@ def get_questions_by_ids(
     questions = db.query(models.Question).filter(models.Question.id.in_(payload.question_ids)).all()
     id_to_question = {q.id: q for q in questions}
     return [id_to_question[id] for id in payload.question_ids if id in id_to_question]
+
+
+@router.get("/sync/version")
+def get_sync_version(db: Session = Depends(database.get_db)):
+    from sqlalchemy import func
+    total = db.query(func.count(models.Question.id)).scalar() or 0
+    latest = db.query(models.Question.id).order_by(models.Question.id.desc()).first()
+    latest_id = latest[0] if latest else 0
+    categories = (
+        db.query(models.Question.category, func.count(models.Question.id))
+        .group_by(models.Question.category)
+        .all()
+    )
+    cat_hash = hashlib.md5(json.dumps({r[0]: r[1] for r in categories}, sort_keys=True).encode()).hexdigest()[:12]
+    return {
+        "total": total,
+        "latest_id": latest_id,
+        "categories_hash": cat_hash,
+        "version": f"{latest_id}-{total}-{cat_hash}",
+    }
+
+
+@router.post("/sync/delta", response_model=List[schemas.Question])
+def sync_delta(
+    payload: DeltaSyncRequest,
+    db: Session = Depends(database.get_db),
+):
+    query = db.query(models.Question)
+    if payload.known_ids:
+        query = query.filter(models.Question.id.notin_(payload.known_ids))
+    questions = query.order_by(models.Question.id.asc()).limit(500).all()
+    return questions
