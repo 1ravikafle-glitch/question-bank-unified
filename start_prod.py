@@ -1,178 +1,227 @@
-"""
-Production server: serves mobile or desktop React frontend + FastAPI backend.
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+import os
+import sys
+import json
 
-Detects device via User-Agent header. Mobile users get frontend-mobile/,
-desktop users get frontend-desktop/. Append ?view=mobile or ?view=desktop
-to force a specific version.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
 
-Usage:
-    python start_prod.py           # default port 8000
-    python start_prod.py --port 3000
-"""
-import os, sys, argparse
-from pathlib import Path
+from database import engine, is_postgres, SessionLocal
+from models import Base
+import models
+import database
 
-BASE_DIR = Path(__file__).parent
-FRONTEND_MOBILE = BASE_DIR / "frontend-mobile" / "dist"
-FRONTEND_DESKTOP = BASE_DIR / "frontend-desktop" / "dist"
+# ── Create tables ──────────────────────────────────────────────────────────────
+Base.metadata.create_all(bind=engine)
 
-MOBILE_KEYWORDS = (
-    "android", "iphone", "ipod", "opera mini", "opera mobi",
-    "windows phone", "blackberry", "mobile", "webos",
-    "kindle", "silk", "tablet",
+# ── Seed database if empty ─────────────────────────────────────────────────────
+def seed_database():
+    db = SessionLocal()
+    try:
+        count = db.query(models.Question).count()
+        if count > 0:
+            print(f"[SEED] DB already has {count} questions, skipping.", file=sys.stderr)
+            return
+
+        json_path = os.path.join(os.path.dirname(__file__), "backend", "questions_with_categories.json")
+        if not os.path.exists(json_path):
+            print("[SEED] questions_with_categories.json not found, skipping.", file=sys.stderr)
+            return
+
+        with open(json_path, "r") as f:
+            data = json.load(f)
+
+        questions = data.get("questions", data) if isinstance(data, dict) else data
+
+        # Deduplicate by (question_text, category)
+        seen = set()
+        batch = []
+        for q in questions:
+            options = q.get("options", q.get("answer_options", {}))
+            if isinstance(options, dict):
+                options = {str(k).strip().lower(): str(v).strip() for k, v in options.items()}
+
+            correct = str(q.get("correct_answer", q.get("answer", ""))).strip()
+            if not correct:
+                continue
+
+            qtext = q.get("question_text", q.get("question", "")).strip()
+            cat = q.get("category", "Unknown").strip()
+            key = (qtext, cat)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            batch.append(models.Question(
+                question_number=q.get("question_number", q.get("id", 0)),
+                question_text=qtext,
+                options=options,
+                correct_answer=correct[0].lower(),
+                category=cat,
+                difficulty=q.get("difficulty"),
+            ))
+
+        if not batch:
+            print("[SEED] No valid questions found in JSON.", file=sys.stderr)
+            return
+
+        if is_postgres:
+            # Use raw INSERT ... ON CONFLICT DO NOTHING for PostgreSQL
+            # (bypasses ORM to avoid UNIQUE constraint failures on restarts)
+            try:
+                with engine.connect() as conn:
+                    inserted = 0
+                    for q in batch:
+                        try:
+                            conn.execute(
+                                text("""
+                                    INSERT INTO questions
+                                        (question_number, question_text, options, correct_answer, category, difficulty, created_at)
+                                    VALUES
+                                        (:qnum, :qtext, :opts, :ans, :cat, :diff, NOW())
+                                    ON CONFLICT DO NOTHING
+                                """),
+                                {
+                                    "qnum": q.question_number,
+                                    "qtext": q.question_text,
+                                    "opts": json.dumps(q.options) if q.options else "{}",
+                                    "ans": q.correct_answer,
+                                    "cat": q.category,
+                                    "diff": q.difficulty,
+                                },
+                            )
+                            inserted += 1
+                        except Exception as e:
+                            print(f"[SEED] Skipped question: {e}", file=sys.stderr)
+                    conn.commit()
+                    print(f"[SEED] Seeded {inserted} questions (PostgreSQL, ON CONFLICT DO NOTHING)", file=sys.stderr)
+            except Exception as e:
+                print(f"[SEED] PostgreSQL seed error: {e}", file=sys.stderr)
+                db.rollback()
+        else:
+            db.add_all(batch)
+            db.commit()
+            print(f"[SEED] Seeded {len(batch)} questions (SQLite)", file=sys.stderr)
+
+    except Exception as e:
+        db.rollback()
+        print(f"[SEED] Error: {e}", file=sys.stderr)
+    finally:
+        db.close()
+
+seed_database()
+
+# ── Create FastAPI app ─────────────────────────────────────────────────────────
+app = FastAPI(title="Question Bank API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-def is_mobile(user_agent: str) -> bool:
-    ua = user_agent.lower()
-    if "ipad" in ua:
-        return False
-    return any(kw in ua for kw in MOBILE_KEYWORDS)
+# ── Global exception handler ───────────────────────────────────────────────────
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"[ERROR] {request.method} {request.url}: {exc}", file=sys.stderr)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
+# ── Import routers ─────────────────────────────────────────────────────────────
+import quiz_router
+import questions_router
+import auth_router
+import admin_router
 
-def get_dist_for_request(request) -> Path:
-    """Return the dist folder for the current request."""
-    # Check query param override: ?view=mobile or ?view=desktop
-    view = request.query_params.get("view")
-    if view == "mobile":
-        return FRONTEND_MOBILE
-    if view == "desktop":
-        return FRONTEND_DESKTOP
+app.include_router(quiz_router.router)
+app.include_router(questions_router.router)
+app.include_router(auth_router.router)
+app.include_router(admin_router.router)
 
-    # Detect from User-Agent
-    ua = request.headers.get("user-agent", "")
-    if is_mobile(ua):
-        return FRONTEND_MOBILE
-    return FRONTEND_DESKTOP
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--host", type=str, default="0.0.0.0")
-    args = parser.parse_args()
-
-    # Validate both dist folders exist
-    for label, dist in [("mobile", FRONTEND_MOBILE), ("desktop", FRONTEND_DESKTOP)]:
-        if not dist.exists():
-            print(f"ERROR: '{dist}' not found. Run 'npm run build' in the {label} frontend.")
-            sys.exit(1)
-
-    from fastapi import FastAPI, Request
-    from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.staticfiles import StaticFiles
-    from fastapi.responses import FileResponse
-
-    # Add backend to sys.path so imports work
-    sys.path.insert(0, str(BASE_DIR / "backend"))
-    os.chdir(BASE_DIR / "backend")
-
-    import models, database, questions_router, quiz_router, admin_router, auth_router
-
-    # Create database tables
-    models.Base.metadata.create_all(bind=database.engine)
-
-    # Import questions if database is empty or incomplete
+# ── Health check (verifies DB connectivity) ────────────────────────────────────
+@app.get("/api/health")
+def health():
     try:
-        seed_on_empty = os.getenv("SEED_ON_EMPTY", "true").lower() == "true"
-        from import_questions import import_questions_from_json
-        import json
-        db = database.SessionLocal()
-        try:
-            question_count = db.query(models.Question).count()
-            json_path = "questions_with_categories.json"
-            json_exists = os.path.exists(json_path)
-
-            expected_count = 0
-            if json_exists:
-                try:
-                    with open(json_path, "r", encoding="utf-8") as f:
-                        json_data = json.load(f)
-                        expected_count = len(json_data) if isinstance(json_data, list) else 0
-                except Exception:
-                    expected_count = 0
-
-            should_seed = seed_on_empty and json_exists and (question_count == 0 or question_count < expected_count)
-
-            if should_seed:
-                print(f"Database has {question_count} questions, expected {expected_count}. Importing...")
-                imported = import_questions_from_json(json_path, db)
-                new_count = db.query(models.Question).count()
-                print(f"Import done. Database now has {new_count} questions.")
-            else:
-                print(f"Database has {question_count} questions, skipping import.")
-        finally:
-            db.close()
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "connected", "engine": "postgresql" if is_postgres else "sqlite"}
     except Exception as e:
-        print(f"Warning: Could not auto-import questions: {e}")
+        return JSONResponse(status_code=503, content={"status": "error", "database": str(e)})
 
-    app = FastAPI(title="Question Bank", version="2.0.0")
+# ── Device detection ───────────────────────────────────────────────────────────
+MOBILE_KEYWORDS = [
+    "android", "webos", "iphone", "ipad", "ipod",
+    "blackberry", "windows phone", "opera mini", "mobile",
+]
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
 
-    # API routers
-    app.include_router(questions_router.router)
-    app.include_router(quiz_router.router)
-    app.include_router(admin_router.router)
-    app.include_router(auth_router.router)
+def is_mobile_ua(user_agent: str) -> bool:
+    ua = user_agent.lower()
+    return any(keyword in ua for keyword in MOBILE_KEYWORDS)
 
-    @app.get("/health")
-    def health():
-        db_type = "postgresql" if database.is_postgres else "sqlite"
-        user_count = 0
-        question_count = 0
-        try:
-            db = database.SessionLocal()
-            user_count = db.query(models.User).count()
-            question_count = db.query(models.Question).count()
-            db.close()
-        except Exception:
-            pass
-        return {
-            "status": "healthy",
-            "database": db_type,
-            "users": user_count,
-            "questions": question_count,
-            "serving": "mobile and desktop frontends",
+
+def detect_device(request: Request) -> str:
+    view = request.query_params.get("view")
+    if view and view.lower() in ("mobile", "desktop"):
+        return view.lower()
+    ua = request.headers.get("user-agent", "")
+    return "mobile" if is_mobile_ua(ua) else "desktop"
+
+
+MOBILE_DIR = os.path.join(os.path.dirname(__file__), "frontend-mobile", "dist")
+DESKTOP_DIR = os.path.join(os.path.dirname(__file__), "frontend-desktop", "dist")
+
+
+def serve_spa(directory: str, path: str):
+    file_path = os.path.join(directory, path)
+    if path and os.path.isfile(file_path):
+        ext = os.path.splitext(path)[1]
+        media_types = {
+            ".js": "application/javascript",
+            ".css": "text/css",
+            ".html": "text/html",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".svg": "image/svg+xml",
+            ".json": "application/json",
+            ".woff": "font/woff",
+            ".woff2": "font/woff2",
+            ".ico": "image/x-icon",
         }
+        return FileResponse(file_path, media_type=media_types.get(ext, "application/octet-stream"))
+    return FileResponse(os.path.join(directory, "index.html"), media_type="text/html")
 
-    @app.get("/api/view")
-    def get_view(request: Request):
-        """Returns which frontend is being served for this request."""
-        dist = get_dist_for_request(request)
-        return {"view": "mobile" if dist == FRONTEND_MOBILE else "desktop"}
 
-    # Mount static assets for both frontends
-    app.mount("/mobile/assets", StaticFiles(directory=str(FRONTEND_MOBILE / "assets")), name="mobile-assets")
-    app.mount("/desktop/assets", StaticFiles(directory=str(FRONTEND_DESKTOP / "assets")), name="desktop-assets")
+@app.get("/desktop/{path:path}", response_class=HTMLResponse)
+async def serve_desktop_assets(request: Request, path: str = ""):
+    return serve_spa(DESKTOP_DIR, path)
 
-    # API-only prefixes
-    API_PREFIXES = ("questions", "quiz", "admin", "auth", "health", "docs", "openapi", "redoc", "api")
+@app.get("/desktop", response_class=HTMLResponse)
+async def serve_desktop_root():
+    return FileResponse(os.path.join(DESKTOP_DIR, "index.html"), media_type="text/html")
 
-    @app.get("/{full_path:path}")
-    def serve_spa(full_path: str, request: Request):
-        if any(full_path.startswith(p) for p in API_PREFIXES):
-            return {"detail": f"Not found: /{full_path}"}
+@app.get("/mobile/{path:path}", response_class=HTMLResponse)
+async def serve_mobile_assets(request: Request, path: str = ""):
+    return serve_spa(MOBILE_DIR, path)
 
-        dist = get_dist_for_request(request)
-        file_path = dist / full_path
+@app.get("/mobile", response_class=HTMLResponse)
+async def serve_mobile_root():
+    return FileResponse(os.path.join(MOBILE_DIR, "index.html"), media_type="text/html")
 
-        if file_path.is_file():
-            return FileResponse(str(file_path))
-        return FileResponse(str(dist / "index.html"))
-
-    import uvicorn
-    print(f"\n  Question Bank running at http://{args.host}:{args.port}")
-    print(f"  Mobile frontend:  {FRONTEND_MOBILE}")
-    print(f"  Desktop frontend: {FRONTEND_DESKTOP}")
-    print(f"  API docs:         http://{args.host}:{args.port}/docs\n")
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    device = detect_device(request)
+    if device == "mobile":
+        return RedirectResponse(url="/mobile", status_code=302)
+    return RedirectResponse(url="/desktop", status_code=302)
 
 
 if __name__ == "__main__":
-    main()
+    port = int(os.environ.get("PORT", 8000))
+    db_type = "PostgreSQL" if is_postgres else "SQLite"
+    print(f"[STARTUP] Question Bank running on port {port} with {db_type}", file=sys.stderr)
+    uvicorn.run("start_prod:app", host="0.0.0.0", port=port, reload=False, log_level="info")

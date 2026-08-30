@@ -4,7 +4,7 @@ services:
     runtime: python
     buildCommand: |
       pip install -r requirements.txt
-    startCommand: python start_prod.py --port $PORT
+    startCommand: python start_prod.py
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"
@@ -12,6 +12,10 @@ services:
         fromDatabase:
           name: question-bank-db
           property: connectionString
+      - key: ADMIN_USERNAME
+        value: "Elfak"
+      - key: ADMIN_PASSWORD
+        value: "Kafle"
   - type: psql
     name: question-bank-db
     plan: free

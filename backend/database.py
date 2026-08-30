@@ -1,50 +1,77 @@
 import os
 import sys
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, text, event
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Use DATABASE_URL if set (Postgres on Render), fallback to SQLite for local dev
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./question_bank.db")
-SQLALCHEMY_DATABASE_URL = DATABASE_URL
 
 is_postgres = False
 
-if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    print(f"[DB] Using SQLite: {SQLALCHEMY_DATABASE_URL}", file=sys.stderr)
+if DATABASE_URL.startswith("sqlite"):
+    print(f"[DB] Using SQLite: {DATABASE_URL}", file=sys.stderr)
     engine = create_engine(
-        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
     )
+
+    # Enforce WAL mode and foreign keys for SQLite
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 else:
     is_postgres = True
     # Render provides postgres:// but SQLAlchemy 2.0+ needs postgresql://
-    if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
-        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    # Fix sslmode if needed
-    if "sslmode" not in SQLALCHEMY_DATABASE_URL:
-        separator = '&' if '?' in SQLALCHEMY_DATABASE_URL else '?'
-        SQLALCHEMY_DATABASE_URL += f"{separator}sslmode=require"
-    print(f"[DB] Using PostgreSQL (connection string length: {len(SQLALCHEMY_DATABASE_URL)})", file=sys.stderr)
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    # Add psycopg2 driver if not present
+    if DATABASE_URL.startswith("postgresql://") and "+psycopg2" not in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+    # Add sslmode=require if not present
+    if "sslmode" not in DATABASE_URL:
+        sep = "&" if "?" in DATABASE_URL else "?"
+        DATABASE_URL += f"{sep}sslmode=require"
+
+    print(f"[DB] Connecting to PostgreSQL...", file=sys.stderr)
     try:
-        engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, pool_recycle=300)
-        # Test connection
+        engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,       # verify connections before use
+            pool_recycle=1800,        # recycle connections every 30 min
+            pool_size=5,              # keep 5 idle connections
+            max_overflow=10,          # allow 10 extra under load
+            connect_args={"connect_timeout": 15},
+        )
         with engine.connect() as conn:
-            conn.execute(__import__('sqlalchemy').text('SELECT 1'))
+            conn.execute(text("SELECT 1"))
         print("[DB] PostgreSQL connection OK", file=sys.stderr)
     except Exception as e:
         print(f"[DB] PostgreSQL connection FAILED: {e}", file=sys.stderr)
-        print("[DB] Falling back to SQLite", file=sys.stderr)
-        SQLALCHEMY_DATABASE_URL = "sqlite:///./question_bank.db"
+        if os.getenv("RENDER"):
+            print("[DB] Cannot fall back to SQLite on Render. Exiting.", file=sys.stderr)
+            sys.exit(1)
+        print("[DB] Falling back to SQLite for local dev", file=sys.stderr)
+        DATABASE_URL = "sqlite:///./question_bank.db"
         is_postgres = False
-        engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False},
+        )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+
 def get_db():
+    """Yield a database session with automatic rollback on error."""
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

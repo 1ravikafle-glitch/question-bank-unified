@@ -1,8 +1,7 @@
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from datetime import datetime
-import models
-import database
+
 
 class QuestionBase(BaseModel):
     question_number: int
@@ -12,8 +11,10 @@ class QuestionBase(BaseModel):
     category: Optional[str] = None
     difficulty: Optional[str] = None
 
+
 class QuestionCreate(QuestionBase):
     pass
+
 
 class QuestionUpdate(BaseModel):
     question_number: Optional[int] = None
@@ -23,6 +24,7 @@ class QuestionUpdate(BaseModel):
     category: Optional[str] = None
     difficulty: Optional[str] = None
 
+
 class Question(QuestionBase):
     id: int
     created_at: datetime
@@ -31,28 +33,34 @@ class Question(QuestionBase):
     class Config:
         from_attributes = True
 
+
 class QuizAnswer(BaseModel):
     question_id: int
     selected_answer: str
 
+
 class QuizSubmission(BaseModel):
-    answers: Dict[int, str]  # question_id: selected_answer
+    answers: Dict[int, str]
     username: Optional[str] = None
+
 
 class QuizResult(BaseModel):
     score: int
     total_questions: int
     percentage: int
-    correct_answers: Dict[int, bool]  # question_id: is_correct
-    incorrect_questions: list[int]  # list of question_ids that were incorrect
+    correct_answers: Dict[int, bool]
+    incorrect_questions: list[int]
+
 
 class UserProgressBase(BaseModel):
     user_identifier: Optional[str] = None
     question_id: int
     is_correct: bool
 
+
 class UserProgressCreate(UserProgressBase):
     pass
+
 
 class UserProgress(UserProgressBase):
     id: int

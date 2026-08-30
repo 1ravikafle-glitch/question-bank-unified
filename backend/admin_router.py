@@ -13,13 +13,11 @@ from docx_parser import extract_questions_and_answers, guess_category_from_filen
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# Admin usernames — set via env var or use default
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Elfak").strip()
 ADMIN_USERS = [ADMIN_USERNAME.lower()]
 
 
 def verify_admin(x_admin_user: Optional[str] = Header(None)):
-    """Dependency: verify the requesting user is an admin."""
     if not x_admin_user:
         raise HTTPException(status_code=401, detail="Admin authentication required")
     if x_admin_user.strip().lower() not in ADMIN_USERS:
@@ -39,23 +37,12 @@ async def upload_docx(
     db: Session = Depends(database.get_db),
     admin_user: str = Depends(verify_admin),
 ):
-    """
-    Upload one or more .docx question-bank files. Each file is parsed for
-    numbered questions (1. ...), lettered options (a] ... d]) and a trailing
-    answer key (e.g. "1a 2b 3c ..."), then inserted into the database.
-
-    If `category` is not supplied, it is guessed from the filename
-    (falls back to "General").
-
-    Questions are deduplicated by (question_text, category) so re-uploading
-    the same file is safe.
-    """
     results = []
     total_imported = 0
     total_skipped = 0
 
     for upload in files:
-        if not upload.filename.lower().endswith(".docx"):
+        if not upload.filename or not upload.filename.lower().endswith(".docx"):
             results.append({
                 "filename": upload.filename,
                 "error": "Only .docx files are supported",
@@ -102,7 +89,16 @@ async def upload_docx(
             db.add(question)
             imported += 1
 
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            results.append({
+                "filename": upload.filename,
+                "error": "Database commit failed",
+            })
+            continue
+
         total_imported += imported
         total_skipped += skipped + skipped_no_answer
 
@@ -124,9 +120,9 @@ async def upload_docx(
         "files": results,
     }
 
+
 @router.get("/categories")
 def list_categories(db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
-    """Return all distinct categories with question counts."""
     rows = (
         db.query(models.Question.category, func.count(models.Question.id))
         .group_by(models.Question.category)
@@ -137,7 +133,6 @@ def list_categories(db: Session = Depends(database.get_db), admin_user: str = De
 
 @router.put("/categories/rename")
 def rename_category(payload: RenameCategoryRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
-    """Rename a category across all questions."""
     old = payload.old_name.strip()
     new = payload.new_name.strip()
     if not old or not new:
@@ -145,41 +140,40 @@ def rename_category(payload: RenameCategoryRequest, db: Session = Depends(databa
     if old == new:
         raise HTTPException(status_code=400, detail="New name is the same as the old name")
 
-    # Check old category exists
     count = db.query(models.Question).filter(models.Question.category == old).count()
     if count == 0:
         raise HTTPException(status_code=404, detail=f"Category '{old}' not found")
 
-    # Check new name doesn't already exist
     existing = db.query(models.Question).filter(models.Question.category == new).count()
     if existing > 0:
         raise HTTPException(status_code=400, detail=f"Category '{new}' already exists")
 
-    # Rename all questions with old category
-    updated = db.query(models.Question).filter(models.Question.category == old).update({"category": new})
-    db.commit()
+    try:
+        updated = db.query(models.Question).filter(models.Question.category == old).update({"category": new})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to rename category")
 
     return {"renamed": old, "to": new, "questions_updated": updated}
 
 
 @router.delete("/categories/{category_name}")
 def delete_category(category_name: str, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
-    """
-    Delete a category and all questions within it.
-    This operation cannot be undone.
-    """
     category_name = category_name.strip()
     if not category_name:
         raise HTTPException(status_code=400, detail="Category name is required")
 
-    # Check if category exists
     count = db.query(models.Question).filter(models.Question.category == category_name).count()
     if count == 0:
         raise HTTPException(status_code=404, detail=f"Category '{category_name}' not found")
 
-    # Delete all questions in this category
-    deleted = db.query(models.Question).filter(models.Question.category == category_name).delete()
-    db.commit()
+    try:
+        deleted = db.query(models.Question).filter(models.Question.category == category_name).delete()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete category")
 
     return {"deleted_category": category_name, "questions_deleted": deleted}
 
@@ -192,7 +186,6 @@ def list_all_questions_for_admin(
     db: Session = Depends(database.get_db),
     admin_user: str = Depends(verify_admin),
 ):
-    """Full question list for the admin edit view (no truncation surprises)."""
     query = db.query(models.Question)
     if category:
         query = query.filter(models.Question.category == category)
@@ -202,11 +195,6 @@ def list_all_questions_for_admin(
 
 @router.put("/questions/{question_id}")
 def update_question(question_id: int, payload: dict, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
-    """
-    Edit a previously-uploaded question. Accepts a partial update: any of
-    question_number, question_text, options, correct_answer, category,
-    difficulty. Used to manually fix parsing errors from a .docx import.
-    """
     question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if question is None:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -222,9 +210,13 @@ def update_question(question_id: int, payload: dict, db: Session = Depends(datab
             raise HTTPException(status_code=400, detail="options must be an object of letter -> text")
         updates["options"] = {str(k).strip().lower(): str(v) for k, v in updates["options"].items()}
 
-    for field, value in updates.items():
-        setattr(question, field, value)
+    try:
+        for field, value in updates.items():
+            setattr(question, field, value)
+        db.commit()
+        db.refresh(question)
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update question")
 
-    db.commit()
-    db.refresh(question)
     return question
