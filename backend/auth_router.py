@@ -2,11 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
+import os
 import database
 import models
 import bcrypt
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Admin credentials — set via env vars or use defaults
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Elfak").strip()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Kafle").strip()
+ADMIN_USERS = [ADMIN_USERNAME.lower()]
 
 
 def hash_password(password: str) -> str:
@@ -39,7 +45,19 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username and password are required")
 
-    # Check if user exists
+    # Admin login — verify exact credentials
+    if username.lower() == ADMIN_USERNAME.lower():
+        if password != ADMIN_PASSWORD:
+            raise HTTPException(status_code=401, detail="Incorrect admin password")
+        # Ensure admin user exists in database
+        existing = db.query(models.User).filter(models.User.username == ADMIN_USERNAME).first()
+        if not existing:
+            admin_user = models.User(username=ADMIN_USERNAME, password=hash_password(ADMIN_PASSWORD))
+            db.add(admin_user)
+            db.commit()
+        return AuthResponse(user_identifier=ADMIN_USERNAME, is_new=False)
+
+    # Regular user login
     existing = db.query(models.User).filter(models.User.username == username).first()
 
     if existing:
@@ -66,7 +84,6 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
 
 # Admin-only helper
 def verify_admin_user(x_admin_user: Optional[str] = Header(None)):
-    ADMIN_USERS = ['elfak']
     if not x_admin_user or x_admin_user.strip().lower() not in ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Access denied: admin only")
     return x_admin_user.strip()

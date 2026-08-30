@@ -13,8 +13,9 @@ from docx_parser import extract_questions_and_answers, guess_category_from_filen
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# Admin usernames — only these users can access admin endpoints
-ADMIN_USERS = ['elfak']
+# Admin usernames — set via env var or use default
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Elfak").strip()
+ADMIN_USERS = [ADMIN_USERNAME.lower()]
 
 
 def verify_admin(x_admin_user: Optional[str] = Header(None)):
