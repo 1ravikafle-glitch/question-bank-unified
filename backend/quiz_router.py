@@ -18,6 +18,33 @@ def _normalize_answers(answers: Dict) -> Dict[int, str]:
     return {int(k): str(v).strip().lower() for k, v in answers.items()}
 
 
+def _resolve_answer_key(selected: str, options: dict) -> str:
+    """Resolve a selected answer to its option key (a/b/c/d).
+
+    The frontend may submit either:
+      - A letter key like "a", "b", "c", "d" (correct)
+      - A full option value text like "habitat" (from shuffled display)
+
+    This function normalizes both cases to the letter key.
+    """
+    selected_lower = selected.strip().lower()
+    if not options:
+        return selected_lower
+
+    # Already a valid single-letter key
+    if len(selected_lower) == 1 and selected_lower in options:
+        return selected_lower
+
+    # It's a value text — find the matching key
+    options_lower = {k.lower(): v.lower() for k, v in options.items()}
+    for key, value in options_lower.items():
+        if value == selected_lower:
+            return key
+
+    # Fallback: return as-is (will likely be marked wrong)
+    return selected_lower
+
+
 @router.post("/submit", response_model=schemas.QuizResult)
 def submit_quiz(
     submission: schemas.QuizSubmission,
@@ -43,7 +70,12 @@ def submit_quiz(
     incorrect_questions = []
 
     for qid, selected in answers.items():
-        is_correct = selected == questions_by_id[qid].correct_answer.strip().lower()
+        q = questions_by_id[qid]
+        options = q.options or {}
+        resolved = _resolve_answer_key(selected, options)
+        is_correct = resolved == q.correct_answer.strip().lower()
+        # Store the resolved key so the frontend view-attempt display works
+        answers[qid] = resolved
         correct_answers[qid] = is_correct
         if is_correct:
             score += 1
@@ -275,14 +307,17 @@ def get_attempt_detail(attempt_id: int, db: Session = Depends(database.get_db)):
             continue
         selected = user_answers.get(str(qid), user_answers.get(qid, "")).lower()
         correct = q.correct_answer.lower()
+        # Resolve value-text answers (from old submissions) to key letters
+        options = q.options or {}
+        resolved = _resolve_answer_key(selected, options)
         analysis.append({
             "question_id": qid,
             "question_number": q.question_number,
             "question_text": q.question_text,
             "options": q.options or {},
-            "correct_answer": q.correct_answer,
-            "selected_answer": selected,
-            "is_correct": selected == correct,
+            "correct_answer": correct,
+            "selected_answer": resolved,
+            "is_correct": resolved == correct,
             "category": q.category,
         })
 
