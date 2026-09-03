@@ -119,9 +119,17 @@ app = FastAPI(title="Question Bank API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://question-bank-app.onrender.com", "http://localhost:8000"],
+    allow_origins=[
+        "https://question-bank-app.onrender.com",
+        "https://forestrypscpreparation.onrender.com",
+        "https://ravikafle.pages.dev",
+        "https://ravikafle.com.np",
+        "https://www.ravikafle.com.np",
+        "http://localhost:5173",
+        "http://localhost:8000",
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
