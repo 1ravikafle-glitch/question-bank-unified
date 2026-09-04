@@ -7,6 +7,21 @@ import database
 import schemas
 import hashlib
 import json
+import time
+
+# Simple in-memory cache for read-only endpoints
+_cache = {}
+_cache_ttl = 60  # seconds
+
+def _get_cached(key: str):
+    if key in _cache:
+        val, ts = _cache[key]
+        if time.time() - ts < _cache_ttl:
+            return val
+    return None
+
+def _set_cached(key: str, val):
+    _cache[key] = (val, time.time())
 
 
 class QuestionIdsRequest(BaseModel):
@@ -46,6 +61,11 @@ def get_questions_count(
     difficulty: Optional[str] = None,
     db: Session = Depends(database.get_db),
 ):
+    cache_key = f"count:{category}:{difficulty}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
     query = db.query(models.Question)
 
     if category:
@@ -54,29 +74,43 @@ def get_questions_count(
         query = query.filter(models.Question.difficulty == difficulty)
 
     count = query.count()
-    return {"count": count}
+    result = {"count": count}
+    _set_cached(cache_key, result)
+    return result
 
 
 @router.get("/categories/", response_model=List[str])
 def get_categories(db: Session = Depends(database.get_db)):
+    cached = _get_cached("categories")
+    if cached is not None:
+        return cached
+
     categories = (
         db.query(models.Question.category)
         .distinct()
         .filter(models.Question.category.isnot(None))
         .all()
     )
-    return [category[0] for category in categories if category[0] is not None]
+    result = [category[0] for category in categories if category[0] is not None]
+    _set_cached("categories", result)
+    return result
 
 
 @router.get("/category-counts/")
 def get_category_counts(db: Session = Depends(database.get_db)):
+    cached = _get_cached("category-counts")
+    if cached is not None:
+        return cached
+
     from sqlalchemy import func
     rows = (
         db.query(models.Question.category, func.count(models.Question.id))
         .group_by(models.Question.category)
         .all()
     )
-    return {r[0] or "Uncategorized": r[1] for r in rows}
+    result = {r[0] or "Uncategorized": r[1] for r in rows}
+    _set_cached("category-counts", result)
+    return result
 
 
 @router.get("/{question_id}", response_model=schemas.Question)

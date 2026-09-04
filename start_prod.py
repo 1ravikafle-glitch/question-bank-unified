@@ -2,10 +2,14 @@ import uvicorn
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import text
+from functools import lru_cache
 import os
 import sys
 import json
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
 
@@ -123,6 +127,7 @@ app.add_middleware(
         "https://question-bank-app.onrender.com",
         "https://forestrypscpreparation.onrender.com",
         "https://ravikafle.pages.dev",
+        "https://15877980.ravikafle.pages.dev",
         "https://ravikafle.com.np",
         "https://www.ravikafle.com.np",
         "http://localhost:5173",
@@ -132,8 +137,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # ── Security headers middleware ────────────────────────────────────────────────
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Add cache headers for read-only API endpoints."""
+    CACHEABLE_PATHS = {"/questions/count/", "/questions/categories/", "/questions/category-counts/"}
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.method == "GET" and request.url.path in self.CACHEABLE_PATHS:
+            response.headers["Cache-Control"] = "public, max-age=60, s-maxage=120"
+        return response
+
+app.add_middleware(CacheControlMiddleware)
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
