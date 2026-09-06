@@ -75,15 +75,15 @@
       <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7976760719077018" crossorigin="anonymous"></script>
   </head>
   <body>
-    <div id="root"></div>
-    <div id="ad-slot-bottom" style="position:fixed;bottom:0;left:0;right:0;z-index:9998;text-align:center;background:rgba(18,36,27,0.95);border-top:1px solid rgba(255,255,255,0.08);padding:6px 0;backdrop-filter:blur(8px);transition:opacity .3s;">
+    <div id="ad-top-inline">
       <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px" data-ad-client="ca-pub-7976760719077018" data-ad-slot="auto"></ins>
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
+    <div id="root"></div>
     <script>
       (function(){
         var obs = new MutationObserver(function(){
-          var ad = document.getElementById('ad-slot-bottom');
+          var ad = document.getElementById('ad-top-inline');
           if (!ad) return;
           var path = location.hash || location.pathname;
           var isQuiz = path.includes('/quiz') || path.includes('/attempt');

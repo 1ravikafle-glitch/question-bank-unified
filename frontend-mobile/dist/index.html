@@ -24,16 +24,15 @@
       <style>#ad-top-inline{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:6px 0;position:relative;z-index:100}</style>
   </head>
   <body>
-    <div id="ad-top-inline"><ins class="adsbygoogle" style="display:inline-block;width:320x50" data-ad-client="ca-pub-7976760719077018" data-ad-slot="auto"></ins><script>(adsbygoogle = window.adsbygoogle || []).push({});</script></div>
-    <div id="root"></div>
-    <div id="ad-slot-bottom" style="position:fixed;bottom:0;left:0;right:0;z-index:9998;text-align:center;background:rgba(18,36,27,0.95);border-top:1px solid rgba(255,255,255,0.08);padding:4px 0;backdrop-filter:blur(8px);transition:opacity .3s;">
+    <div id="ad-top-inline">
       <ins class="adsbygoogle" style="display:inline-block;width:320px;height:50px" data-ad-client="ca-pub-7976760719077018" data-ad-slot="auto"></ins>
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
+    <div id="root"></div>
     <script>
       (function(){
         var obs = new MutationObserver(function(){
-          var ad = document.getElementById('ad-slot-bottom');
+          var ad = document.getElementById('ad-top-inline');
           if (!ad) return;
           var path = location.hash || location.pathname;
           var isQuiz = path.includes('/quiz') || path.includes('/attempt');
