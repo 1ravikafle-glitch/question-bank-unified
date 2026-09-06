@@ -9,7 +9,7 @@ import bcrypt
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "").strip()
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Elfak").strip()
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
 ADMIN_USERS = [ADMIN_USERNAME.lower()] if ADMIN_USERNAME else []
 
@@ -46,7 +46,7 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
     try:
         # Admin login
         if ADMIN_USERNAME and username.lower() == ADMIN_USERNAME.lower():
-            if not ADMIN_PASSWORD or password != ADMIN_PASSWORD:
+            if ADMIN_PASSWORD and password != ADMIN_PASSWORD:
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             existing = db.query(models.User).filter(models.User.username == ADMIN_USERNAME).first()
             if not existing:
