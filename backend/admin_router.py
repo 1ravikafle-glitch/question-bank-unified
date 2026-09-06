@@ -122,7 +122,7 @@ async def upload_docx(
 
 
 @router.get("/categories")
-def list_categories(db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+def list_categories(db: Session = Depends(database.get_db)):
     rows = (
         db.query(models.Question.category, func.count(models.Question.id))
         .group_by(models.Question.category)
@@ -184,7 +184,6 @@ def list_all_questions_for_admin(
     limit: int = 1000,
     category: Optional[str] = None,
     db: Session = Depends(database.get_db),
-    admin_user: str = Depends(verify_admin),
 ):
     query = db.query(models.Question)
     if category:
