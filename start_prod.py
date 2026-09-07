@@ -264,7 +264,9 @@ async def root(request: Request):
 # This makes page reloads work on /questions, /quiz, /progress, etc.
 @app.get("/{full_path:path}", response_class=HTMLResponse)
 async def spa_catchall(request: Request, full_path: str = ""):
-    # Never intercept /desktop or /mobile paths (they have their own routes)
+    # Never intercept /api/, /desktop/ or /mobile/ paths
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail=f"Not found: /{full_path}")
     if full_path.startswith("desktop/") or full_path.startswith("mobile/"):
         raise HTTPException(status_code=404, detail=f"Not found: /{full_path}")
     device = detect_device(request)
