@@ -148,7 +148,7 @@ const About: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <a href="mailto:forestrypscpreparation@gmail.com" className="block text-[0.78rem] hover:text-white transition-colors break-all" style={{ color: 'hsl(0 0% 100% / 0.92)', fontFamily: 'var(--font-sans)', fontWeight: 600 }}>forestrypscpreparation@gmail.com</a>
-                  <a href="https://forestrypscpreparation.onrender.com" target="_blank" rel="noopener noreferrer" className="block text-[0.78rem] hover:text-white transition-colors break-all" style={{ color: 'hsl(0 0% 100% / 0.92)', fontFamily: 'var(--font-sans)', fontWeight: 600 }}>forestrypscpreparation.onrender.com</a>
+                  <a href="https://ravikafle.com.np" target="_blank" rel="noopener noreferrer" className="block text-[0.78rem] hover:text-white transition-colors break-all" style={{ color: 'hsl(0 0% 100% / 0.92)', fontFamily: 'var(--font-sans)', fontWeight: 600 }}>ravikafle.com.np</a>
                   <p className="text-[0.78rem]" style={{ color: 'hsl(0 0% 100% / 0.75)', fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontWeight: 500 }}>Kathmandu, Nepal</p>
                 </div>
               </div>

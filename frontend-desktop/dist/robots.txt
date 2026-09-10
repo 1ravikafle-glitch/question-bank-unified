@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 
 # Sitemap for Forestry PSC Preparation
-Sitemap: https://forestrypscpreparation.onrender.com/sitemap.xml
+Sitemap: https://ravikafle.com.np/sitemap.xml

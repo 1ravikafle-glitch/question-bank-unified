@@ -75,7 +75,7 @@ const Footer: React.FC = () => {
             </span>
             {' '}·{' '}
             <a
-              href="https://forestrypscpreparation.onrender.com"
+              href="https://ravikafle.com.np"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:underline underline-offset-2 transition-colors"
@@ -85,7 +85,7 @@ const Footer: React.FC = () => {
                 fontWeight: 500,
               }}
             >
-              forestrypscpreparation.onrender.com
+              ravikafle.com.np
             </a>
           </p>
         </div>

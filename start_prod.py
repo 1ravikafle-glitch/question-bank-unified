@@ -125,7 +125,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://question-bank-app.onrender.com",
-        "https://forestrypscpreparation.onrender.com",
+        "https://ravikafle.com.np",
         "https://ravikafle.pages.dev",
         "https://15877980.ravikafle.pages.dev",
         "https://ravikafle.com.np",
