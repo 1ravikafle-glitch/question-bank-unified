@@ -1,0 +1,372 @@
+@import "tailwindcss";
+
+@source "../components";
+@source "../pages";
+@source "../App.tsx";
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-info: hsl(var(--info));
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
+/* http://meyerweb.com/eric/tools/css/reset/
+   v2.0 | 20110126
+   License: none (public domain)
+ */
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header, hgroup,
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+}
+article, aside, details, figcaption, figure,
+footer, header, hgroup, menu, nav, section {
+	display: block;
+}
+body {
+	line-height: 1;
+}
+ol, ul {
+	list-style: none;
+}
+blockquote, q {
+	quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content: '';
+	content: none;
+}
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+button {
+	font-family: inherit;
+}
+
+/* --- Base --- */
+* {
+	box-sizing: border-box;
+}
+
+html {
+	font-size: 16px;
+	scroll-behavior: smooth;
+}
+
+@media (min-width: 1024px) {
+	html { font-size: 17px; }
+}
+@media (min-width: 1536px) {
+	html { font-size: 18px; }
+}
+
+/* --- Body --- */
+body {
+	background-color: hsl(var(--background));
+	color: hsl(var(--foreground));
+	font-family: var(--font-sans);
+	font-size: var(--font-size-base);
+	font-weight: var(--font-weight-normal);
+	line-height: var(--leading-normal);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+}
+
+/* --- Headings --- */
+h1, h2, h3, h4, h5, h6 {
+	font-family: var(--font-display);
+	font-weight: var(--font-weight-semibold);
+	line-height: var(--leading-tight);
+}
+
+h1 {
+	font-size: 2.25rem;
+	letter-spacing: -0.025em;
+}
+h2 {
+	font-size: 1.75rem;
+	letter-spacing: -0.02em;
+}
+h3 {
+	font-size: 1.375rem;
+	letter-spacing: -0.015em;
+}
+h4 {
+	font-size: 1.125rem;
+	letter-spacing: -0.01em;
+}
+
+/* --- Container --- */
+.container {
+	width: 100%;
+	max-width: 980px;
+	margin-left: auto;
+	margin-right: auto;
+	padding-left: var(--spacing-4);
+	padding-right: var(--spacing-4);
+}
+
+/* --- Screen reader only --- */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* --- Skip link (accessibility, hidden until focused) --- */
+.skip-link {
+	position: absolute;
+	top: -100%;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 9999;
+	padding: 12px 24px;
+	background: hsl(var(--primary));
+	color: hsl(var(--primary-foreground));
+	font-weight: 600;
+	font-size: 0.875rem;
+	border-radius: 0 0 8px 8px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.skip-link:focus {
+	top: 0;
+}
+
+/* --- Focus visible --- */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[type="checkbox"]:focus-visible,
+[type="radio"]:focus-visible,
+[tabindex]:focus-visible {
+	outline: 2px solid hsl(var(--ring));
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+/* --- Prefers reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* --- Prefers reduced transparency --- */
+@media (prefers-reduced-transparency: reduce) {
+	.material {
+		background: hsl(var(--card));
+		backdrop-filter: none;
+	}
+}
+
+/* --- Apple material classes --- */
+.material {
+	background: var(--apple-bg-light);
+	backdrop-filter: var(--apple-blur);
+	-webkit-backdrop-filter: var(--apple-blur);
+	border: 1px solid var(--apple-border-light);
+}
+.dark .material {
+	background: var(--apple-bg-dark);
+	border-color: var(--apple-border-dark);
+}
+
+/* --- Smooth card hover --- */
+.card-hover {
+	transition: transform 0.2s var(--apple-transition),
+	            box-shadow 0.2s var(--apple-transition);
+}
+.card-hover:hover {
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-md);
+}
+
+/* --- Button press --- */
+button:active:not(:disabled) {
+	transform: scale(0.98);
+	transition: transform 0.1s ease;
+}
+
+/* --- Page transition --- */
+main > div {
+	animation: fadeIn 0.25s ease-out;
+}
+
+/* --- Custom scrollbar --- */
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: hsl(var(--muted));
+	border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: hsl(var(--muted-foreground));
+}
+
+/* Firefox scrollbar */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: hsl(var(--muted)) transparent;
+}
+
+/* --- Selection --- */
+::selection {
+	background: hsl(var(--primary) / 0.15);
+	color: hsl(var(--foreground));
+}
+
+/* --- Animations --- */
+@keyframes fadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes slideUp {
+	from { transform: translateY(8px); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+	from { transform: scale(0.96); opacity: 0; }
+	to { transform: scale(1); opacity: 1; }
+}
+
+/* --- Mobile nav glass material --- */
+:root {
+	--nav-glass-bg: rgba(255, 255, 255, 0.88);
+	--nav-glass-border: rgba(0, 0, 0, 0.06);
+	--nav-glass-blur: blur(28px) saturate(200%);
+}
+.dark {
+	--nav-glass-bg: rgba(20, 28, 22, 0.92);
+	--nav-glass-border: rgba(255, 255, 255, 0.08);
+}
+
+/* --- Bottom Sheet (iOS spring slide-up) --- */
+@keyframes sheetSlideUp {
+	from { transform: translateY(100%); }
+	to { transform: translateY(0); }
+}
+
+/* --- Apple press feedback: instant scale-down on pointer-down --- */
+button:active,
+a:active,
+[role="button"]:active {
+	transform: scale(0.97);
+	transition: transform 80ms ease-out;
+}
+
+/* Quiz option buttons — slightly deeper press */
+.option-btn:active {
+	transform: scale(0.96);
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+
+	button:active,
+	a:active {
+		transform: none !important;
+	}
+
+	.dashboard-grid,
+	.category-grid,
+	.quick-actions-grid {
+		transition: none !important;
+	}
+}
+
+/* --- Mobile compact tweaks --- */
+@media (max-width: 640px) {
+	/* Compact heading sizes on mobile */
+	h1 { font-size: 1.5rem; letter-spacing: -0.02em; }
+	h2 { font-size: 1.25rem; letter-spacing: -0.015em; }
+	h3 { font-size: 1.1rem; letter-spacing: -0.01em; }
+
+	/* Prevent horizontal overflow */
+	body { overflow-x: hidden; }
+
+	/* Touch-friendly button sizing */
+	.btn { min-height: 44px; }
+	.btn-sm { min-height: 40px; }
+
+	/* Compact stat tiles */
+	.stat-tile {
+		padding: 0.75rem 0.5rem !important;
+	}
+
+	/* Card spacing */
+	.card {
+		border-radius: var(--apple-radius-lg);
+	}
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	nav {
+		background: hsl(var(--background)) !important;
+		backdrop-filter: none !important;
+		-webkit-backdrop-filter: none !important;
+	}
+}

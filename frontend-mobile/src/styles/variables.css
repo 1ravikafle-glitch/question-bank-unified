@@ -1,0 +1,202 @@
+/*
+  Design system: Apple-grade minimal foundation
+  Clean, professional palette with forest green primary and warm amber accent.
+  Inter font stack, 8px grid spacing, Apple material tokens.
+*/
+
+:root {
+  /* --- Core palette (named) --- */
+  --canopy-950: 240 6% 10%;
+  --canopy-800: 240 6% 14%;
+  --canopy-700: 240 6% 24%;
+  --parchment-50: 0 0% 98%;
+  --parchment-100: 0 0% 100%;
+  --moss-600: 142 71% 45%;
+  --moss-700: 142 71% 30%;
+  --moss-200: 142 71% 88%;
+  --moss-100: 142 71% 95%;
+  --flag-500: 32 95% 50%;
+  --flag-600: 30 80% 42%;
+  --bark-700: 24 8% 14%;
+  --correct-600: 142 71% 45%;
+  --correct-100: 142 71% 95%;
+  --wrong-600: 0 84% 60%;
+  --wrong-100: 0 84% 95%;
+
+  /* --- Semantic tokens (HSL triplets, consumed as hsl(var(--x))) --- */
+  --background: 0 0% 98%;
+  --foreground: 240 6% 10%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 240 6% 10%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 6% 10%;
+
+  --primary: 142 71% 45%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 32 95% 50%;
+  --secondary-foreground: 24 8% 14%;
+
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+
+  --accent: 142 71% 95%;
+  --accent-foreground: 142 71% 30%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 32 95% 50%;
+  --warning-foreground: 24 8% 14%;
+
+  --info: 210 100% 50%;
+  --info-foreground: 0 0% 100%;
+
+  --border: 240 6% 90%;
+  --input: 240 6% 90%;
+
+  --ring: 142 71% 45%;
+
+  --radius: 0.75rem;
+
+  /* --- Typography --- */
+  --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
+
+  --font-size-base: 1rem;
+
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* --- Spacing (8px grid) --- */
+  --spacing-px: 1px;
+  --spacing-0: 0;
+  --spacing-0-5: 0.25rem;   /* 4px */
+  --spacing-1: 0.5rem;      /* 8px */
+  --spacing-1-5: 0.75rem;   /* 12px */
+  --spacing-2: 1rem;        /* 16px */
+  --spacing-2-5: 1.25rem;   /* 20px */
+  --spacing-3: 1.5rem;      /* 24px */
+  --spacing-3-5: 1.75rem;   /* 28px */
+  --spacing-4: 2rem;        /* 32px */
+  --spacing-5: 2.5rem;      /* 40px */
+  --spacing-6: 3rem;        /* 48px */
+  --spacing-7: 3.5rem;      /* 56px */
+  --spacing-8: 4rem;        /* 64px */
+  --spacing-9: 4.5rem;      /* 72px */
+  --spacing-10: 5rem;       /* 80px */
+  --spacing-11: 5.5rem;     /* 88px */
+  --spacing-12: 6rem;       /* 96px */
+  --spacing-14: 7rem;       /* 112px */
+  --spacing-16: 8rem;       /* 128px */
+  --spacing-20: 10rem;      /* 160px */
+  --spacing-24: 12rem;      /* 192px */
+  --spacing-28: 14rem;      /* 224px */
+  --spacing-32: 16rem;      /* 256px */
+  --spacing-36: 18rem;      /* 288px */
+  --spacing-40: 20rem;      /* 320px */
+  --spacing-44: 22rem;      /* 352px */
+  --spacing-48: 24rem;      /* 384px */
+  --spacing-52: 26rem;      /* 416px */
+  --spacing-56: 28rem;      /* 448px */
+  --spacing-60: 30rem;      /* 480px */
+  --spacing-64: 32rem;      /* 512px */
+  --spacing-72: 36rem;      /* 576px */
+  --spacing-80: 40rem;      /* 640px */
+  --spacing-96: 48rem;      /* 768px */
+
+  /* --- Shadows --- */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow: 0 2px 8px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.08), 0 8px 24px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.10), 0 16px 48px rgb(0 0 0 / 0.08);
+  --shadow-xl: 0 16px 48px rgb(0 0 0 / 0.12), 0 32px 80px rgb(0 0 0 / 0.10);
+  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+  --shadow-outline: 0 0 0 3px hsl(var(--ring) / 0.25);
+
+  /* --- Apple Material Tokens --- */
+  --apple-blur: blur(20px) saturate(180%);
+  --apple-bg-light: rgba(255, 255, 255, 0.72);
+  --apple-bg-dark: rgba(28, 28, 30, 0.72);
+  --apple-border-light: rgba(0, 0, 0, 0.06);
+  --apple-border-dark: rgba(255, 255, 255, 0.08);
+  --apple-radius-sm: 8px;
+  --apple-radius-md: 12px;
+  --apple-radius-lg: 16px;
+  --apple-radius-xl: 20px;
+  --apple-radius-full: 9999px;
+  --apple-transition: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --apple-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── Apple Quiz — scoped overrides (reference T) ──────────────
+   Maps forestry-quiz-redesign.jsx `T` onto the existing theming system.
+   Light: page #F5F5F7, card white, accent #0B6E4F, success #248A3D,
+          danger #D70015. Dark inherits .dark but keeps Apple neutrals.
+   Apply by wrapping quiz content in <div className="quiz-apple">.
+────────────────────────────────────────────────────────────────── */
+.quiz-apple {
+  /* No color overrides — inherits :root values so quiz matches home page exactly */
+}
+
+.dark .quiz-apple {
+  /* No overrides — inherits .dark */
+}
+
+.dark {
+  /* --- Dark Mode (global, unchanged) --- */
+  --background: 240 6% 10%;
+  --foreground: 0 0% 95%;
+
+  --card: 240 6% 14%;
+  --card-foreground: 0 0% 95%;
+
+  --popover: 240 6% 14%;
+  --popover-foreground: 0 0% 95%;
+
+  --primary: 142 71% 55%;
+  --primary-foreground: 240 6% 10%;
+
+  --secondary: 32 95% 55%;
+  --secondary-foreground: 24 8% 10%;
+
+  --muted: 240 6% 20%;
+  --muted-foreground: 240 5% 70%;
+
+  --accent: 240 6% 18%;
+  --accent-foreground: 0 0% 90%;
+
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142 71% 55%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 32 95% 55%;
+  --warning-foreground: 24 8% 10%;
+
+  --info: 210 100% 60%;
+  --info-foreground: 0 0% 100%;
+
+  --border: 240 6% 24%;
+  --input: 240 6% 24%;
+
+  --ring: 142 71% 55%;
+}
