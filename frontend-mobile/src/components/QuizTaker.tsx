@@ -426,9 +426,24 @@ const QuizTaker: React.FC = () => {
       setLoading(true);
       try {
         if (!isPracticeWrongMode && !questionIdFromUrl) {
-          // No URL params — always show setup screen (clear any saved quiz)
+          // No URL params — check for saved quiz first
           if (!countParam && !categoryParam) {
-            localStorage.removeItem(QUIZ_STORAGE_KEY);
+            // Try to restore saved quiz
+            try {
+              const raw = localStorage.getItem(QUIZ_STORAGE_KEY);
+              if (raw) {
+                const saved: QuizPersistedState = JSON.parse(raw);
+                if (saved.questions?.length > 0 && saved.currentIndex < saved.questions.length) {
+                  setQuestions(saved.questions);
+                  setSelected(saved.selected || {});
+                  setCurrentIndex(saved.currentIndex);
+                  setAnnouncement(`Resumed quiz from question ${saved.currentIndex + 1} of ${saved.questions.length}.`);
+                  setLoading(false);
+                  return;
+                }
+              }
+            } catch {}
+            // No saved quiz — show setup screen
             try {
               const [totalResp, categoriesResp, wrongQueueResp] = await Promise.all([
                 fetchQuestionsCount(),
