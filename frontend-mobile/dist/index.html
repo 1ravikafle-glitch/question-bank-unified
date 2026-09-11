@@ -14,10 +14,31 @@
     />
     <title>Question Bank — Forestry PSC MCQ Practice</title>
 
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7976760719077018" crossorigin="anonymous"></script>
+    <style>
+      #ad-top-mobile{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:6px 0;position:relative;z-index:100}
+    </style>
+
     <script type="module" crossorigin src="/assets/index-DbQXKQTg.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-OucnEIge.css">
   </head>
   <body>
+    <div id="ad-top-mobile">
+      <ins class="adsbygoogle" style="display:inline-block;width:320px;height:50px" data-ad-client="ca-pub-7976760719077018" data-ad-slot="auto"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
     <div id="root"></div>
+    <script>
+      (function(){
+        var obs = new MutationObserver(function(){
+          var ad = document.getElementById('ad-top-mobile');
+          if (!ad) return;
+          var path = location.hash || location.pathname;
+          var isQuiz = path.includes('/quiz') || path.includes('/attempt');
+          ad.style.display = isQuiz ? 'none' : '';
+        });
+        obs.observe(document.body, {childList:true, subtree:true});
+      })();
+    </script>
   </body>
 </html>
