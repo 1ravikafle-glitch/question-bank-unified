@@ -268,10 +268,14 @@ def get_random_questions(
     difficulty: Optional[str] = None,
     db: Session = Depends(database.get_db),
 ):
-    if count < 1:
-        count = 1
-    elif count > 100:
-        count = 100
+    if count == 0:
+        fetch_all = True  # Beast Mode: return the full set (after filters)
+    else:
+        fetch_all = False
+        if count < 1:
+            count = 1
+        elif count > 100:
+            count = 100
 
     query = db.query(models.Question)
     if category:
@@ -283,7 +287,7 @@ def get_random_questions(
     if not all_questions:
         raise HTTPException(status_code=404, detail="No questions found with given criteria")
 
-    if len(all_questions) <= count:
+    if fetch_all or len(all_questions) <= count:
         return all_questions
     return random.sample(all_questions, count)
 

@@ -40,7 +40,7 @@ export const fetchQuestionById = async (id: number) => {
 export const fetchRandomQuestions = async (
   params: { count?: number; category?: string; difficulty?: string } = {}
 ) => {
-  const count = params.count || 10;
+  const count = params.count ?? 10;
   const response = await api.get<Question[]>(`/quiz/random/${count}`, {
     params: { category: params.category, difficulty: params.difficulty },
   });

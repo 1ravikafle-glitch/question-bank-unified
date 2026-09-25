@@ -398,8 +398,19 @@ const QuizTaker: React.FC = () => {
   const [setupTotal, setSetupTotal] = useState(0);
   const [setupWrongCount, setSetupWrongCount] = useState(0);
   const [setupQuizCount, setSetupQuizCount] = useState(10);
+  const [setupBeastMode, setSetupBeastMode] = useState(false);
+  const [setupCatCount, setSetupCatCount] = useState(0);
   const [setupCategory, setSetupCategory] = useState('');
   const [showSetupCategoryDropdown, setShowSetupCategoryDropdown] = useState(false);
+
+  // Live count for the selected category (powers the Beast Mode label)
+  useEffect(() => {
+    if (!showSetup) return;
+    if (!setupCategory) { setSetupCatCount(setupTotal); return; }
+    fetchQuestionsCount({ category: setupCategory })
+      .then((resp) => setSetupCatCount(resp.count))
+      .catch(() => setSetupCatCount(0));
+  }, [setupCategory, setupTotal, showSetup]);
 
   const isPracticeWrongMode = location.pathname === '/quiz/practice-wrong';
   const wrongQuestionIds = (location.state as { wrongQuestionIds?: number[] })?.wrongQuestionIds ?? EMPTY_ARRAY;
@@ -546,7 +557,8 @@ const QuizTaker: React.FC = () => {
     setLoading(true);
     try {
       const questionsData = await fetchRandomQuestions({
-        count: setupQuizCount,
+        // Beast Mode → count 0 = full set (whole bank or whole category)
+        count: setupBeastMode ? 0 : setupQuizCount,
         category: setupCategory || undefined,
       });
       setQuestions(shuffleArray(questionsData));
@@ -559,7 +571,7 @@ const QuizTaker: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [setupQuizCount, setupCategory]);
+  }, [setupQuizCount, setupCategory, setupBeastMode]);
 
   const startWrongFromSetup = useCallback(() => {
     setShowSetup(false);
@@ -870,7 +882,7 @@ const QuizTaker: React.FC = () => {
                 {[10, 20, 50, 100].map((n) => (
                   <button
                     key={n}
-                    onClick={() => { try { navigator.vibrate?.(8); } catch {} setSetupQuizCount(n); }}
+                    onClick={() => { try { navigator.vibrate?.(8); } catch {} setSetupQuizCount(n); setSetupBeastMode(false); }}
                     style={{
                       flex: 1,
                       padding: '10px 0',
@@ -878,18 +890,39 @@ const QuizTaker: React.FC = () => {
                       fontSize: 14,
                       fontWeight: 600,
                       fontFamily: T.font,
-                      color: setupQuizCount === n ? '#fff' : T.textSecondary,
-                      background: setupQuizCount === n ? T.accent : 'hsl(var(--muted))',
-                      border: setupQuizCount === n ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
+                      color: (!setupBeastMode && setupQuizCount === n) ? '#fff' : T.textSecondary,
+                      background: (!setupBeastMode && setupQuizCount === n) ? T.accent : 'hsl(var(--muted))',
+                      border: (!setupBeastMode && setupQuizCount === n) ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
-                      boxShadow: setupQuizCount === n ? `0 4px 14px ${T.accentTint}` : '0 1px 3px rgba(0,0,0,0.06)',
+                      boxShadow: (!setupBeastMode && setupQuizCount === n) ? `0 4px 14px ${T.accentTint}` : '0 1px 3px rgba(0,0,0,0.06)',
                     }}
                   >
                     {n}
-                  </button>
+                    </button>
                 ))}
               </div>
+              {/* Beast Mode — full set: whole bank or whole selected category */}
+              <button
+                onClick={() => { try { navigator.vibrate?.(8); } catch {} setSetupBeastMode((v) => !v); }}
+                style={{
+                  width: '100%',
+                  marginTop: 8,
+                  padding: '11px 0',
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  fontFamily: T.font,
+                  color: setupBeastMode ? '#fff' : T.textSecondary,
+                  background: setupBeastMode ? T.accent : 'hsl(var(--muted))',
+                  border: setupBeastMode ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: setupBeastMode ? `0 4px 14px ${T.accentTint}` : '0 1px 3px rgba(0,0,0,0.06)',
+                }}
+              >
+                🔥 Beast Mode — all {(setupCategory ? setupCatCount : setupTotal).toLocaleString()} questions
+              </button>
             </div>
 
             {/* Category selector */}
