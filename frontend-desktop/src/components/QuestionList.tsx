@@ -104,6 +104,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [quizCount, setQuizCount] = useState(10);
+  const [beastMode, setBeastMode] = useState(false);
   const [category, setCategory] = useState<string>('');
   const [categories, setCategories] = useState<string[]>([]);
   const [accuracy, setAccuracy] = useState<number | null>(null);
@@ -191,7 +192,8 @@ const Dashboard: React.FC = () => {
 
   const startQuiz = (categoryOverride?: string) => {
     const qp = new URLSearchParams();
-    qp.append('count', quizCount.toString());
+    // Beast Mode → count 0 = full set (whole bank or whole category)
+    qp.append('count', beastMode ? '0' : quizCount.toString());
     const cat = categoryOverride || category;
     if (cat) qp.append('category', cat);
     navigate(`/quiz?${qp.toString()}`);
@@ -444,11 +446,11 @@ const Dashboard: React.FC = () => {
                 {[10, 20, 50, 100].map((n) => (
                   <motion.button
                     key={n}
-                    onClick={() => { sfxClick(); setQuizCount(n); }}
+                    onClick={() => { sfxClick(); setQuizCount(n); setBeastMode(false); }}
                     whileHover={{ scale: 1.04 }}
                     whileTap={{ scale: 0.9 }}
                     animate={
-                      quizCount === n
+                      !beastMode && quizCount === n
                         ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(152 55% 45%)' }
                         : { scale: 1, backgroundColor: 'hsl(var(--muted))' }
                     }
@@ -459,19 +461,50 @@ const Dashboard: React.FC = () => {
                       borderRadius: 'var(--apple-radius-sm)',
                       fontSize: '0.8125rem',
                       fontWeight: 'var(--font-weight-semibold)',
-                      color: quizCount === n ? 'white' : 'hsl(var(--muted-foreground))',
-                      border: quizCount === n ? '1px solid hsl(var(--moss-600))' : '1px solid hsl(var(--border))',
+                      color: !beastMode && quizCount === n ? 'white' : 'hsl(var(--muted-foreground))',
+                      border: !beastMode && quizCount === n ? '1px solid hsl(var(--moss-600))' : '1px solid hsl(var(--border))',
                       cursor: 'pointer',
-                      boxShadow: quizCount === n
+                      boxShadow: !beastMode && quizCount === n
                         ? '0 4px 14px hsl(var(--moss-600) / 0.4)'
                         : '0 1px 3px hsl(var(--foreground) / 0.06)',
                     }}
                     aria-label={`Select ${n} questions`}
-                    aria-pressed={quizCount === n}
+                    aria-pressed={!beastMode && quizCount === n}
                   >
                     {n}
                   </motion.button>
                 ))}
+                {/* Beast Mode pill — full set: whole bank or whole selected category */}
+                <motion.button
+                  key="beast"
+                  onClick={() => { sfxClick(); setBeastMode(true); }}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.9 }}
+                  animate={
+                    beastMode
+                      ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(152 55% 45%)' }
+                      : { scale: 1, backgroundColor: 'hsl(var(--muted))' }
+                  }
+                  transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                  style={{
+                    flex: 1,
+                    padding: '0.5rem 0',
+                    borderRadius: 'var(--apple-radius-sm)',
+                    fontSize: '0.8125rem',
+                    fontWeight: 'var(--font-weight-semibold)',
+                    color: beastMode ? 'white' : 'hsl(var(--muted-foreground))',
+                    border: beastMode ? '1px solid hsl(var(--moss-600))' : '1px solid hsl(var(--border))',
+                    cursor: 'pointer',
+                    boxShadow: beastMode
+                      ? '0 4px 14px hsl(var(--moss-600) / 0.4)'
+                      : '0 1px 3px hsl(var(--foreground) / 0.06)',
+                  }}
+                  aria-label="Beast Mode: practice all questions"
+                  aria-pressed={beastMode}
+                  title="Beast Mode — practice ALL questions: full bank or whole category"
+                >
+                  🔥 Beast
+                </motion.button>
               </div>
             </div>
 

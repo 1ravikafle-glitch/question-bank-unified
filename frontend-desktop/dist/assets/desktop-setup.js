@@ -215,6 +215,7 @@
   function check() {
     if (shouldShowSetup()) showSetup();
     else removeOverlay();
+    try { enhanceHomeCard(); } catch (e) {}
   }
 
   function hookNav() {
@@ -235,6 +236,106 @@
       };
     } catch (e) {}
     window.addEventListener('popstate', function () { setTimeout(check, 60); });
+    // Re-enhance home card across React re-renders (which wipe injected nodes)
+    try {
+      var mo = new MutationObserver(function () {
+        try { enhanceHomeCard(); } catch (e) {}
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    } catch (e) {}
+  }
+
+  // ── Home practice card: 5th "Beast" pill (no rebuild, no layout change) ──
+  var homeBeast = false;
+  var homeCat = '';
+  var BEAST_ON = { background: 'hsl(152 55% 45%)', color: 'white', border: '1px solid hsl(var(--moss-600))' };
+
+  function isHomeRoute() {
+    var p = location.pathname;
+    return p === '/' || p === '/desktop' || p === '/desktop/';
+  }
+
+  function enhanceHomeCard() {
+    if (!isHomeRoute()) { homeBeast = false; homeCat = ''; return; }
+    var sec = document.querySelector('section[aria-label="Practice session setup"]');
+    if (!sec) return;
+    // Track category from the dropdown items + toggle text
+    try {
+      var items = sec.querySelectorAll('.category-dropdown-item');
+      Array.prototype.forEach.call(items, function (it) {
+        if (it.__beastWired) return;
+        it.__beastWired = true;
+        it.addEventListener('click', function () {
+          var t = (it.textContent || '').trim();
+          homeCat = (t === 'All Categories') ? '' : t;
+        });
+      });
+    } catch (e) {}
+    // Numeric pills: leaving Beast mode when a number is picked
+    var pills = Array.prototype.filter.call(sec.querySelectorAll('button'), function (b) {
+      var t = b.textContent.trim();
+      return t === '10' || t === '20' || t === '50' || t === '100';
+    });
+    if (pills.length < 4) return;
+    Array.prototype.forEach.call(pills, function (b) {
+      if (b.__beastWired) return;
+      b.__beastWired = true;
+      b.addEventListener('click', function () {
+        homeBeast = false;
+        paintHomeBeast();
+      });
+    });
+    // Add the Beast pill once (re-added after React re-renders)
+    var bp = sec.querySelector('#qsp-home-beast');
+    if (!bp) {
+      var ref = pills[0];
+      bp = document.createElement('button');
+      bp.type = 'button';
+      bp.id = 'qsp-home-beast';
+      bp.title = 'Beast Mode — practice ALL questions: full bank or whole category';
+      bp.setAttribute('aria-label', 'Beast Mode: practice all questions');
+      bp.setAttribute('aria-pressed', 'false');
+      bp.className = ref.className;
+      bp.style.cssText = ref.style.cssText + ';flex:1;font-weight:700;';
+      bp.textContent = '🔥 Beast';
+      bp.addEventListener('click', function () {
+        homeBeast = true;
+        paintHomeBeast();
+      });
+      ref.parentElement.appendChild(bp);
+    }
+    paintHomeBeast();
+    // Intercept Start Quiz (capture phase beats React) when Beast is armed
+    var starters = Array.prototype.filter.call(sec.querySelectorAll('button'), function (b) {
+      return b.textContent.trim() === 'Start Quiz';
+    });
+    Array.prototype.forEach.call(starters, function (st) {
+      if (st.__beastWired) return;
+      st.__beastWired = true;
+      st.addEventListener('click', function (e) {
+        if (!homeBeast) return;
+        try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
+        var qs = '?count=0';
+        if (homeCat) qs += '&category=' + encodeURIComponent(homeCat);
+        window.location.href = '/quiz' + qs;
+      }, true);
+    });
+  }
+
+  function paintHomeBeast() {
+    var bp = document.querySelector('#qsp-home-beast');
+    if (!bp) return;
+    if (homeBeast) {
+      bp.style.background = BEAST_ON.background;
+      bp.style.color = BEAST_ON.color;
+      bp.style.border = BEAST_ON.border;
+      bp.setAttribute('aria-pressed', 'true');
+    } else {
+      bp.style.background = '';
+      bp.style.color = '';
+      bp.style.border = '';
+      bp.setAttribute('aria-pressed', 'false');
+    }
   }
 
   function init() {
