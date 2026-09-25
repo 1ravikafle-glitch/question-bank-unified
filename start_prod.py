@@ -163,6 +163,9 @@ async def security_headers(request: Request, call_next):
     if request.url.path.endswith(".html") or request.url.path in ("/", "/mobile", "/desktop"):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
+    if request.url.path.startswith(seo_pages.NOINDEX_PREFIXES):
+        # Private app/API routes must never be indexed.
+        response.headers["X-Robots-Tag"] = "noindex, follow"
     return response
 
 # ── Global exception handler ───────────────────────────────────────────────────
@@ -176,6 +179,10 @@ import quiz_router
 import questions_router
 import auth_router
 import admin_router
+import seo_pages
+
+SEO_ENABLED = seo_pages.IS_LOKSEWA  # Loksewa mirror only; PSC service unchanged
+print(f"[SEO] Landing pages {'ENABLED' if SEO_ENABLED else 'OFF (PSC mode)'}", file=sys.stderr)
 
 app.include_router(quiz_router.router)
 app.include_router(questions_router.router)
@@ -232,7 +239,11 @@ def serve_spa(directory: str, path: str):
             ".woff2": "font/woff2",
             ".ico": "image/x-icon",
         }
-        return FileResponse(file_path, media_type=media_types.get(ext, "application/octet-stream"))
+        headers = None
+        if path.startswith("assets/") or path.endswith("forestry-logo.png"):
+            # Versioned build assets + logo: immutable, cache 1 year.
+            headers = {"Cache-Control": "public, max-age=31536000, immutable"}
+        return FileResponse(file_path, media_type=media_types.get(ext, "application/octet-stream"), headers=headers)
     return FileResponse(os.path.join(directory, "index.html"), media_type="text/html")
 
 
@@ -254,10 +265,42 @@ async def serve_mobile_root():
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
+    if SEO_ENABLED:
+        # Crawlable SEO homepage (same HTML for bots and users — no cloaking).
+        return HTMLResponse(seo_pages.render_home(request))
     device = detect_device(request)
     if device == "mobile":
         return RedirectResponse(url="/mobile", status_code=302)
     return RedirectResponse(url="/desktop", status_code=302)
+
+
+if SEO_ENABLED:
+    @app.get("/sitemap.xml")
+    async def sitemap(request: Request):
+        from fastapi.responses import Response
+
+        return Response(seo_pages.sitemap_xml(request), media_type="application/xml")
+
+    @app.get("/robots.txt")
+    async def robots(request: Request):
+        from fastapi.responses import PlainTextResponse
+
+        return PlainTextResponse(seo_pages.robots_txt(request))
+
+
+def _not_found_page() -> HTMLResponse:
+    return HTMLResponse(
+        "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8' />"
+        "<meta name='viewport' content='width=device-width, initial-scale=1.0' />"
+        "<meta name='robots' content='noindex, follow' />"
+        f"<title>Page not found | {seo_pages.BRAND if SEO_ENABLED else 'Forestry PSC Preparation'}</title>"
+        "<style>body{font-family:system-ui,sans-serif;background:#0e1a13;color:#eef4ee;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:20px}a{color:#7fd6a4}</style>"
+        "</head><body><main><h1>404 — Page not found</h1>"
+        "<p>The page you asked for does not exist.</p>"
+        "<p><a href='/'>Forestry Loksewa home</a> · <a href='/forestry-mcq'>Forestry MCQs</a> · "
+        "<a href='/forestry-loksewa-syllabus'>Syllabus</a></p></main></body></html>",
+        status_code=404,
+    )
 
 
 # ── SPA catch-all: any non-API, non-file path serves index.html ────────────────
@@ -269,6 +312,17 @@ async def spa_catchall(request: Request, full_path: str = ""):
         raise HTTPException(status_code=404, detail=f"Not found: /{full_path}")
     if full_path.startswith("desktop/") or full_path.startswith("mobile/"):
         raise HTTPException(status_code=404, detail=f"Not found: /{full_path}")
+    if SEO_ENABLED:
+        # Normalize trailing slashes (except root) to one canonical URL.
+        if len(full_path) > 1 and full_path.endswith("/"):
+            return RedirectResponse(url="/" + full_path.rstrip("/"), status_code=301)
+        # SEO landing page?
+        if full_path in seo_pages.PAGE_INDEX:
+            return HTMLResponse(seo_pages.render_page(request, seo_pages.PAGE_INDEX[full_path]))
+        # Known app path? Otherwise a real 404 (not a 200 SPA shell).
+        norm = "/" + full_path
+        if norm not in seo_pages.SPA_PATHS and not norm.startswith(seo_pages.SPA_PREFIXES):
+            return _not_found_page()
     device = detect_device(request)
     directory = MOBILE_DIR if device == "mobile" else DESKTOP_DIR
     return serve_spa(directory, full_path)
