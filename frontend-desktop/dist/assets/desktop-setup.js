@@ -69,9 +69,6 @@
       '.qsp-pill{flex:1;padding:11px 0;border-radius:9px;border:1px solid #e2e8e2;background:#f4f6f4;color:#5b6672;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .13s;font-family:inherit}',
       '.qsp-pill:hover{border-color:#86c78f;color:#15803d}',
       '.qsp-pill.on{background:#22c55e;border-color:#22c55e;color:#fff;box-shadow:0 3px 12px rgba(34,197,94,.35)}',
-      '.qsp-beast{width:100%;margin:0 0 20px;padding:12px 0;border-radius:9px;border:1px solid #e2e8e2;background:#f4f6f4;color:#5b6672;font-size:13.5px;font-weight:700;cursor:pointer;transition:all .13s;font-family:inherit}',
-      '.qsp-beast:hover{border-color:#86c78f;color:#15803d}',
-      '.qsp-beast.on{background:#22c55e;border-color:#22c55e;color:#fff;box-shadow:0 3px 12px rgba(34,197,94,.35)}',
       '.qsp-select{width:100%;padding:11px 38px 11px 13px;border-radius:9px;border:1px solid #dfe4de;background:#fff;color:#1c2420;font-size:13.5px;font-family:inherit;margin-bottom:18px;appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%2394a3b8\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.6\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e");background-position:right 12px center;background-repeat:no-repeat;background-size:15px}',
       '.qsp-select:focus{outline:none;border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.15)}',
       '.qsp-start{width:100%;padding:13px 0;border-radius:10px;border:none;font-size:14.5px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:all .13s;font-family:inherit;box-shadow:0 3px 12px rgba(34,197,94,.3)}',
@@ -98,7 +95,7 @@
   function buildHTML(total, cats, wrongCount) {
     var pills = [10, 20, 50, 100].map(function (n) {
       return '<button type="button" class="qsp-pill' + (n === 10 ? ' on' : '') + '" data-n="' + n + '">' + n + '</button>';
-    }).join('');
+    }).join('') + '<button type="button" class="qsp-pill" id="qsp-beast" data-n="beast" title="Beast Mode — practice ALL questions: full bank or whole category">&#x1f525; Beast</button>';
     var opts = '<option value="">All Categories</option>' + cats.map(function (c) {
       return '<option value="' + esc(c) + '">' + esc(c) + '</option>';
     }).join('');
@@ -115,7 +112,6 @@
       '<p class="qsp-sub">' + total.toLocaleString() + ' questions across ' + cats.length + ' categories</p>' +
       '<label class="qsp-label">Questions</label>' +
       '<div class="qsp-pills" id="qsp-pills">' + pills + '</div>' +
-      '<button type="button" class="qsp-beast" id="qsp-beast">&#x1f525; Beast Mode — all <span id="qsp-beast-n">' + total.toLocaleString() + '</span> questions</button>' +
       '<label class="qsp-label">Category</label>' +
       '<select class="qsp-select" id="qsp-cat">' + opts + '</select>' +
       '<button type="button" class="qsp-start" id="qsp-go">Start Quiz</button>' + wrong +
@@ -161,46 +157,28 @@
       var card = overlay.firstChild;
 
       var pills = card.querySelectorAll('.qsp-pill');
-      var beastBtn = card.querySelector('#qsp-beast');
-      var beastN = card.querySelector('#qsp-beast-n');
       function paintBeast() {
-        if (!beastBtn) return;
-        if (beast) beastBtn.classList.add('on');
-        else beastBtn.classList.remove('on');
-      }
-      function refreshBeastCount() {
-        if (!beastN) return;
-        var url = '/questions/count/' + (cat ? '?category=' + encodeURIComponent(cat) : '');
-        fetch(url).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) {
-          if (document.body.contains(overlay) && typeof d.count === 'number') beastN.textContent = d.count.toLocaleString();
-        }).catch(function () {});
+        var bb = card.querySelector('#qsp-beast');
+        if (!bb) return;
+        if (beast) bb.classList.add('on');
+        else bb.classList.remove('on');
       }
       Array.prototype.forEach.call(pills, function (b) {
         b.addEventListener('click', function () {
+          var isn = b.getAttribute('data-n');
           Array.prototype.forEach.call(pills, function (p) { p.classList.remove('on'); });
           b.classList.add('on');
-          count = parseInt(b.getAttribute('data-n'), 10) || 10;
-          beast = false;
+          if (isn === 'beast') {
+            beast = true;
+          } else {
+            beast = false;
+            count = parseInt(isn, 10) || 10;
+          }
           paintBeast();
         });
       });
-      if (beastBtn) beastBtn.addEventListener('click', function () {
-        beast = !beast;
-        if (beast) {
-          Array.prototype.forEach.call(pills, function (p) { p.classList.remove('on'); });
-        } else {
-          count = 10;
-          Array.prototype.forEach.call(pills, function (p) {
-            if (p.getAttribute('data-n') === '10') p.classList.add('on');
-          });
-        }
-        paintBeast();
-      });
 
-      card.querySelector('#qsp-cat').addEventListener('change', function (e) {
-        cat = e.target.value;
-        refreshBeastCount();
-      });
+      card.querySelector('#qsp-cat').addEventListener('change', function (e) { cat = e.target.value; });
 
       card.querySelector('#qsp-go').addEventListener('click', function () {
         try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}

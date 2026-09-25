@@ -265,9 +265,8 @@ async def serve_mobile_root():
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    if SEO_ENABLED:
-        # Crawlable SEO homepage (same HTML for bots and users — no cloaking).
-        return HTMLResponse(seo_pages.render_home(request))
+    # App opens directly (device-aware redirect); SEO landing pages live
+    # under their own paths (/forestry-loksewa, ...) and never intercept entry.
     device = detect_device(request)
     if device == "mobile":
         return RedirectResponse(url="/mobile", status_code=302)

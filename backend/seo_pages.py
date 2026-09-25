@@ -1226,7 +1226,7 @@ def render_home(request):
 
 def sitemap_xml(request):
     base = str(request.base_url).rstrip("/")
-    urls = [("", "daily", "1.0")] + [
+    urls = [
         ("/" + p["slug"], "weekly", p.get("priority", "0.7")) for p in PAGES
     ]
     items = "".join(
