@@ -22,6 +22,11 @@ DIST_DIRS = [
 ]
 TEXT_EXTS = {".html", ".js", ".css", ".json", ".xml", ".txt", ".svg", ".webmanifest"}
 
+# Canonical host of the primary site. On mirror services, set SITE_URL to the
+# mirror's own origin (e.g. https://forestryloksewapreparation.onrender.com)
+# so sitemap.xml, canonical links, og:url and JSON-LD URLs stay self-consistent.
+PRIMARY_HOST = "https://ravikafle.com.np"
+
 # Ordered longest-first so specific phrases are replaced before generic ones.
 REPLACEMENTS = [
     ("Forestry PSC Preparation — Loksewa MCQ • Success", "Forestry Loksewa Preparation — MCQ • Success"),
@@ -63,6 +68,26 @@ def main() -> int:
                     total_replacements += sum(
                         original.count(old) for old, _ in REPLACEMENTS
                     )
+
+    site_url = os.environ.get("SITE_URL", "").strip().rstrip("/")
+    if site_url and site_url != PRIMARY_HOST:
+        host_files = 0
+        for dist in DIST_DIRS:
+            for root, _, files in os.walk(dist):
+                for name in files:
+                    if os.path.splitext(name)[1].lower() not in TEXT_EXTS:
+                        continue
+                    if name.endswith((".js", ".css")):
+                        continue  # host URLs only live in html/xml/txt/json
+                    path = os.path.join(root, name)
+                    with open(path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    if PRIMARY_HOST in content:
+                        content = content.replace(PRIMARY_HOST, site_url)
+                        with open(path, "w", encoding="utf-8") as f:
+                            f.write(content)
+                        host_files += 1
+        print(f"[REBRAND] Rewrote host to {site_url} in {host_files} files.")
     print(
         f"[REBRAND] Applied Loksewa branding: "
         f"{total_replacements} replacements in {total_files} files."
