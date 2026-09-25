@@ -69,6 +69,16 @@
       '.qsp-pill{flex:1;padding:11px 0;border-radius:9px;border:1px solid #e2e8e2;background:#f4f6f4;color:#5b6672;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .13s;font-family:inherit}',
       '.qsp-pill:hover{border-color:#86c78f;color:#15803d}',
       '.qsp-pill.on{background:#22c55e;border-color:#22c55e;color:#fff;box-shadow:0 3px 12px rgba(34,197,94,.35)}',
+      '.qsp-pill.beast-armed{position:relative;overflow:hidden;font-size:12px;animation:beastGlow 1.6s ease-in-out infinite}',
+      '@keyframes beastGlow{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.55),0 4px 14px rgba(34,197,94,.35)}50%{box-shadow:0 0 18px 4px rgba(251,146,60,.75),0 4px 18px rgba(34,197,94,.5)}}',
+      '.qsp-pill.beast-shake{animation:beastShake .45s ease,beastGlow 1.6s ease-in-out .45s infinite}',
+      '@keyframes beastShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px) rotate(-1deg)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}',
+      '.fx-ember{position:absolute;bottom:-3px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle,#fde68a 0%,#f59e0b 55%,rgba(245,158,11,0) 100%);pointer-events:none;animation:emberRise 1.5s linear infinite}',
+      '@keyframes emberRise{0%{transform:translateY(0) scale(1);opacity:0}15%{opacity:1}100%{transform:translateY(-34px) scale(.25);opacity:0}}',
+      '.fx-spark{position:absolute;top:50%;left:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:radial-gradient(circle,#fff7ed 0%,#fb923c 60%,rgba(251,146,60,0) 100%);pointer-events:none;animation:sparkBurst .7s ease-out forwards}',
+      '@keyframes sparkBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx,20px),var(--dy,-20px)) scale(.1);opacity:0}}',
+      '.fx-dragon{position:absolute;top:1px;left:0;font-size:13px;line-height:1;pointer-events:none;animation:dragonFly 1.9s linear forwards}',
+      '@keyframes dragonFly{0%{transform:translate(-30px,0);opacity:0}8%{opacity:1}92%{opacity:1}100%{transform:translate(420px,0);opacity:0}}',
       '.qsp-select{width:100%;padding:11px 38px 11px 13px;border-radius:9px;border:1px solid #dfe4de;background:#fff;color:#1c2420;font-size:13.5px;font-family:inherit;margin-bottom:18px;appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%2394a3b8\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.6\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e");background-position:right 12px center;background-repeat:no-repeat;background-size:15px}',
       '.qsp-select:focus{outline:none;border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.15)}',
       '.qsp-start{width:100%;padding:13px 0;border-radius:10px;border:none;font-size:14.5px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:all .13s;font-family:inherit;box-shadow:0 3px 12px rgba(34,197,94,.3)}',
@@ -90,6 +100,97 @@
 
   function esc(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Beast Mode FX kit (CSS-only motion, nodes cleaned up on disarm) ──
+  var FX_OFF = false;
+  try { FX_OFF = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+  function fxCleanup(btn) {
+    if (!btn) return;
+    var dead = btn.querySelectorAll('.fx-ember,.fx-spark,.fx-dragon');
+    for (var i = 0; i < dead.length; i++) dead[i].remove();
+  }
+
+  function beastEmbers(btn, n) {
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement('span');
+      s.className = 'fx-ember';
+      s.setAttribute('aria-hidden', 'true');
+      s.style.left = (6 + Math.random() * 88) + '%';
+      s.style.animationDelay = (Math.random() * 1.5).toFixed(2) + 's';
+      s.style.animationDuration = (1.1 + Math.random() * 0.8).toFixed(2) + 's';
+      btn.appendChild(s);
+    }
+  }
+
+  function beastBurst(btn, n) {
+    for (var i = 0; i < n; i++) {
+      (function (k) {
+        var s = document.createElement('span');
+        s.className = 'fx-spark';
+        s.setAttribute('aria-hidden', 'true');
+        var ang = (Math.PI * 2 * k) / n + Math.random() * 0.5;
+        var dist = 26 + Math.random() * 38;
+        s.style.setProperty('--dx', Math.cos(ang).toFixed(0) + 'px');
+        s.style.setProperty('--dy', Math.sin(ang).toFixed(0) + 'px');
+        s.addEventListener('animationend', function () { s.remove(); });
+        setTimeout(function () { if (s.parentElement) s.remove(); }, 1500);
+        btn.appendChild(s);
+      })(i);
+    }
+  }
+
+  function beastDragon(btn) {
+    var d = document.createElement('span');
+    d.className = 'fx-dragon';
+    d.setAttribute('aria-hidden', 'true');
+    d.textContent = '🐉';
+    d.addEventListener('animationend', function () { d.remove(); });
+    setTimeout(function () { if (d.parentElement) d.remove(); }, 2500);
+    btn.appendChild(d);
+  }
+
+  function beastFXOn(btn) {
+    if (!btn || btn.dataset.armed === '1') return; // idempotent: no DOM churn → no observer loop
+    btn.dataset.armed = '1';
+    fxCleanup(btn);
+    btn.classList.add('on');
+    btn.innerHTML = '&#x1f525; BEAST';
+    if (FX_OFF) return;
+    btn.classList.add('beast-armed');
+    btn.classList.remove('beast-shake');
+    void btn.offsetWidth;
+    btn.classList.add('beast-shake');
+    beastEmbers(btn, 8);
+    beastBurst(btn, 12);
+    beastDragon(btn);
+  }
+
+  function beastFXOff(btn) {
+    if (!btn || btn.dataset.armed !== '1') return; // idempotent
+    delete btn.dataset.armed;
+    btn.classList.remove('on', 'beast-armed', 'beast-shake');
+    btn.innerHTML = '&#x1f525; Beast';
+    fxCleanup(btn);
+  }
+
+  function clearStaleNumericGreen() {
+    // React doesn't know Beast was picked — clear stale green from number pills (once per arm)
+    try {
+      var sec = document.querySelector('section[aria-label="Practice session setup"]');
+      if (!sec) return;
+      var nums = Array.prototype.filter.call(sec.querySelectorAll('button'), function (b) {
+        var t = b.textContent.trim();
+        return t === '10' || t === '20' || t === '50' || t === '100';
+      });
+      Array.prototype.forEach.call(nums, function (p) {
+        p.style.background = 'hsl(var(--muted))';
+        p.style.color = 'hsl(var(--muted-foreground))';
+        p.style.border = '1px solid hsl(var(--border))';
+        p.style.boxShadow = '0 1px 3px hsl(var(--foreground) / 0.06)';
+      });
+    } catch (e) {}
   }
 
   function buildHTML(total, cats, wrongCount) {
@@ -157,11 +258,10 @@
       var card = overlay.firstChild;
 
       var pills = card.querySelectorAll('.qsp-pill');
+      var beastBtn = card.querySelector('#qsp-beast');
       function paintBeast() {
-        var bb = card.querySelector('#qsp-beast');
-        if (!bb) return;
-        if (beast) bb.classList.add('on');
-        else bb.classList.remove('on');
+        if (beast) beastFXOn(beastBtn);
+        else beastFXOff(beastBtn);
       }
       Array.prototype.forEach.call(pills, function (b) {
         b.addEventListener('click', function () {
@@ -300,6 +400,7 @@
       bp.textContent = '🔥 Beast';
       bp.addEventListener('click', function () {
         homeBeast = true;
+        clearStaleNumericGreen();
         paintHomeBeast();
       });
       ref.parentElement.appendChild(bp);
@@ -324,17 +425,10 @@
 
   function paintHomeBeast() {
     var bp = document.querySelector('#qsp-home-beast');
-    if (!bp) return;
-    if (homeBeast) {
-      bp.style.background = BEAST_ON.background;
-      bp.style.color = BEAST_ON.color;
-      bp.style.border = BEAST_ON.border;
-      bp.setAttribute('aria-pressed', 'true');
-    } else {
-      bp.style.background = '';
-      bp.style.color = '';
-      bp.style.border = '';
-      bp.setAttribute('aria-pressed', 'false');
+    if (homeBeast) beastFXOn(bp);
+    else beastFXOff(bp);
+    if (bp && bp.getAttribute('aria-pressed') !== String(homeBeast)) {
+      bp.setAttribute('aria-pressed', homeBeast ? 'true' : 'false');
     }
   }
 
