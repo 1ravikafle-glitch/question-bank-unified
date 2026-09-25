@@ -22,9 +22,13 @@ DIST_DIRS = [
 ]
 TEXT_EXTS = {".html", ".js", ".css", ".json", ".xml", ".txt", ".svg", ".webmanifest"}
 
-# Ordered longest-first so "Forestry PSC Preparation" is replaced before "Forestry PSC".
+# Ordered longest-first so specific phrases are replaced before generic ones.
 REPLACEMENTS = [
+    ("Forestry PSC Preparation — Loksewa MCQ • Success", "Forestry Loksewa Preparation — MCQ • Success"),
     ("Forestry PSC Preparation", "Forestry Loksewa Preparation"),
+    ("Forestry PSC Loksewa", "Forestry Loksewa"),
+    ("Loksewa PSC", "Loksewa"),
+    ("PSC Preparation", "Loksewa Preparation"),
     ("Forestry PSC", "Forestry Loksewa"),
     ("PSC Mode ON", "Loksewa Mode ON"),
     ("forestry-psc-v", "forestry-loksewa-v"),
