@@ -20,6 +20,7 @@ const EDIT_PAGE_SIZE = 15;
 const AdminUpload: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [category, setCategory] = useState('');
+  const [uploadEmoji, setUploadEmoji] = useState('');
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState<FileResult[] | null>(null);
   const [showFormatHelp, setShowFormatHelp] = useState(false);
@@ -41,6 +42,7 @@ const AdminUpload: React.FC = () => {
     correct_answer: string;
     category: string;
   } | null>(null);
+  const [editEmoji, setEditEmoji] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [adminCategories, setAdminCategories] = useState<{ name: string; count: number }[]>([]);
@@ -135,6 +137,16 @@ const AdminUpload: React.FC = () => {
       const data = await uploadQuestionBankDocx(files, category || undefined);
       setResults(data.files);
       toast.success(`Imported ${data.total_imported} new questions`);
+      // Apply the chosen emoji to the upload category (new or existing)
+      const catName = category.trim();
+      const em = uploadEmoji.trim();
+      if (catName && em) {
+        try {
+          await setCategoryEmoji(catName, em);
+          const m = await fetchCategoryMeta();
+          setEmojiMeta(m);
+        } catch {}
+      }
       loadManageData();
     } catch (error: any) {
       console.error('Upload failed:', error);
@@ -162,6 +174,7 @@ const AdminUpload: React.FC = () => {
   const endIdx = Math.min(managePage * EDIT_PAGE_SIZE, filteredForManage.length);
 
   const startEdit = (q: Question) => {
+    setEditEmoji(emojiMeta[q.category || ''] || '');
     const rawOpts = q.options;
     let parsedOpts = {};
     if (typeof rawOpts === 'string') {
@@ -198,6 +211,15 @@ const AdminUpload: React.FC = () => {
       });
       setAllQuestions(prev => prev.map(q => (q.id === id ? { ...q, ...updated } : q)));
       toast.success('Question updated');
+      const editCat = editForm.category.trim();
+      const editEm = (editEmoji || '').trim();
+      if (editCat && editEm) {
+        try {
+          await setCategoryEmoji(editCat, editEm);
+          const m = await fetchCategoryMeta();
+          setEmojiMeta(m);
+        } catch {}
+      }
       cancelEdit();
     } catch (error) {
       console.error('Error saving question:', error);
@@ -373,21 +395,35 @@ const AdminUpload: React.FC = () => {
               </div>
             )}
 
-            {/* Category */}
+            {/* Category + emoji */}
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', display: 'block', marginBottom: '0.375rem' }}>
                 Category (optional)
               </label>
-              <input
-                type="text"
-                placeholder="Guessed from filename if left blank"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="input"
-                style={{ width: '100%' }}
-              />
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="Guessed from filename if left blank"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="input"
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                <span style={{ fontSize: '1.1rem' }} title={category.trim() ? `Current emoji: ${emojiMeta[category.trim()] || 'none yet'}` : 'Type a category first'}>
+                  {category.trim() ? (emojiMeta[category.trim()] || '🏷️') : '🏷️'}
+                </span>
+                <input
+                  type="text"
+                  value={uploadEmoji}
+                  onChange={(e) => setUploadEmoji(e.target.value)}
+                  placeholder="😀"
+                  title="Emoji for this category (applied on import)"
+                  maxLength={8}
+                  className="input"
+                  style={{ width: '3.5rem', textAlign: 'center' }}
+                />
+              </div>
             </div>
-
             {/* Buttons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <button onClick={handleUpload} disabled={uploading || files.length === 0} className="btn btn-primary">
@@ -661,8 +697,11 @@ Answer key:
                         </select>
                       </div>
                       <div style={{ flex: 1 }}>
-                        <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))', display: 'block', marginBottom: '4px' }}>Category</label>
-                        <input type="text" value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="input" style={{ width: '100%' }} />
+                        <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))', display: 'block', marginBottom: '4px' }}>Category + emoji</label>
+                        <div style={{ display: 'flex', gap: '0.375rem' }}>
+                          <input type="text" value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="input" style={{ flex: 1, minWidth: 0 }} />
+                          <input type="text" value={editEmoji} onChange={(e) => setEditEmoji(e.target.value)} placeholder="😀" title="Emoji for this category (saved with the question)" maxLength={8} className="input" style={{ width: '3rem', textAlign: 'center', flexShrink: 0 }} />
+                        </div>
                       </div>
                     </div>
                   </div>

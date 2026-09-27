@@ -87,7 +87,9 @@
       '@media(min-width:1024px){.desktop-sidebar>a[href="/"]{height:64px!important;padding-top:0!important;padding-bottom:0!important;display:flex!important;align-items:center!important}}',
       '@media(min-width:1024px){.desktop-sidebar{padding-top:56px!important}}',
       '@media(min-width:1024px){header[aria-label="Header"]{position:fixed!important;top:56px!important;right:0!important;left:280px!important;margin-left:0!important;height:64px!important;z-index:50!important}}',
-      '@media(min-width:1024px){div.min-h-screen:has(>header[aria-label="Header"]) #main-content{padding-top:120px!important}}',
+      '@media(min-width:1024px){div.min-h-screen:has(>header[aria-label="Header"]) #main-content{padding-top:72px!important}}',
+      '#qsp-topcover{position:fixed;top:0;left:280px;right:0;height:124px;background:hsl(var(--background));z-index:44;pointer-events:none;display:none}',
+      '@media(min-width:1024px){#qsp-topcover.on{display:block}}',
       // Home category cards: capsule emphasis + hover lift + clear contrast + tighter grid
       '.category-grid{gap:.625rem!important}',
       '.category-grid .subject-card{border-radius:14px!important;border:1px solid hsl(var(--border))!important;background:hsl(var(--card))!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important}',
@@ -422,6 +424,8 @@
   function check() {
     enterQuizMenu();
     try { enhanceHomeCard(); } catch (e) {}
+    try { ensureTopcover(); } catch (e) {}
+    try { alignHero(); } catch (e) {}
   }
 
   function hookNav() {
@@ -627,9 +631,66 @@
     }
   }
 
+  // ── Solid backdrop above the pinned header (hides scrolled content) ──
+  function ensureTopcover() {
+    try {
+      if (!document.querySelector('#qsp-topcover')) {
+        var d = document.createElement('div');
+        d.id = 'qsp-topcover';
+        d.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(d);
+      }
+      var on = window.innerWidth >= 1024 && !!document.querySelector('header[aria-label="Header"]');
+      document.querySelector('#qsp-topcover').classList.toggle('on', on);
+    } catch (e) {}
+  }
+
+  // ── Align home hero top with the sidebar LEARN label (runtime measured) ──
+  function alignHero() {
+    try {
+      if (window.innerWidth < 1024) return;
+      var p = location.pathname;
+      if (p !== '/' && p !== '/desktop' && p !== '/desktop/') return;
+      var learn = null;
+      var ps = document.querySelectorAll('.desktop-sidebar p');
+      for (var i = 0; i < ps.length; i++) {
+        if ((ps[i].textContent || '').trim() === 'LEARN') { learn = ps[i]; break; }
+      }
+      var hero = null;
+      var secs = document.querySelectorAll('main section');
+      for (var j = 0; j < secs.length; j++) {
+        if (/Welcome back/.test(secs[j].textContent || '')) { hero = secs[j]; break; }
+      }
+      var main = document.querySelector('#main-content');
+      if (!learn || !hero || !main) return;
+      var delta = hero.getBoundingClientRect().top - learn.getBoundingClientRect().top;
+      if (Math.abs(delta) < 4) return;
+      var cur = parseFloat(getComputedStyle(main).paddingTop) || 0;
+      var next = cur - delta;
+      // Never let content slide under the fixed header (ends at y=120)
+      if (hero.getBoundingClientRect().top - delta < 124) {
+        next = cur - (hero.getBoundingClientRect().top - 124);
+      }
+      if (next < 0) next = 0;
+      if (next > 400) return;
+      main.style.setProperty('padding-top', next + 'px', 'important');
+    } catch (e) {}
+  }
+
   function init() {
     hookNav();
     try { injectStyles(); } catch (e) {} // sidebar groups + pinned header on every page
+    try { ensureTopcover(); } catch (e) {}
+    try { alignHero(); } catch (e) {}
+    setTimeout(function () { try { alignHero(); } catch (e) {} }, 1500);
+    setTimeout(function () { try { alignHero(); ensureTopcover(); } catch (e) {} }, 3500);
+    try {
+      var rT = null;
+      window.addEventListener('resize', function () {
+        if (rT) clearTimeout(rT);
+        rT = setTimeout(function () { try { alignHero(); ensureTopcover(); } catch (e) {} }, 250);
+      });
+    } catch (e) {}
     // Admin emoji map for every page (dropdown chips), refreshed silently
     try {
       fetch('/questions/category-meta')
