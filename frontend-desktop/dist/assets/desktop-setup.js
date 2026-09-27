@@ -156,7 +156,7 @@
     btn.dataset.armed = '1';
     fxCleanup(btn);
     btn.classList.add('on');
-    btn.innerHTML = '&#x1f525; BEAST';
+    btn.innerHTML = '<span aria-hidden="true">&#x1f525;</span> <span class="qsp-beast-t">BEAST</span>';
     if (FX_OFF) return;
     btn.classList.add('beast-armed');
     btn.classList.remove('beast-shake');
@@ -171,7 +171,7 @@
     if (!btn || btn.dataset.armed !== '1') return; // idempotent
     delete btn.dataset.armed;
     btn.classList.remove('on', 'beast-armed', 'beast-shake');
-    btn.innerHTML = '&#x1f525; Beast';
+    btn.innerHTML = '<span aria-hidden="true">&#x1f525;</span> <span class="qsp-beast-t">Beast</span>';
     fxCleanup(btn);
   }
 
@@ -196,7 +196,7 @@
   function buildHTML(total, cats, wrongCount) {
     var pills = [10, 20, 50, 100].map(function (n) {
       return '<button type="button" class="qsp-pill' + (n === 10 ? ' on' : '') + '" data-n="' + n + '">' + n + '</button>';
-    }).join('') + '<button type="button" class="qsp-pill" id="qsp-beast" data-n="beast" title="Beast Mode — practice ALL questions: full bank or whole category">&#x1f525; Beast</button>';
+    }).join('') + '<button type="button" class="qsp-pill" id="qsp-beast" data-n="beast" style="white-space:nowrap;overflow:hidden;" title="Beast Mode — practice ALL questions: full bank or whole category"><span aria-hidden="true">&#x1f525;</span> <span class="qsp-beast-t">Beast</span></button>';
     var opts = '<option value="">All Categories</option>' + cats.map(function (c) {
       return '<option value="' + esc(c) + '">' + esc(c) + '</option>';
     }).join('');
@@ -396,8 +396,10 @@
       bp.setAttribute('aria-label', 'Beast Mode: practice all questions');
       bp.setAttribute('aria-pressed', 'false');
       bp.className = ref.className;
-      bp.style.cssText = ref.style.cssText + ';flex:1;font-weight:700;';
-      bp.textContent = '🔥 Beast';
+      bp.style.cssText = ref.style.cssText + ';flex:1;font-weight:700;white-space:nowrap;overflow:hidden;';
+      bp.style.fontSize = '0.8125rem';
+      bp.style.color = 'hsl(var(--muted-foreground))';
+      bp.innerHTML = '<span aria-hidden="true">&#x1f525;</span> <span class="qsp-beast-t">Beast</span>';
       bp.addEventListener('click', function () {
         homeBeast = true;
         clearStaleNumericGreen();
