@@ -59,6 +59,7 @@ function AppShell() {
       <Toaster
         position="top-center"
         toastOptions={{
+          duration: 2000,
           style: {
             background: 'hsl(var(--card))',
             color: 'hsl(var(--card-foreground))',

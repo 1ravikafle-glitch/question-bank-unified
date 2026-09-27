@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { submitQuiz } from '@/services/api';
-import { isOnline, pendingCount, syncOutbox, packInfo } from '@/utils/offline';
+import { submitQuiz, fetchQuestions, fetchQuestionsCount, clearWrongQueue } from '@/services/api';
+import { isOnline, pendingCount, syncOutbox, packInfo, ensurePack } from '@/utils/offline';
 
 /* Offline status pill + automatic outbox sync on reconnect. */
 const OfflineBanner: React.FC = () => {
@@ -16,7 +16,7 @@ const OfflineBanner: React.FC = () => {
       const n = await pendingCount();
       if (n === 0) return;
       try {
-        const synced = await syncOutbox(submitQuiz);
+        const synced = await syncOutbox(submitQuiz, clearWrongQueue);
         if (synced > 0) toast.success(`Synced ${synced} offline quiz${synced > 1 ? 'zes' : ''}`);
       } catch {
         toast.error('Some offline results could not sync yet — will retry.');
@@ -29,6 +29,17 @@ const OfflineBanner: React.FC = () => {
       setHasPack(!!(await packInfo()));
     };
     refresh();
+    // Silent auto-download: keep an offline pack ready without any taps
+    ensurePack(
+      () => fetchQuestions({ limit: 10000 }),
+      () => fetchQuestionsCount().then((r) => r.count)
+    ).then((res) => {
+      if (!alive) return;
+      if (res === 'downloaded') {
+        refresh();
+        toast.success('Offline pack ready — practice works without internet');
+      }
+    }).catch(() => {});
     const onOnline = async () => {
       setOnline(true);
       await trySync();
@@ -51,7 +62,7 @@ const OfflineBanner: React.FC = () => {
   if (online && pending === 0) return null;
   const doSyncNow = async () => {
     try {
-      const n = await syncOutbox(submitQuiz);
+      const n = await syncOutbox(submitQuiz, clearWrongQueue);
       if (n > 0) toast.success(`Synced ${n} offline quiz${n > 1 ? 'zes' : ''}`);
       setPending(await pendingCount());
     } catch {

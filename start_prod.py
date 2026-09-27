@@ -298,6 +298,16 @@ if SEO_ENABLED:
         return PlainTextResponse(seo_pages.robots_txt(request))
 
 
+@app.get("/ads.txt")
+async def ads_txt():
+    from fastapi.responses import PlainTextResponse
+
+    return PlainTextResponse(
+        "google.com, pub-7976760719077018, DIRECT, f0a47c1d\n",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
 @app.get("/sw.js")
 async def service_worker():
     from fastapi.responses import Response

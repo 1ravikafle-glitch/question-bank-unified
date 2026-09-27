@@ -272,7 +272,7 @@
     } catch (e) {}
   }
 
-  function buildHTML(total, cats, wrongCount, resume) {
+  function buildHTML(total, cats, wrongCount, resume, offlineNote) {
     var pills = [10, 20, 50, 100].map(function (n) {
       return '<button type="button" class="qsp-pill' + (n === 10 ? ' on' : '') + '" data-n="' + n + '">' + n + '</button>';
     }).join('') + '<button type="button" class="qsp-pill" id="qsp-beast" data-n="beast" style="white-space:nowrap;overflow:hidden;" title="Beast Mode — practice ALL questions: full bank or whole category"><span aria-hidden="true">&#x1f525;</span> <span class="qsp-beast-t">Beast</span></button>';
@@ -291,6 +291,9 @@
       '<div class="qsp-card">' +
       '<h2 class="qsp-title">Start a Practice Session</h2>' +
       '<p class="qsp-sub">' + total.toLocaleString() + ' questions across ' + cats.length + ' categories</p>' +
+      (offlineNote
+        ? '<p class="qsp-sub" style="margin-top:-12px">📴 Offline — using downloaded pack</p>'
+        : '') +
       (resume
         ? '<button type="button" class="qsp-continue" id="qsp-continue"><span aria-hidden="true">&#x25b6;</span> Continue — Question ' + resume.index + ' of ' + resume.total + '</button>'
         : '') +
@@ -330,20 +333,19 @@
     try { var u = localStorage.getItem('userId'); if (u) userId = u; } catch (e) {}
 
     Promise.all([
-      fetch('/questions/count/').then(function (r) { if (!r.ok) throw 0; return r.json(); }),
-      fetch('/questions/categories/').then(function (r) { if (!r.ok) throw 0; return r.json(); }),
+      fetch('/questions/count/').then(function (r) { if (!r.ok) throw 0; return r.json(); }).catch(function () { return null; }),
+      fetch('/questions/categories/').then(function (r) { if (!r.ok) throw 0; return r.json(); }).catch(function () { return null; }),
       fetch('/questions/category-meta').then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) { emojiMap = (d && d.emoji) || {}; }).catch(function () {}),
       fetch('/quiz/wrong-queue/' + encodeURIComponent(userId)).then(function (r) { if (!r.ok) throw 0; return r.json(); }).catch(function () { return { questions: [], count: 0 }; })
     ]).then(function (res) {
       if (!document.body.contains(overlay)) return;
-      var total = (res[0] && res[0].count) || 0;
-      var cats = sortCategories(res[1] || []);
-      var wq = res[3] || {};
+      var renderMenu = function (total, cats, wq, offlineNote) {
+
       var wQuestions = wq.questions || [];
       var wc = (typeof wq.count === 'number') ? wq.count : wQuestions.length;
       wrongIds = wQuestions.map(function (q) { return q.id; }).filter(function (id) { return id != null; });
 
-      overlay.innerHTML = buildHTML(total, cats, wc, resume);
+      overlay.innerHTML = buildHTML(total, cats, wc, resume, offlineNote);
       var card = overlay.firstChild;
 
       var cont = card.querySelector('#qsp-continue');
@@ -403,6 +405,28 @@
         removeOverlay();
         window.history.back();
       });
+      };
+      // Data source: live API, or the downloaded pack when offline with no cache
+      var wq0 = res[3] || {};
+      var t0 = (res[0] && res[0].count) || 0;
+      var c0 = sortCategories(res[1] || []);
+      if ((!t0 || !c0.length) && navigator.onLine === false) {
+        packStatus().then(function (pack) {
+          if (!document.body.contains(overlay)) return;
+          if (!pack) { renderMenu(0, [], { questions: [], count: 0 }, true); return; }
+          idbOpen().then(function (db) {
+            return idbReq(db.transaction(['kv'], 'readonly').objectStore('kv').get('bank')).then(function (rec) {
+              db.close();
+              var bank = (rec && rec.questions) || [];
+              var cc = {};
+              bank.forEach(function (q) { if (q.category) cc[q.category] = (cc[q.category] || 0) + 1; });
+              renderMenu(bank.length, sortCategories(Object.keys(cc)), { questions: [], count: 0 }, true);
+            });
+          }).catch(function () { renderMenu(0, [], { questions: [], count: 0 }, true); });
+        }).catch(function () { renderMenu(0, [], { questions: [], count: 0 }, true); });
+      } else {
+        renderMenu(t0, c0, wq0, false);
+      }
     }).catch(function () {
       if (!document.body.contains(overlay)) return;
       overlay.innerHTML = '<div class="qsp-wrap"><div class="qsp-card"><div class="qsp-loading"><p>Failed to load quiz data.</p><button type="button" class="qsp-start" style="max-width:170px;margin:14px auto 0" onclick="location.reload()">Retry</button></div></div></div>';
@@ -428,6 +452,27 @@
     try { alignHero(); } catch (e) {}
     try { enhancePackCard(); } catch (e) {}
     try { paintOffbar(); } catch (e) {}
+    try { enhanceResultsNote(); } catch (e) {}
+  }
+
+  // Results page: note when offline results are still queued
+  function enhanceResultsNote() {
+    try {
+      if (location.pathname !== '/results' && location.pathname !== '/desktop/results') return;
+      if (document.querySelector('#qsp-offnote')) return;
+      outboxCount().then(function (n) {
+        if (!n || document.querySelector('#qsp-offnote')) return;
+        var main = document.querySelector('#main-content') || document.body;
+        var d = document.createElement('div');
+        d.id = 'qsp-offnote';
+        d.setAttribute('role', 'status');
+        d.style.cssText = 'margin:0 5% 12px;padding:11px 16px;border-radius:10px;border:1px solid hsl(var(--primary)/.4);background:hsl(var(--primary)/.07);font-size:.82rem;font-weight:600;font-family:Inter,system-ui,sans-serif;';
+        d.textContent = '📴 ' + n + ' offline result' + (n > 1 ? 's' : '') + ' saved on this device — will sync automatically when you reconnect.';
+        var ref = main.firstChild;
+        if (ref) main.insertBefore(d, ref);
+        else main.appendChild(d);
+      }).catch(function () {});
+    } catch (e) {}
   }
 
   function hookNav() {
@@ -706,10 +751,13 @@
               body: JSON.stringify({ answers: it.answers, username: it.username }),
             }).then(function (r) {
               if (!r.ok) throw 0;
-              return idbOpen().then(function (db2) {
-                return idbReq(db2.transaction(['outbox'], 'readwrite').objectStore('outbox').delete(it.id)).then(function () {
-                  db2.close();
-                  return n + 1;
+              var ids = Object.keys(it.answers || {}).map(function (k) { return +k || k; });
+              return clearQueueFor(ids, it.username).then(function () {
+                return idbOpen().then(function (db2) {
+                  return idbReq(db2.transaction(['outbox'], 'readwrite').objectStore('outbox').delete(it.id)).then(function () {
+                    db2.close();
+                    return n + 1;
+                  });
                 });
               });
             });
@@ -760,6 +808,15 @@
     });
   }
 
+  function clearQueueFor(ids, username) {
+    if (!ids || !ids.length) return Promise.resolve();
+    return fetch('/quiz/wrong-queue/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_identifier: username, question_ids: ids }),
+    }).catch(function () {}).then(function () {});
+  }
+
   function injectOffbarCSS() {
     if (document.getElementById('qsp-offcss')) return;
     var s = document.createElement('style');
@@ -787,13 +844,48 @@
       t.id = 'qsp-offtoast';
       t.textContent = msg;
       document.body.appendChild(t);
-      setTimeout(function () { if (t.parentElement) t.remove(); }, 4000);
+      setTimeout(function () { if (t.parentElement) t.remove(); }, 2000);
     } catch (e) {}
   }
 
   function initOffline() {
     if (document.querySelector('#qsp-offbar')) return;
     injectOffbarCSS();
+    // Silent auto-download: keep an offline pack ready without any taps.
+    // Skipped when offline, on metered connections, or when the pack is fresh.
+    try {
+      var saveData = false;
+      try {
+        var conn = navigator.connection;
+        saveData = !!(conn && (conn.saveData || /^(slow-2g|2g)$/.test(conn.effectiveType || '')));
+      } catch (e) {}
+      if (navigator.onLine !== false && !saveData) {
+        packStatus().then(function (pack) {
+          var need = true;
+          var done = function (doDownload) {
+            if (!doDownload) return;
+            fetch('/questions/?limit=10000').then(function (r) {
+              if (!r.ok) throw 0;
+              return r.json();
+            }).then(function (qs) {
+              if (!qs || !qs.length) return;
+              return idbOpen().then(function (db) {
+                return idbReq(db.transaction(['kv'], 'readwrite').objectStore('kv').put({
+                  k: 'bank', questions: qs, savedAt: Date.now(), total: qs.length
+                })).then(function () { db.close(); });
+              });
+            }).then(function () { paintOffbar(); }).catch(function () {});
+          };
+          if (pack && (Date.now() - pack.savedAt) < 7 * 86400000) {
+            fetch('/questions/count/').then(function (r) { return r.json(); }).then(function (d) {
+              done(!d || d.count !== pack.total);
+            }).catch(function () {});
+          } else {
+            done(true); // missing or stale pack → (re)download
+          }
+        }).catch(function () {});
+      }
+    } catch (e) {}
     var bar = document.createElement('div');
     bar.id = 'qsp-offbar';
     bar.setAttribute('role', 'status');

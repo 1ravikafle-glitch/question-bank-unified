@@ -144,7 +144,8 @@ export async function pendingCount(): Promise<number> {
 
 /** Submit everything queued. Returns number synced. Stops at first failure. */
 export async function syncOutbox(
-  submitFn: (answers: Record<number, string>, username: string) => Promise<unknown>
+  submitFn: (answers: Record<number, string>, username: string) => Promise<unknown>,
+  clearFn?: (username: string, ids: number[]) => Promise<unknown>
 ): Promise<number> {
   let synced = 0;
   const db = await openDB();
@@ -156,6 +157,14 @@ export async function syncOutbox(
   }
   for (const it of items) {
     await submitFn(it.answers, it.username);
+    if (clearFn) {
+      try {
+        await clearFn(
+          it.username,
+          Object.keys(it.answers).map((k) => Number(k)).filter((n) => !isNaN(n))
+        );
+      } catch {}
+    }
     const db2 = await openDB();
     try {
       await req(db2.transaction(['outbox'], 'readwrite').objectStore('outbox').delete(it.id!));
@@ -169,6 +178,48 @@ export async function syncOutbox(
 
 export const isOnline = () =>
   typeof navigator === 'undefined' ? true : navigator.onLine !== false;
+
+function saveDataMode(): boolean {
+  try {
+    const c = (navigator as any).connection;
+    return !!(c && (c.saveData || /^(slow-2g|2g)$/.test(c.effectiveType || '')));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ensure an offline pack exists without any user action. Call on app boot.
+ * Downloads when missing, older than 7 days, or when the server bank grew.
+ * Skips silently when offline, on metered connections, or on failure.
+ */
+export async function ensurePack(
+  fetcher: () => Promise<Question[]>,
+  counter: () => Promise<number>,
+  opts: { maxAgeDays?: number } = {}
+): Promise<'ok' | 'downloaded' | 'skipped'> {
+  try {
+    if (!isOnline() || saveDataMode()) return 'skipped';
+    const maxAge = (opts.maxAgeDays ?? 7) * 86400000;
+    const info = await packInfo();
+    if (info && Date.now() - info.savedAt < maxAge) {
+      // Fresh pack: re-download only if the server bank changed size
+      if (!(await needsUpdate(counter, info))) return 'ok';
+    }
+    const pack = await downloadPack(fetcher);
+    return pack.total > 0 ? 'downloaded' : 'skipped';
+  } catch {
+    return 'skipped';
+  }
+}
+
+async function needsUpdate(counter: () => Promise<number>, info: OfflinePackInfo): Promise<boolean> {
+  try {
+    return (await counter()) !== info.total;
+  } catch {
+    return false;
+  }
+}
 
 /** Proactively cache this page + its scripts/styles so offline works
  *  even if the worker installed after they first loaded. */
