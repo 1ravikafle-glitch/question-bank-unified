@@ -24,6 +24,17 @@ def _set_cached(key: str, val):
     _cache[key] = (val, time.time())
 
 
+def _normalize_options(questions):
+    """SQLite stores options as a JSON string; normalize to dict for validation."""
+    for q in questions:
+        try:
+            if isinstance(q.options, str):
+                q.options = json.loads(q.options)
+        except Exception:
+            pass
+    return questions
+
+
 class QuestionIdsRequest(BaseModel):
     question_ids: List[int]
 
@@ -33,7 +44,47 @@ class DeltaSyncRequest(BaseModel):
     last_sync: Optional[str] = None
 
 
+# Default emoji per known category (admin overrides via CategoryMeta).
+DEFAULT_CATEGORY_EMOJI = {
+    "Silviculture": "🌱",
+    "Biodiversity & Wildlife Management": "🌿",
+    "Soil Conservation And Watershed Management": "🏔️",
+    "Forestry Research & Forest Survey": "📊",
+    "Forest Management": "🌲",
+    "Forest Utilization": "🪵",
+    "Forest Law & Policy": "⚖️",
+    "OfficerPracticeQns": "🏛️",
+    "RangerPracticeQns": "🎖️",
+    "GKPracticeQns": "🧠",
+    "IQPracticeQns": "🧩",
+    "लुम्बिनी प्रदेश वन ऐन, २०७८": "📜",
+    "लुम्बिनी सुशासन ऐन एवम् नियमावली": "📜",
+    " लुम्बिनी सुशासन ऐन एवम् नियमावली": "📜",
+}
+
+
 router = APIRouter(prefix="/questions", tags=["questions"])
+
+
+@router.get("/category-meta")
+def get_category_meta(db: Session = Depends(database.get_db)):
+    """Public: emoji per category (defaults merged with admin overrides)."""
+    cache_key = "category-meta"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+    merged = dict(DEFAULT_CATEGORY_EMOJI)
+    try:
+        for row in db.query(models.CategoryMeta).all():
+            if row.emoji:
+                merged[row.category] = row.emoji
+            elif row.category in merged:
+                del merged[row.category]
+    except Exception:
+        pass
+    result = {"emoji": merged}
+    _set_cached(cache_key, result)
+    return result
 
 
 @router.get("/", response_model=List[schemas.Question])
@@ -52,7 +103,7 @@ def get_questions(
         query = query.filter(models.Question.difficulty == difficulty)
 
     questions = query.offset(skip).limit(limit).all()
-    return questions
+    return _normalize_options(questions)
 
 
 @router.get("/count/")
@@ -118,6 +169,7 @@ def get_question(question_id: int, db: Session = Depends(database.get_db)):
     question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if question is None:
         raise HTTPException(status_code=404, detail="Question not found")
+    _normalize_options([question])
     return question
 
 
@@ -129,6 +181,7 @@ def get_questions_by_ids(
     if not payload.question_ids:
         return []
     questions = db.query(models.Question).filter(models.Question.id.in_(payload.question_ids)).all()
+    _normalize_options(questions)
     id_to_question = {q.id: q for q in questions}
     return [id_to_question[id] for id in payload.question_ids if id in id_to_question]
 

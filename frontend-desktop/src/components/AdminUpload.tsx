@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { uploadQuestionBankDocx, fetchQuestions, fetchQuestionsCount, fetchCategories, updateQuestion, fetchAdminCategories, renameCategory, deleteCategory, fetchAdminUsers, fetchAdminUserProgress, deleteAdminUser } from '../services/api';
+import { uploadQuestionBankDocx, fetchQuestions, fetchQuestionsCount, fetchCategories, updateQuestion, fetchAdminCategories, renameCategory, deleteCategory, fetchCategoryMeta, setCategoryEmoji, fetchAdminUsers, fetchAdminUserProgress, deleteAdminUser } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { type Question } from '@/shared/types';
 import { sortCategories } from '@/utils/categorySort';
@@ -44,6 +44,9 @@ const AdminUpload: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   const [adminCategories, setAdminCategories] = useState<{ name: string; count: number }[]>([]);
+  const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
+  const [emojiDraft, setEmojiDraft] = useState<Record<string, string>>({});
+  const [savingEmoji, setSavingEmoji] = useState<string | null>(null);
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renaming, setRenaming] = useState(false);
@@ -83,6 +86,7 @@ const AdminUpload: React.FC = () => {
       setTotalCount(countData.count);
       setTotalCategories(cats.length);
       setAdminCategories(adminCats.sort((a, b) => b.count - a.count));
+      fetchCategoryMeta().then(setEmojiMeta).catch(() => {});
     } catch (error) {
       console.error('Error loading questions:', error);
       toast.error('Could not load the question list.');
@@ -218,6 +222,22 @@ const AdminUpload: React.FC = () => {
       toast.error(err?.response?.data?.detail || 'Failed to rename category.');
     } finally {
       setRenaming(false);
+    }
+  };
+
+  const handleSaveEmoji = async (categoryName: string) => {
+    const v = (emojiDraft[categoryName] ?? '').trim();
+    setSavingEmoji(categoryName);
+    try {
+      await setCategoryEmoji(categoryName, v);
+      const m = await fetchCategoryMeta();
+      setEmojiMeta(m);
+      setEmojiDraft((d) => ({ ...d, [categoryName]: '' }));
+      toast.success(v ? `Emoji set for "${categoryName}"` : `Emoji cleared for "${categoryName}"`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || 'Failed to save emoji.');
+    } finally {
+      setSavingEmoji(null);
     }
   };
 
@@ -539,8 +559,21 @@ Answer key:
                       </div>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1rem', width: '1.75rem', textAlign: 'center', flexShrink: 0 }} title="Current emoji">{emojiMeta[cat.name] || '🏷️'}</span>
                         <span style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'hsl(var(--foreground))', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.name}</span>
                         <span style={{ fontSize: '0.6875rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))' }}>{cat.count}</span>
+                        <input
+                          type="text"
+                          value={emojiDraft[cat.name] ?? ''}
+                          onChange={(e) => setEmojiDraft((d) => ({ ...d, [cat.name]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEmoji(cat.name); }}
+                          placeholder="😀"
+                          title="Set category emoji (leave empty to clear)"
+                          maxLength={8}
+                          className="input"
+                          style={{ width: '3rem', padding: '4px 6px', fontSize: '0.8125rem', textAlign: 'center' }}
+                        />
+                        <button onClick={() => handleSaveEmoji(cat.name)} disabled={savingEmoji === cat.name} className="btn btn-outline btn-sm" style={{ padding: '4px 8px', fontSize: '0.6875rem' }}>{savingEmoji === cat.name ? '…' : 'Set'}</button>
                         <button onClick={() => { setRenamingCategory(cat.name); setRenameValue(cat.name); }} className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: '0.6875rem', color: 'hsl(var(--primary))' }}>Rename</button>
                         <button onClick={() => handleDeleteCategory(cat.name)} disabled={deleting} className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: '0.6875rem', color: 'hsl(var(--destructive))' }}>Delete</button>
                       </div>

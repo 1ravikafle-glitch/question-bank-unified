@@ -11,6 +11,7 @@ import {
   fetchCategories,
 } from '../services/api';
 import { sortCategories } from '@/utils/categorySort';
+import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
@@ -80,6 +81,8 @@ function TimerRing({ seconds, total }: { seconds: number; total: number }) {
 }
 
 const SECONDS_PER_QUESTION = 120;
+// A mid-quiz save older than this becomes a fresh menu (matches desktop overlay).
+const RESUME_WINDOW_MS = 4 * 60 * 60 * 1000;
 const EMPTY_ARRAY: number[] = [];
 const QUIZ_STORAGE_KEY = 'fpsc-quiz-state';
 
@@ -395,10 +398,13 @@ const QuizTaker: React.FC = () => {
   // Setup screen state
   const [showSetup, setShowSetup] = useState(false);
   const [setupCategories, setSetupCategories] = useState<string[]>([]);
+  const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
+  useEffect(() => { fetchCategoryEmoji().then(setEmojiMeta).catch(() => {}); }, []);
   const [setupTotal, setSetupTotal] = useState(0);
   const [setupWrongCount, setSetupWrongCount] = useState(0);
   const [setupQuizCount, setSetupQuizCount] = useState(10);
   const [setupBeastMode, setSetupBeastMode] = useState(false);
+  const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
   const [setupCategory, setSetupCategory] = useState('');
   const [showSetupCategoryDropdown, setShowSetupCategoryDropdown] = useState(false);
 
@@ -427,24 +433,24 @@ const QuizTaker: React.FC = () => {
       setLoading(true);
       try {
         if (!isPracticeWrongMode && !questionIdFromUrl) {
-          // No URL params — check for saved quiz first
+          // No URL params — ALWAYS show the setup menu (never auto-start).
+          // A mid-quiz save becomes an explicit Continue choice, never a forced resume.
           if (!countParam && !categoryParam) {
-            // Try to restore saved quiz
+            let resume: { index: number; total: number } | null = null;
             try {
               const raw = localStorage.getItem(QUIZ_STORAGE_KEY);
               if (raw) {
                 const saved: QuizPersistedState = JSON.parse(raw);
-                if (saved.questions?.length > 0 && saved.currentIndex < saved.questions.length) {
-                  setQuestions(saved.questions);
-                  setSelected(saved.selected || {});
-                  setCurrentIndex(saved.currentIndex);
-                  setAnnouncement(`Resumed quiz from question ${saved.currentIndex + 1} of ${saved.questions.length}.`);
-                  setLoading(false);
-                  return;
+                const fresh = (Date.now() - (saved.savedAt || 0)) < RESUME_WINDOW_MS;
+                if (saved.questions?.length > 0 && saved.currentIndex < saved.questions.length && fresh) {
+                  resume = { index: saved.currentIndex, total: saved.questions.length };
+                } else {
+                  localStorage.removeItem(QUIZ_STORAGE_KEY);
                 }
               }
             } catch {}
-            // No saved quiz — show setup screen
+            setResumeInfo(resume);
+            // Fall through to setup screen below
             try {
               const [totalResp, categoriesResp, wrongQueueResp] = await Promise.all([
                 fetchQuestionsCount(),
@@ -544,6 +550,9 @@ const QuizTaker: React.FC = () => {
 
   const startQuizFromSetup = useCallback(async () => {
     setShowSetup(false);
+    setResumeInfo(null);
+    // Fresh start discards any mid-quiz save
+    try { localStorage.removeItem(QUIZ_STORAGE_KEY); } catch {}
     setLoading(true);
     try {
       const questionsData = await fetchRandomQuestions({
@@ -562,6 +571,23 @@ const QuizTaker: React.FC = () => {
       setLoading(false);
     }
   }, [setupQuizCount, setupCategory, setupBeastMode]);
+
+  const continueSavedQuiz = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (!raw) return;
+      const saved: QuizPersistedState = JSON.parse(raw);
+      if (!saved.questions?.length || !(saved.currentIndex < saved.questions.length)) return;
+      setQuestions(saved.questions);
+      setSelected(saved.selected || {});
+      setCurrentIndex(saved.currentIndex);
+      setResumeInfo(null);
+      setShowSetup(false);
+      setAnnouncement(`Resumed quiz from question ${saved.currentIndex + 1} of ${saved.questions.length}.`);
+    } catch (err) {
+      console.error('Error resuming quiz:', err);
+    }
+  }, []);
 
   const startWrongFromSetup = useCallback(() => {
     setShowSetup(false);
@@ -852,6 +878,32 @@ const QuizTaker: React.FC = () => {
               {setupTotal.toLocaleString()} questions across {setupCategories.length} categories
             </p>
 
+            {/* Resume banner — only when a quiz was left mid-way */}
+            {resumeInfo && (
+              <button
+                onClick={() => { try { navigator.vibrate?.(10); } catch {} continueSavedQuiz(); }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '13px 14px',
+                  borderRadius: 12,
+                  border: `1px solid ${T.accent}`,
+                  background: `${T.accent}14`,
+                  color: T.textPrimary,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  fontFamily: T.font,
+                  cursor: 'pointer',
+                  marginBottom: 16,
+                }}
+              >
+                <span aria-hidden="true">▶</span> Continue — Question {resumeInfo.index + 1} of {resumeInfo.total}
+              </button>
+            )}
+
             {/* Question count pills */}
             <div style={{ marginBottom: 16 }}>
               <label
@@ -1009,7 +1061,7 @@ const QuizTaker: React.FC = () => {
                           textAlign: 'left' as const,
                         }}
                       >
-                        {cat}
+                        {(cat === 'All Categories' ? '\U0001F5C2\uFE0F' : (emojiMeta[cat] || guessEmoji(cat))) + ' ' + cat}
                       </button>
                     ))}
                   </div>

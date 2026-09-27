@@ -4,6 +4,7 @@ import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHist
 import { type Question } from '@/shared/types';
 import { toast } from 'react-hot-toast';
 import { sortCategories } from '@/utils/categorySort';
+import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -65,6 +66,8 @@ const QuestionsBank: React.FC = () => {
   const { sfxSelect, sfxCorrect, sfxIncorrect, sfxClick } = useSfx();
 
   const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
+  useEffect(() => { fetchCategoryEmoji().then(setEmojiMeta).catch(() => {}); }, []);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [totalCount, setTotalCount] = useState(0);
@@ -363,7 +366,7 @@ const QuestionsBank: React.FC = () => {
           >
             <option value="">All Categories</option>
             {allCategories.map((c) => (
-              <option key={c} value={c}>{c} ({categoryCounts[c] || 0})</option>
+              <option key={c} value={c}>{(emojiMeta[c] || guessEmoji(c)) + ' ' + c} ({categoryCounts[c] || 0})</option>
             ))}
           </select>
         </div>

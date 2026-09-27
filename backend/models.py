@@ -88,3 +88,13 @@ class UserProgress(Base):
         Index("ix_user_progress_user_question", "user_identifier", "question_id"),
         Index("ix_user_progress_user_attempted", "user_identifier", "attempted_at"),
     )
+
+
+class CategoryMeta(Base):
+    """Admin-assigned display metadata per category (emoji icon)."""
+
+    __tablename__ = "category_meta"
+
+    category = Column(String(200), primary_key=True)
+    emoji = Column(String(16), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

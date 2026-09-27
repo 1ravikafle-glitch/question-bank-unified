@@ -156,6 +156,18 @@ export const deleteCategory = async (categoryName: string) => {
   return response.data;
 };
 
+// Public: admin-assigned category emoji map
+export const fetchCategoryMeta = async (): Promise<Record<string, string>> => {
+  const response = await api.get<{ emoji: Record<string, string> }>('/questions/category-meta');
+  return response.data.emoji || {};
+};
+
+// Admin: set/clear a category emoji
+export const setCategoryEmoji = async (category: string, emoji: string) => {
+  const response = await api.put('/admin/category-meta', { category, emoji });
+  return response.data;
+};
+
 // Admin: list all users
 export const fetchAdminUsers = async (): Promise<{ id: number; username: string; created_at: string }[]> => {
   const response = await api.get('/auth/users');

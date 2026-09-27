@@ -30,6 +30,41 @@ class RenameCategoryRequest(BaseModel):
     new_name: str
 
 
+class CategoryMetaRequest(BaseModel):
+    category: str
+    emoji: Optional[str] = None
+
+
+@router.get("/category-meta")
+def admin_get_category_meta(db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+    rows = db.query(models.CategoryMeta).all()
+    return {"emoji": {r.category: r.emoji for r in rows}}
+
+
+@router.put("/category-meta")
+def admin_set_category_meta(payload: CategoryMetaRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+    name = (payload.category or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="category is required")
+    emoji = (payload.emoji or "").strip() or None
+    try:
+        row = db.query(models.CategoryMeta).filter(models.CategoryMeta.category == name).first()
+        if row:
+            row.emoji = emoji
+        else:
+            db.add(models.CategoryMeta(category=name, emoji=emoji))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to save category emoji")
+    try:
+        import questions_router
+        questions_router._cache.pop("category-meta", None)
+    except Exception:
+        pass
+    return {"category": name, "emoji": emoji}
+
+
 @router.post("/upload-docx")
 async def upload_docx(
     files: List[UploadFile] = File(...),

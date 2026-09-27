@@ -21,32 +21,53 @@
     return sp.has('count') || sp.has('category') || sp.has('qid');
   }
 
-  function hasRestorableQuiz() {
+  function getSavedQuiz() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return false;
+      if (!raw) return null;
       var saved = JSON.parse(raw);
-      if (!saved.questions || !saved.questions.length) return false;
-      return (Date.now() - (saved.savedAt || 0)) < RESTORE_WINDOW_MS;
-    } catch (e) { return false; }
+      if (!saved.questions || !saved.questions.length) return null;
+      if ((Date.now() - (saved.savedAt || 0)) >= RESTORE_WINDOW_MS) return null;
+      var idx = saved.currentIndex || 0;
+      if (idx < 0 || idx >= saved.questions.length) return null;
+      return saved;
+    } catch (e) { return null; }
   }
+
+  function hasRestorableQuiz() {
+    return !!getSavedQuiz();
+  }
+
+  // Wipes auto-start residue saved by the app underneath while our menu is open.
+  var menuShownAt = 0;
+  var wiperTimer = null;
+  function startWiper() {
+    stopWiper();
+    menuShownAt = Date.now();
+    wiperTimer = setInterval(function () {
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        var saved = JSON.parse(raw);
+        if (saved && (saved.savedAt || 0) > menuShownAt) localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+    }, 2000);
+  }
+  function stopWiper() {
+    if (wiperTimer) { try { clearInterval(wiperTimer); } catch (e) {} wiperTimer = null; }
+  }
+  try { window.addEventListener('pagehide', stopWiper); } catch (e) {}
 
   function shouldShowSetup() {
     return isQuizRoute() && !hasQuizParams() && !hasRestorableQuiz();
   }
 
+  // Global order: A–Z, Devanagari names last. Pure ordering, values untouched.
   function sortCategories(cats) {
-    var order = ['forestry', 'biodiversity', 'wildlife', 'forest management', 'soil conservation', 'environmental science', 'ecology', 'botany', 'zoology', 'climate change'];
     return cats.slice().sort(function (a, b) {
+      var ad = /[̀-ॿ]/.test(a) ? 1 : 0, bd = /[̀-ॿ]/.test(b) ? 1 : 0;
+      if (ad !== bd) return ad - bd;
       var al = String(a).toLowerCase(), bl = String(b).toLowerCase();
-      var ai = -1, bi = -1;
-      for (var i = 0; i < order.length; i++) {
-        if (ai === -1 && al.indexOf(order[i]) !== -1) ai = i;
-        if (bi === -1 && bl.indexOf(order[i]) !== -1) bi = i;
-      }
-      ai = ai === -1 ? 999 : ai;
-      bi = bi === -1 ? 999 : bi;
-      if (ai !== bi) return ai - bi;
       return al < bl ? -1 : al > bl ? 1 : 0;
     });
   }
@@ -56,6 +77,11 @@
     var s = document.createElement('style');
     s.id = 'qsp-css';
     s.textContent = [
+      // ── App chrome: Apple grouped sidebar + pinned header (all pages) ──
+      '.desktop-sidebar nav>div{margin-bottom:.75rem!important;background:hsl(var(--muted)/.45)!important;border:1px solid hsl(var(--border)/.6)!important;border-radius:14px!important;padding:.5rem .375rem .625rem!important}',
+      '.desktop-sidebar nav>div>p{padding-top:.25rem!important;margin-bottom:.375rem!important}',
+      '@media(min-width:1024px){header[aria-label="Header"]{position:fixed!important;top:0!important;right:0!important;left:280px!important;margin-left:0!important;z-index:50!important}}',
+      '@media(min-width:1024px){div.min-h-screen:has(>header[aria-label="Header"]) #main-content{padding-top:56px!important}}',
       '.qsp-overlay{position:fixed;inset:0;z-index:99999;background:#f3f5f3;overflow-y:auto;padding:clamp(20px,5vh,56px) clamp(16px,4vw,32px) 90px;font-family:Inter,system-ui,-apple-system,sans-serif}',
       '@media(min-width:1024px){.qsp-overlay{left:280px}}',
       '.qsp-wrap{max-width:720px;margin:0 auto}',
@@ -84,6 +110,9 @@
       '.qsp-start{width:100%;padding:13px 0;border-radius:10px;border:none;font-size:14.5px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:all .13s;font-family:inherit;box-shadow:0 3px 12px rgba(34,197,94,.3)}',
       '.qsp-start:hover{background:#16a34a}',
       '.qsp-start:active{transform:scale(.99)}',
+      '.qsp-continue{width:100%;padding:13px 14px;border-radius:10px;border:1px solid #86c78f;background:#f0fdf4;color:#15803d;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;transition:all .13s;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 3px 12px rgba(34,197,94,.18)}',
+      '.qsp-continue:hover{background:#dcfce7}',
+      '.qsp-continue:active{transform:scale(.99)}',
       '.qsp-wrong{margin-top:14px;background:#fef1f0;border:1px solid #f5d5d0;border-radius:10px;padding:13px 14px 14px}',
       '.qsp-wrong-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}',
       '.qsp-wrong-label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#991b1b}',
@@ -100,6 +129,28 @@
 
   function esc(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Keyword fallback emoji (admin map wins when present) ──
+  var emojiMap = {};
+  function guessEmoji(name) {
+    var n = String(name).toLowerCase();
+    if (/[̀-ॿ]/.test(name)) return '📜';
+    if (n.indexOf('silv') !== -1 || n.indexOf('silk') !== -1 || n.indexOf('nursery') !== -1) return '🌱';
+    if (n.indexOf('bio') !== -1 || n.indexOf('eco') !== -1) return '🌿';
+    if (n.indexOf('wild') !== -1) return '🦌';
+    if (n.indexOf('soil') !== -1 || n.indexOf('watershed') !== -1) return '🏔️';
+    if (n.indexOf('law') !== -1 || n.indexOf('policy') !== -1 || n.indexOf('act') !== -1) return '⚖️';
+    if (n.indexOf('survey') !== -1 || n.indexOf('mensuration') !== -1 || n.indexOf('research') !== -1 || n.indexOf('stat') !== -1) return '📊';
+    if (n.indexOf('utilization') !== -1 || n.indexOf('timber') !== -1 || n.indexOf('engineer') !== -1) return '🪵';
+    if (n.indexOf('fire') !== -1 || n.indexOf('protect') !== -1) return '🔥';
+    if (n.indexOf('ranger') !== -1) return '🎖️';
+    if (n.indexOf('officer') !== -1 || n.indexOf('admin') !== -1) return '🏛️';
+    if (n.indexOf('guard') !== -1 || n.indexOf('rakshak') !== -1) return '🛡️';
+    if (n.indexOf('gk') !== -1 || n.indexOf('general') !== -1) return '🧠';
+    if (n.indexOf('iq') !== -1 || n.indexOf('aptitude') !== -1) return '🧩';
+    if (n.indexOf('forest') !== -1) return '🌲';
+    return '📚';
   }
 
   // ── Beast Mode FX kit (CSS-only motion, nodes cleaned up on disarm) ──
@@ -193,12 +244,13 @@
     } catch (e) {}
   }
 
-  function buildHTML(total, cats, wrongCount) {
+  function buildHTML(total, cats, wrongCount, resume) {
     var pills = [10, 20, 50, 100].map(function (n) {
       return '<button type="button" class="qsp-pill' + (n === 10 ? ' on' : '') + '" data-n="' + n + '">' + n + '</button>';
     }).join('') + '<button type="button" class="qsp-pill" id="qsp-beast" data-n="beast" style="white-space:nowrap;overflow:hidden;" title="Beast Mode — practice ALL questions: full bank or whole category"><span aria-hidden="true">&#x1f525;</span> <span class="qsp-beast-t">Beast</span></button>';
-    var opts = '<option value="">All Categories</option>' + cats.map(function (c) {
-      return '<option value="' + esc(c) + '">' + esc(c) + '</option>';
+    var opts = '<option value="">🗂️ All Categories</option>' + cats.map(function (c) {
+      var em = (emojiMap && emojiMap[c]) || guessEmoji(c);
+      return '<option value="' + esc(c) + '">' + esc(em + ' ' + c) + '</option>';
     }).join('');
     var wrong = wrongCount > 0
       ? '<div class="qsp-wrong">' +
@@ -211,6 +263,9 @@
       '<div class="qsp-card">' +
       '<h2 class="qsp-title">Start a Practice Session</h2>' +
       '<p class="qsp-sub">' + total.toLocaleString() + ' questions across ' + cats.length + ' categories</p>' +
+      (resume
+        ? '<button type="button" class="qsp-continue" id="qsp-continue"><span aria-hidden="true">&#x25b6;</span> Continue — Question ' + resume.index + ' of ' + resume.total + '</button>'
+        : '') +
       '<label class="qsp-label">Questions</label>' +
       '<div class="qsp-pills" id="qsp-pills">' + pills + '</div>' +
       '<label class="qsp-label">Category</label>' +
@@ -224,9 +279,14 @@
     if (o) o.remove();
   }
 
-  function showSetup() {
+  // Snapshot the resume state at menu-open (deterministic — no race with the app).
+  function showSetup(resume) {
     if (document.querySelector('.qsp-overlay')) return;
     injectStyles();
+    // Wiper only on a FRESH menu: anything saved while it is open is
+    // auto-start residue from the app underneath. With a resume snapshot
+    // present the app restores the same quiz, so leave storage alone.
+    if (!resume) startWiper();
 
     var overlay = document.createElement('div');
     overlay.className = 'qsp-overlay';
@@ -244,6 +304,7 @@
     Promise.all([
       fetch('/questions/count/').then(function (r) { if (!r.ok) throw 0; return r.json(); }),
       fetch('/questions/categories/').then(function (r) { if (!r.ok) throw 0; return r.json(); }),
+      fetch('/questions/category-meta').then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) { emojiMap = (d && d.emoji) || {}; }).catch(function () {}),
       fetch('/quiz/wrong-queue/' + encodeURIComponent(userId)).then(function (r) { if (!r.ok) throw 0; return r.json(); }).catch(function () { return { questions: [], count: 0 }; })
     ]).then(function (res) {
       if (!document.body.contains(overlay)) return;
@@ -254,8 +315,15 @@
       var wc = (typeof wq.count === 'number') ? wq.count : wQuestions.length;
       wrongIds = wQuestions.map(function (q) { return q.id; }).filter(function (id) { return id != null; });
 
-      overlay.innerHTML = buildHTML(total, cats, wc);
+      overlay.innerHTML = buildHTML(total, cats, wc, resume);
       var card = overlay.firstChild;
+
+      var cont = card.querySelector('#qsp-continue');
+      if (cont) cont.addEventListener('click', function () {
+        stopWiper();
+        try { sessionStorage.setItem('qsp_continue', '1'); } catch (e) {}
+        window.location.reload();
+      });
 
       var pills = card.querySelectorAll('.qsp-pill');
       var beastBtn = card.querySelector('#qsp-beast');
@@ -303,6 +371,7 @@
 
       var back = card.querySelector('#qsp-back');
       if (back) back.addEventListener('click', function () {
+        stopWiper();
         removeOverlay();
         window.history.back();
       });
@@ -312,9 +381,20 @@
     });
   }
 
+  // Entry: /quiz with no options ALWAYS opens the menu (never auto-starts).
+  // A mid-quiz save becomes an explicit Continue choice, never a forced resume.
+  function enterQuizMenu() {
+    if (!isQuizRoute() || hasQuizParams()) { removeOverlay(); stopWiper(); return; }
+    if (document.querySelector('.qsp-overlay')) return;
+    var resume = getSavedQuiz();
+    showSetup(resume ? {
+      index: (resume.currentIndex || 0) + 1,
+      total: resume.questions.length,
+    } : null);
+  }
+
   function check() {
-    if (shouldShowSetup()) showSetup();
-    else removeOverlay();
+    enterQuizMenu();
     try { enhanceHomeCard(); } catch (e) {}
   }
 
@@ -436,12 +516,21 @@
 
   function init() {
     hookNav();
+    try { injectStyles(); } catch (e) {} // sidebar groups + pinned header on every page
+    // Continue flow: user chose resume → skip the menu once, let the app restore.
+    try {
+      if (sessionStorage.getItem('qsp_continue') === '1') {
+        sessionStorage.removeItem('qsp_continue');
+        try { enhanceHomeCard(); } catch (e) {}
+        return;
+      }
+    } catch (e) {}
     check();
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 250); });
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    setTimeout(init, 250);
+    init();
   }
 })();

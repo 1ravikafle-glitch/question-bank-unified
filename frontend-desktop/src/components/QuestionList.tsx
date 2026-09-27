@@ -4,6 +4,7 @@ import { fetchQuestionsCount, fetchCategories, fetchUserProgress, fetchWrongQueu
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { sortCategories } from '@/utils/categorySort';
+import { fetchCategoryEmoji } from '@/utils/categoryEmoji';
 import { motion } from 'framer-motion';
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -64,7 +65,9 @@ const catIcons: Record<string, string> = {
   'Officer Practice Questions': '🏛',
 };
 
-function catIcon(name: string) {
+function catIcon(name: string, meta: Record<string, string> = {}) {
+  if (name === 'All Categories') return '🗂️';
+  if (meta[name]) return meta[name];
   if (catIcons[name]) return catIcons[name];
   if (name.toLowerCase().includes('bio')) return '🌿';
   if (name.toLowerCase().includes('forest')) return '🌲';
@@ -107,6 +110,7 @@ const Dashboard: React.FC = () => {
   const [beastMode, setBeastMode] = useState(false);
   const [category, setCategory] = useState<string>('');
   const [categories, setCategories] = useState<string[]>([]);
+  const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [attempted, setAttempted] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -132,6 +136,7 @@ const Dashboard: React.FC = () => {
           fetchCategories(),
           fetchUserProgress(userId || 'anonymous'),
           fetchWrongQueue(userId || 'anonymous'),
+          fetchCategoryEmoji().then((m) => { setEmojiMeta(m); return null; }).catch(() => null),
         ]);
 
         try {
@@ -608,10 +613,36 @@ const Dashboard: React.FC = () => {
                           textAlign: 'left',
                         }}
                       >
-                        {cat !== 'All Categories' && (
-                          <span style={{ marginRight: '0.375rem' }}>{catIcons[cat]}</span>
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 9,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.95rem',
+                            flexShrink: 0,
+                            marginRight: '0.625rem',
+                            background: cat === (category || 'All Categories') ? 'hsl(var(--moss-600) / 0.14)' : 'hsl(var(--muted))',
+                          }}
+                        >
+                          {catIcon(cat, emojiMeta)}
+                        </span>
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: cat === (category || 'All Categories') ? 600 : 500 }}>
+                          {cat}
+                        </span>
+                        {cat !== 'All Categories' && questionCounts.get(cat) != null && (
+                          <span style={{ fontSize: '0.6875rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))', marginLeft: '0.5rem' }}>
+                            {questionCounts.get(cat)}
+                          </span>
                         )}
-                        {cat}
+                        {cat === (category || 'All Categories') && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'hsl(var(--moss-600))', flexShrink: 0, marginLeft: '0.5rem' }} aria-hidden="true">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -813,7 +844,7 @@ const Dashboard: React.FC = () => {
                         flexShrink: 0,
                       }}
                     >
-                      {catIcon(cat.category)}
+                      {catIcon(cat.category, emojiMeta)}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <p

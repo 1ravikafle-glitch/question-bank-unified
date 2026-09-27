@@ -1,24 +1,14 @@
+const DEVANAGARI = /[̀-ॿ]/;
+
 /**
- * Sort categories: topic categories first (alphabetical),
- * then practice-question categories (alphabetical).
- *
- * Topic categories are identified by NOT containing "PracticeQns"
- * in their name.
+ * Global category order: A–Z (case-insensitive), Devanagari names last.
+ * Pure ordering — values are never modified.
  */
 export function sortCategories(categories: string[]): string[] {
-  const topics: string[] = [];
-  const practice: string[] = [];
-
-  for (const cat of categories) {
-    if (cat.toLowerCase().includes('practiceqns') || cat.toLowerCase().includes('practice qns')) {
-      practice.push(cat);
-    } else {
-      topics.push(cat);
-    }
-  }
-
-  topics.sort((a, b) => a.localeCompare(b));
-  practice.sort((a, b) => a.localeCompare(b));
-
-  return [...topics, ...practice];
+  return [...categories].sort((a, b) => {
+    const ad = DEVANAGARI.test(a) ? 1 : 0;
+    const bd = DEVANAGARI.test(b) ? 1 : 0;
+    if (ad !== bd) return ad - bd;
+    return a.localeCompare(b, undefined, { sensitivity: 'base' });
+  });
 }

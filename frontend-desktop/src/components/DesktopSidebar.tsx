@@ -208,7 +208,17 @@ const DesktopSidebar: React.FC = () => {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-1">
         {navSections.map((section, idx) => (
-          <div key={section.section} style={{ marginBottom: idx < navSections.length - 1 ? '1rem' : '0.5rem' }}>
+          <div
+            key={section.section}
+            style={{
+              marginBottom: idx < navSections.length - 1 ? '0.75rem' : '0.5rem',
+              background: 'hsl(var(--muted) / 0.45)',
+              border: '1px solid hsl(var(--border) / 0.6)',
+              borderRadius: 14,
+              padding: '0.5rem 0.375rem 0.625rem',
+            }}
+            aria-label={`${section.section} navigation group`}
+          >
             <p
               className="px-3"
               style={{
@@ -257,11 +267,16 @@ const DesktopSidebar: React.FC = () => {
 
         {/* Admin section */}
         {isAdmin(userId) && (
-          <div style={{ marginTop: '1rem' }}>
-            <div
-              className="mx-3 mb-2"
-              style={{ height: '1px', background: 'hsl(var(--border))' }}
-            />
+          <div
+            style={{
+              marginTop: '0.75rem',
+              background: 'hsl(var(--muted) / 0.45)',
+              border: '1px solid hsl(var(--border) / 0.6)',
+              borderRadius: 14,
+              padding: '0.5rem 0.375rem 0.625rem',
+            }}
+            aria-label="Manage navigation group"
+          >
             <p
               className="px-3"
               style={{
@@ -270,7 +285,8 @@ const DesktopSidebar: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 color: 'hsl(var(--foreground) / 0.45)',
-                marginBottom: '0.5rem',
+                marginBottom: '0.375rem',
+                paddingTop: '0.25rem',
               }}
             >
               Manage
@@ -299,11 +315,16 @@ const DesktopSidebar: React.FC = () => {
         )}
 
         {/* About link */}
-        <div style={{ marginTop: '1rem' }}>
-          <div
-            className="mx-3 mb-3"
-            style={{ height: '1px', background: 'hsl(var(--border))' }}
-          />
+        <div
+          style={{
+            marginTop: '0.75rem',
+            background: 'hsl(var(--muted) / 0.45)',
+            border: '1px solid hsl(var(--border) / 0.6)',
+            borderRadius: 14,
+            padding: '0.5rem 0.375rem 0.625rem',
+          }}
+          aria-label="About navigation group"
+        >
           <NavLink
             to="/about"
             className="flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--muted))] transition-colors"

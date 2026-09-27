@@ -11,6 +11,7 @@ import AdminUpload from './components/AdminUpload';
 import Login from './components/Login';
 import About from './components/About';
 import Header from './components/Header';
+import MobileTopBar from './components/MobileTopBar';
 import DesktopSidebar from './components/DesktopSidebar';
 import MobileBottomNav from './components/MobileBottomNav';
 import Footer from './components/Footer';
@@ -72,6 +73,9 @@ function AppShell() {
 
         {/* Header — hidden on mobile (MobileBottomNav handles navigation) */}
         {!isLogin && !isQuiz && <Header />}
+
+        {/* Slim sticky top bar — mobile only, every page including quiz */}
+        {showLayout && <MobileTopBar />}
 
         {/* Main Content — ml-[280px] only on lg+ when sidebar is visible */}
         <main
