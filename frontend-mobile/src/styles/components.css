@@ -1893,3 +1893,24 @@
 .dark .category-dropdown-btn:hover {
   box-shadow: 0 2px 8px rgba(255, 255, 255, 0.06);
 }
+
+/* ── Compact hero on small phones: smaller banner, quote hidden ── */
+@media (max-width: 640px) {
+  section[aria-label="Welcome hero"] {
+    padding: 1rem 1.25rem !important;
+    margin-bottom: 1rem !important;
+  }
+  section[aria-label="Welcome hero"] h1 {
+    font-size: 1.05rem !important;
+  }
+  section[aria-label="Welcome hero"] h1 + p {
+    display: none !important;
+  }
+  section[aria-label="Welcome hero"] .btn {
+    padding: 0.5rem 1.1rem !important;
+    font-size: 0.8rem !important;
+  }
+  section[aria-label="Welcome hero"] > div[aria-hidden="true"] {
+    display: none !important;
+  }
+}

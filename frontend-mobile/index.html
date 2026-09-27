@@ -59,6 +59,8 @@
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7976760719077018" crossorigin="anonymous"></script>
     <style>
       #ad-top-mobile{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:6px 0;position:relative;z-index:100}
+      #ad-top-mobile{max-height:130px;overflow:hidden}
+      #ad-top-mobile:empty{display:none}
     </style>
   </head>
   <body>
@@ -70,14 +72,22 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       (function(){
-        var obs = new MutationObserver(function(){
+        var collapseEmpty = function(){
           var ad = document.getElementById('ad-top-mobile');
           if (!ad) return;
+          var ins = ad.querySelector('ins.adsbygoogle');
+          if (ins && ins.getAttribute('data-ad-status') === 'unfilled') {
+            ad.style.display = 'none';
+            return;
+          }
           var path = location.hash || location.pathname;
           var isQuiz = path.includes('/quiz') || path.includes('/attempt');
           ad.style.display = isQuiz ? 'none' : '';
-        });
-        obs.observe(document.body, {childList:true, subtree:true});
+        };
+        var obs = new MutationObserver(function(){ collapseEmpty(); });
+        obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['data-ad-status']});
+        setTimeout(collapseEmpty, 4000);
+        setTimeout(collapseEmpty, 9000);
       })();
     </script>
   </body>

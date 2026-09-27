@@ -8,6 +8,7 @@ const OfflineBanner: React.FC = () => {
   const [online, setOnline] = useState(isOnline());
   const [pending, setPending] = useState(0);
   const [hasPack, setHasPack] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -44,9 +45,15 @@ const OfflineBanner: React.FC = () => {
       setOnline(true);
       await trySync();
     };
-    const onOffline = () => setOnline(false);
+    const onOffline = () => {
+      setOnline(false);
+      setDismissed(false);
+      // Auto-dismiss the offline notice after 5s (sync pill still appears when needed)
+      setTimeout(() => setDismissed(true), 5000);
+    };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
+    if (!isOnline()) setTimeout(() => setDismissed(true), 5000);
     const t = setInterval(() => {
       refresh();
       trySync();
@@ -60,6 +67,7 @@ const OfflineBanner: React.FC = () => {
   }, []);
 
   if (online && pending === 0) return null;
+  if (!online && dismissed) return null;
   const doSyncNow = async () => {
     try {
       const n = await syncOutbox(submitQuiz, clearWrongQueue);
