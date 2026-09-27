@@ -10,7 +10,8 @@ import bcrypt
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Elfak").strip()
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
+# Only this username+password is admin. Override via env vars when needed.
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Kafle").strip()
 ADMIN_USERS = [ADMIN_USERNAME.lower()] if ADMIN_USERNAME else []
 
 

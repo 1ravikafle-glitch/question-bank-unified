@@ -180,9 +180,7 @@ const Dashboard: React.FC = () => {
 
   const allCatData = useMemo(() => {
     const statsMap = new Map(catStats.map((s) => [s.category, s]));
-    const topicCats = categories.filter((c) => !c.includes('Practice'));
-    const practiceCats = categories.filter((c) => c.includes('Practice'));
-    const sorted = [...topicCats.sort(), ...practiceCats.sort()];
+    const sorted = sortCategories(categories.filter((c) => c && c.trim()));
     return sorted.map((cat) => {
       const stats = statsMap.get(cat);
       return {

@@ -26,11 +26,12 @@ export function fetchCategoryEmoji(): Promise<Record<string, string>> {
 /** Keyword fallback when no admin emoji and no local map entry. */
 export function guessEmoji(name: string): string {
   const n = name.toLowerCase();
-  if (/[̀-ॿ]/.test(name)) return '📜';
+  if (/[\u0900-\u097F]/.test(name)) return '📜';
   if (n.includes('silv') || n.includes('silk') || n.includes('nursery') || n.includes('plantation')) return '🌱';
   if (n.includes('bio') || n.includes('eco')) return '🌿';
   if (n.includes('wild')) return '🦌';
   if (n.includes('soil') || n.includes('watershed')) return '🏔️';
+  if (n.includes('practice') || n.includes('mock') || n.includes('model set')) return '📝';
   if (n.includes('law') || n.includes('policy') || n.includes('act') || n.includes('legis')) return '⚖️';
   if (n.includes('survey') || n.includes('mensuration') || n.includes('research') || n.includes('stat')) return '📊';
   if (n.includes('utilization') || n.includes('timber') || n.includes('harvest') || n.includes('engineer')) return '🪵';

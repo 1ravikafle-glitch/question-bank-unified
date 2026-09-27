@@ -1,4 +1,4 @@
-const DEVANAGARI = /[̀-ॿ]/;
+const DEVANAGARI = /[\u0900-\u097F]/;
 
 /**
  * Global category order: A–Z (case-insensitive), Devanagari names last.

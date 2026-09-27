@@ -65,7 +65,7 @@
   // Global order: A–Z, Devanagari names last. Pure ordering, values untouched.
   function sortCategories(cats) {
     return cats.slice().sort(function (a, b) {
-      var ad = /[̀-ॿ]/.test(a) ? 1 : 0, bd = /[̀-ॿ]/.test(b) ? 1 : 0;
+      var ad = /[\u0900-\u097F]/.test(a) ? 1 : 0, bd = /[\u0900-\u097F]/.test(b) ? 1 : 0;
       if (ad !== bd) return ad - bd;
       var al = String(a).toLowerCase(), bl = String(b).toLowerCase();
       return al < bl ? -1 : al > bl ? 1 : 0;
@@ -80,8 +80,19 @@
       // ── App chrome: Apple grouped sidebar + pinned header (all pages) ──
       '.desktop-sidebar nav>div{margin-bottom:.75rem!important;background:hsl(var(--muted)/.45)!important;border:1px solid hsl(var(--border)/.6)!important;border-radius:14px!important;padding:.5rem .375rem .625rem!important}',
       '.desktop-sidebar nav>div>p{padding-top:.25rem!important;margin-bottom:.375rem!important}',
-      '@media(min-width:1024px){header[aria-label="Header"]{position:fixed!important;top:0!important;right:0!important;left:280px!important;margin-left:0!important;z-index:50!important}}',
-      '@media(min-width:1024px){div.min-h-screen:has(>header[aria-label="Header"]) #main-content{padding-top:56px!important}}',
+      // Sidebar item capsules: always visible, lift on hover (active keeps green pill)
+      '.desktop-sidebar nav a:not([aria-current="page"]){border:1px solid hsl(var(--border)/.55)!important;border-radius:11px!important;background:hsl(var(--muted)/.35)!important;transition:transform .18s ease,background .18s ease,box-shadow .18s ease,border-color .18s ease!important}',
+      '.desktop-sidebar nav a:not([aria-current="page"]):hover{transform:translateX(3px);background:hsl(var(--muted)/.75)!important;border-color:hsl(var(--primary)/.45)!important;box-shadow:0 4px 14px rgba(0,0,0,.10)!important}',
+      '.desktop-sidebar nav a:active{transform:translateX(1px) scale(.99)}',
+      '@media(min-width:1024px){.desktop-sidebar>a[href="/"]{height:64px!important;padding-top:0!important;padding-bottom:0!important;display:flex!important;align-items:center!important}}',
+      '@media(min-width:1024px){header[aria-label="Header"]{position:fixed!important;top:0!important;right:0!important;left:280px!important;margin-left:0!important;height:64px!important;z-index:50!important}}',
+      '@media(min-width:1024px){div.min-h-screen:has(>header[aria-label="Header"]) #main-content{padding-top:64px!important}}',
+      // Home category cards: capsule emphasis + hover lift
+      '.category-grid .subject-card{border-radius:14px!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important}',
+      '.category-grid .subject-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.10)!important;border-color:hsl(var(--primary)/.4)!important}',
+      '.category-grid .subject-card:active{transform:translateY(-1px) scale(.99)}',
+      // Beast armed: suppress numeric pills even against framer-motion hover (!important beats inline)
+      'body.beast-home-on .qsp-num{background:hsl(var(--muted))!important;color:hsl(var(--muted-foreground))!important;border:1px solid hsl(var(--border))!important;box-shadow:none!important}',
       '.qsp-overlay{position:fixed;inset:0;z-index:99999;background:#f3f5f3;overflow-y:auto;padding:clamp(20px,5vh,56px) clamp(16px,4vw,32px) 90px;font-family:Inter,system-ui,-apple-system,sans-serif}',
       '@media(min-width:1024px){.qsp-overlay{left:280px}}',
       '.qsp-wrap{max-width:720px;margin:0 auto}',
@@ -107,6 +118,9 @@
       '@keyframes dragonFly{0%{transform:translate(-30px,0);opacity:0}8%{opacity:1}92%{opacity:1}100%{transform:translate(420px,0);opacity:0}}',
       '.qsp-select{width:100%;padding:11px 38px 11px 13px;border-radius:9px;border:1px solid #dfe4de;background:#fff;color:#1c2420;font-size:13.5px;font-family:inherit;margin-bottom:18px;appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%2394a3b8\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.6\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e");background-position:right 12px center;background-repeat:no-repeat;background-size:15px}',
       '.qsp-select:focus{outline:none;border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.15)}',
+      '.qsp-emoji-chip{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:hsl(var(--muted));font-size:.9rem;flex-shrink:0;margin-right:.55rem}',
+      '.category-dropdown-item>span[style*="margin-right:"]{display:none!important}',
+      '.category-dropdown-item>span:empty{display:none}',
       '.qsp-start{width:100%;padding:13px 0;border-radius:10px;border:none;font-size:14.5px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:all .13s;font-family:inherit;box-shadow:0 3px 12px rgba(34,197,94,.3)}',
       '.qsp-start:hover{background:#16a34a}',
       '.qsp-start:active{transform:scale(.99)}',
@@ -135,11 +149,12 @@
   var emojiMap = {};
   function guessEmoji(name) {
     var n = String(name).toLowerCase();
-    if (/[̀-ॿ]/.test(name)) return '📜';
+    if (/[\u0900-\u097F]/.test(name)) return '📜';
     if (n.indexOf('silv') !== -1 || n.indexOf('silk') !== -1 || n.indexOf('nursery') !== -1) return '🌱';
     if (n.indexOf('bio') !== -1 || n.indexOf('eco') !== -1) return '🌿';
     if (n.indexOf('wild') !== -1) return '🦌';
     if (n.indexOf('soil') !== -1 || n.indexOf('watershed') !== -1) return '🏔️';
+    if (n.indexOf('practice') !== -1 || n.indexOf('mock') !== -1 || n.indexOf('model set') !== -1) return '📝';
     if (n.indexOf('law') !== -1 || n.indexOf('policy') !== -1 || n.indexOf('act') !== -1) return '⚖️';
     if (n.indexOf('survey') !== -1 || n.indexOf('mensuration') !== -1 || n.indexOf('research') !== -1 || n.indexOf('stat') !== -1) return '📊';
     if (n.indexOf('utilization') !== -1 || n.indexOf('timber') !== -1 || n.indexOf('engineer') !== -1) return '🪵';
@@ -310,7 +325,7 @@
       if (!document.body.contains(overlay)) return;
       var total = (res[0] && res[0].count) || 0;
       var cats = sortCategories(res[1] || []);
-      var wq = res[2] || {};
+      var wq = res[3] || {};
       var wQuestions = wq.questions || [];
       var wc = (typeof wq.count === 'number') ? wq.count : wQuestions.length;
       wrongIds = wQuestions.map(function (q) { return q.id; }).filter(function (id) { return id != null; });
@@ -436,9 +451,11 @@
   }
 
   function enhanceHomeCard() {
-    if (!isHomeRoute()) { homeBeast = false; homeCat = ''; return; }
+    if (!isHomeRoute()) { homeBeast = false; homeCat = ''; try { document.body.classList.remove('beast-home-on'); } catch (e) {} return; }
+    try { sortHomeGrid(); } catch (e) {}
     var sec = document.querySelector('section[aria-label="Practice session setup"]');
     if (!sec) return;
+    try { enhanceHomeDropdown(sec); } catch (e) {}
     // Track category from the dropdown items + toggle text
     try {
       var items = sec.querySelectorAll('.category-dropdown-item');
@@ -460,8 +477,10 @@
     Array.prototype.forEach.call(pills, function (b) {
       if (b.__beastWired) return;
       b.__beastWired = true;
+      try { b.classList.add('qsp-num'); } catch (e) {}
       b.addEventListener('click', function () {
         homeBeast = false;
+        try { document.body.classList.remove('beast-home-on'); } catch (e) {}
         paintHomeBeast();
       });
     });
@@ -482,6 +501,7 @@
       bp.innerHTML = '<span aria-hidden="true">&#x1f525;</span> <span class="qsp-beast-t">Beast</span>';
       bp.addEventListener('click', function () {
         homeBeast = true;
+        try { document.body.classList.add('beast-home-on'); } catch (e) {}
         clearStaleNumericGreen();
         paintHomeBeast();
       });
@@ -505,10 +525,92 @@
     });
   }
 
+  // A–Z with Devanagari last (compare key, not display text).
+  function catSortKey(name) {
+    var t = String(name || '').trim();
+    var dev = /[\u0900-\u097F]/.test(t) ? '1' : '0';
+    return dev + '|' + t.toLowerCase();
+  }
+
+  // Home category dropdown: emoji chips + A–Z order (All Categories first).
+  function cleanItemName(it) {
+    try {
+      var clone = it.cloneNode(true);
+      var chips = clone.querySelectorAll('.qsp-emoji-chip');
+      for (var i = 0; i < chips.length; i++) chips[i].remove();
+      return (clone.textContent || '').trim();
+    } catch (e) { return (it.textContent || '').trim(); }
+  }
+  function enhanceHomeDropdown(sec) {
+    try {
+      var items = sec.querySelectorAll('.category-dropdown-item');
+      if (!items.length) return;
+      Array.prototype.forEach.call(items, function (it) {
+        // Name = text minus any chips (React's own icon span is CSS-hidden, ignore it)
+        var probe = it.cloneNode(true);
+        var pch = probe.querySelectorAll('.qsp-emoji-chip');
+        for (var k = 0; k < pch.length; k++) pch[k].remove();
+        var raw = (probe.textContent || '').trim();
+        // strip a leading React emoji if present
+        var m = raw.match(/^((?:\p{Extended_Pictographic}\uFE0F?|\u200D|\s)+)(.*)$/u);
+        if (m) raw = (m[2] || '').trim();
+        var em = raw === 'All Categories' ? '🗂️' : ((emojiMap && emojiMap[raw]) || guessEmoji(raw));
+        var have = it.querySelectorAll('.qsp-emoji-chip');
+        if (have.length === 1 && have[0].textContent === em && it.dataset.ename === raw) return; // steady: zero writes
+        it.dataset.ename = raw;
+        for (var j = 0; j < have.length; j++) have[j].remove();
+        var chip = document.createElement('span');
+        chip.setAttribute('aria-hidden', 'true');
+        chip.className = 'qsp-emoji-chip';
+        chip.textContent = em;
+        it.insertBefore(chip, it.firstChild);
+      });
+      var list = items[0].parentElement;
+      var sig = Array.prototype.map.call(items, function (it) { return it.dataset.ename; }).join('~');
+      if (list.dataset.sorted === sig) return;
+      var arr = Array.prototype.slice.call(items);
+      arr.sort(function (x, y) {
+        var a = x.dataset.ename, b = y.dataset.ename;
+        if (a === 'All Categories') return -1;
+        if (b === 'All Categories') return 1;
+        var ka = catSortKey(a), kb = catSortKey(b);
+        return ka < kb ? -1 : ka > kb ? 1 : 0;
+      });
+      Array.prototype.forEach.call(arr, function (it) { list.appendChild(it); });
+      list.dataset.sorted = sig;
+    } catch (e) {}
+  }
+
+  // Home category grid: A–Z order (Devanagari last), capsules via CSS.
+  function sortHomeGrid() {
+    try {
+      var grid = document.querySelector('.category-grid');
+      if (!grid) return;
+      var cards = grid.querySelectorAll(':scope > .subject-card');
+      if (cards.length < 2) return;
+      var names = Array.prototype.map.call(cards, function (c) {
+        var t = (c.textContent || '').replace(/\d[\d,]*\s*questions?\s*/ig, '').replace(/^[^\p{L}]+/u, '').trim();
+        return t;
+      });
+      var keys = names.map(catSortKey);
+      var ordered = true;
+      for (var i = 1; i < keys.length; i++) { if (keys[i - 1] > keys[i]) { ordered = false; break; } }
+      if (ordered) { grid.dataset.sorted = '1'; return; }
+      if (grid.dataset.sorted === '1') return;
+      var arr = Array.prototype.map.call(cards, function (c, i) { return { el: c, k: keys[i] }; });
+      arr.sort(function (x, y) { return x.k < y.k ? -1 : x.k > y.k ? 1 : 0; });
+      Array.prototype.forEach.call(arr, function (o) { grid.appendChild(o.el); });
+      grid.dataset.sorted = '1';
+    } catch (e) {}
+  }
+
   function paintHomeBeast() {
     var bp = document.querySelector('#qsp-home-beast');
     if (homeBeast) beastFXOn(bp);
-    else beastFXOff(bp);
+    else {
+      beastFXOff(bp);
+      try { document.body.classList.remove('beast-home-on'); } catch (e) {}
+    }
     if (bp && bp.getAttribute('aria-pressed') !== String(homeBeast)) {
       bp.setAttribute('aria-pressed', homeBeast ? 'true' : 'false');
     }
@@ -517,6 +619,21 @@
   function init() {
     hookNav();
     try { injectStyles(); } catch (e) {} // sidebar groups + pinned header on every page
+    // Admin emoji map for every page (dropdown chips), refreshed silently
+    try {
+      fetch('/questions/category-meta')
+        .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+        .then(function (d) {
+          emojiMap = (d && d.emoji) || {};
+          // Meta may arrive after chips rendered with guesses → rebuild them once
+          try {
+            var olds = document.querySelectorAll('.qsp-emoji-chip');
+            for (var i = 0; i < olds.length; i++) olds[i].remove();
+            enhanceHomeCard();
+          } catch (e) {}
+        })
+        .catch(function () {});
+    } catch (e) {}
     // Continue flow: user chose resume → skip the menu once, let the app restore.
     try {
       if (sessionStorage.getItem('qsp_continue') === '1') {
