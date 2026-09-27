@@ -453,13 +453,28 @@ const QuizTaker: React.FC = () => {
             // Fall through to setup screen below
             try {
               const [totalResp, categoriesResp, wrongQueueResp] = await Promise.all([
-                fetchQuestionsCount(),
-                fetchCategories(),
-                fetchWrongQueue(userId || 'anonymous'),
+                fetchQuestionsCount().catch(() => null),
+                fetchCategories().catch(() => null),
+                fetchWrongQueue(userId || 'anonymous').catch(() => null),
               ]);
-              setSetupTotal(totalResp.count);
-              setSetupCategories(categoriesResp);
-              setSetupWrongCount(wrongQueueResp.questions?.length || 0);
+              if (totalResp) setSetupTotal(totalResp.count);
+              if (categoriesResp) setSetupCategories(categoriesResp);
+              if (wrongQueueResp) setSetupWrongCount(wrongQueueResp.questions?.length || 0);
+              if (!totalResp) {
+                // Offline: show downloaded pack size instead
+                try {
+                  const { packInfo } = await import('@/utils/offline');
+                  const info = await packInfo();
+                  if (info) {
+                    setSetupTotal(info.total);
+                    if (!categoriesResp) {
+                      const { getBank } = await import('@/utils/offline');
+                      const bank = await getBank();
+                      if (bank) setSetupCategories([...new Set(bank.map((q: any) => q.category).filter(Boolean))]);
+                    }
+                  }
+                } catch {}
+              }
             } catch (err) {
               console.error('Error loading setup data:', err);
             }
@@ -502,6 +517,29 @@ const QuizTaker: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionIdFromUrl, countParam, categoryParam, isPracticeWrongMode]);
 
+  // Local scoring when offline (answers queued for server sync later)
+  const scoreLocally = (qs: Question[], sel: Record<number, string>) => {
+    const correct: Record<number, boolean> = {};
+    const incorrect: number[] = [];
+    let score = 0;
+    qs.forEach((q) => {
+      const picked = (sel[q.id] || '').toString().toLowerCase();
+      const right = (q.correct_answer || '').toString().toLowerCase();
+      const ok = !!picked && picked[0] === right[0];
+      correct[q.id] = ok;
+      if (ok) score++;
+      else incorrect.push(q.id);
+    });
+    return {
+      score,
+      total_questions: qs.length,
+      percentage: qs.length ? Math.round((score / qs.length) * 100) : 0,
+      correct_answers: correct,
+      incorrect_questions: incorrect,
+      offline: true,
+    };
+  };
+
   const submitQuizRequest = useCallback(
     async (finalSelected: Record<number, string>) => {
       setSubmitting(true);
@@ -510,7 +548,16 @@ const QuizTaker: React.FC = () => {
         questions.forEach((q) => {
           if (finalSelected[q.id]) answersPayload[q.id] = finalSelected[q.id];
         });
-        const result = await submitQuiz(answersPayload, userId || 'anonymous');
+        let result;
+        try {
+          result = await submitQuiz(answersPayload, userId || 'anonymous');
+        } catch (e: any) {
+          if (e?.message === 'OFFLINE_QUEUED') {
+            result = scoreLocally(questions, finalSelected);
+          } else {
+            throw e;
+          }
+        }
         if (isPracticeWrongMode && userId) {
           const practisedIds = questions.map((q) => q.id);
           clearWrongQueue(userId, practisedIds).catch(() => {});

@@ -5,6 +5,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji } from '@/utils/categoryEmoji';
+import { downloadPack, packInfo, clearPack, pendingCount, type OfflinePackInfo } from '@/utils/offline';
 import { motion } from 'framer-motion';
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -111,6 +112,32 @@ const Dashboard: React.FC = () => {
   const [category, setCategory] = useState<string>('');
   const [categories, setCategories] = useState<string[]>([]);
   const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
+  const [pack, setPack] = useState<OfflinePackInfo | null>(null);
+  const [packBusy, setPackBusy] = useState(false);
+  const [packMsg, setPackMsg] = useState('');
+  const [outboxN, setOutboxN] = useState(0);
+  useEffect(() => {
+    packInfo().then(setPack).catch(() => {});
+    pendingCount().then(setOutboxN).catch(() => {});
+  }, []);
+  const handleDownloadPack = async () => {
+    setPackBusy(true);
+    setPackMsg('Downloading questions…');
+    try {
+      const info = await downloadPack(() => fetchQuestions({ limit: 10000 }), setPackMsg);
+      setPack(info);
+      setPackMsg(`Saved ${info.total.toLocaleString()} questions for offline practice.`);
+    } catch (e: any) {
+      setPackMsg('Download failed — check connection and retry.');
+    } finally {
+      setPackBusy(false);
+    }
+  };
+  const handleDeletePack = async () => {
+    await clearPack();
+    setPack(null);
+    setPackMsg('Offline pack deleted.');
+  };
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [attempted, setAttempted] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -681,6 +708,42 @@ const Dashboard: React.FC = () => {
                   Practice Wrong Questions
                 </motion.button>
               </div>
+            )}
+          </motion.section>
+
+          {/* ── Offline pack ─────────────────────────────────── */}
+          <motion.section
+            variants={itemVariants}
+            aria-label="Offline practice pack"
+            style={{
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: 'var(--apple-radius-lg)',
+              padding: '1rem 1.25rem',
+              marginBottom: '1.25rem',
+            }}
+          >
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600, margin: '0 0 0.25rem 0' }}>
+              📴 Offline Practice
+            </h2>
+            <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0 0 0.75rem 0', lineHeight: 1.5 }}>
+              {pack
+                ? `${pack.total.toLocaleString()} questions saved${pack.savedAt ? ' · updated ' + new Date(pack.savedAt).toLocaleDateString() : ''}. Quizzes, Beast Mode and results work offline; scores sync when you reconnect.`
+                : 'Download the bank once, then practice anywhere — no internet needed.'}
+              {outboxN > 0 && ` ${outboxN} result${outboxN > 1 ? 's' : ''} waiting to sync.`}
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button onClick={handleDownloadPack} disabled={packBusy} className="btn btn-primary btn-sm" style={{ padding: '8px 16px' }}>
+                {packBusy ? 'Downloading…' : pack ? 'Update pack' : 'Download pack'}
+              </button>
+              {pack && (
+                <button onClick={handleDeletePack} className="btn btn-ghost btn-sm" style={{ padding: '8px 12px' }}>
+                  Delete
+                </button>
+              )}
+            </div>
+            {packMsg && (
+              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '0.5rem 0 0' }}>{packMsg}</p>
             )}
           </motion.section>
 

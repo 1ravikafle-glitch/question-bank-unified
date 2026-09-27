@@ -426,6 +426,8 @@
     try { enhanceHomeCard(); } catch (e) {}
     try { ensureTopcover(); } catch (e) {}
     try { alignHero(); } catch (e) {}
+    try { enhancePackCard(); } catch (e) {}
+    try { paintOffbar(); } catch (e) {}
   }
 
   function hookNav() {
@@ -631,6 +633,247 @@
     }
   }
 
+  // ── Offline: SW registration, status bar, outbox sync, pack card ──
+  function registerSW() {
+    try {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(function () {});
+        // Prime runtime cache with this page's assets (worker may have
+        // installed after they first loaded) so offline works first try.
+        setTimeout(function () {
+          try {
+            if (!('caches' in window)) return;
+            var urls = [location.href];
+            var nodes = document.querySelectorAll('script[src], link[rel="stylesheet"]');
+            for (var i = 0; i < nodes.length; i++) {
+              var u = nodes[i].src || nodes[i].href;
+              if (u && u.indexOf(location.origin) === 0) urls.push(u);
+            }
+            caches.open('forestry-v4').then(function (cache) {
+              urls.forEach(function (u) {
+                cache.match(u).then(function (hit) {
+                  if (!hit) cache.add(u).catch(function () {});
+                });
+              });
+            }).catch(function () {});
+          } catch (e) {}
+        }, 3000);
+      }
+    } catch (e) {}
+  }
+
+  function idbOpen() {
+    return new Promise(function (resolve, reject) {
+      try {
+        var r = indexedDB.open('forestry-offline', 1);
+        r.onupgradeneeded = function () {
+          var db = r.result;
+          if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv', { keyPath: 'k' });
+          if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'id', autoIncrement: true });
+        };
+        r.onsuccess = function () { resolve(r.result); };
+        r.onerror = function () { reject(r.error); };
+      } catch (e) { reject(e); }
+    });
+  }
+
+  function idbReq(r) {
+    return new Promise(function (resolve, reject) {
+      r.onsuccess = function () { resolve(r.result); };
+      r.onerror = function () { reject(r.error); };
+    });
+  }
+
+  function outboxCount() {
+    return idbOpen().then(function (db) {
+      return idbReq(db.transaction(['outbox'], 'readonly').objectStore('outbox').getAll()).then(function (all) {
+        db.close();
+        return (all || []).length;
+      });
+    }).catch(function () { return 0; });
+  }
+
+  function syncOutbox() {
+    return idbOpen().then(function (db) {
+      return idbReq(db.transaction(['outbox'], 'readonly').objectStore('outbox').getAll()).then(function (items) {
+        db.close();
+        var chain = Promise.resolve(0);
+        (items || []).forEach(function (it) {
+          chain = chain.then(function (n) {
+            return fetch('/quiz/submit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ answers: it.answers, username: it.username }),
+            }).then(function (r) {
+              if (!r.ok) throw 0;
+              return idbOpen().then(function (db2) {
+                return idbReq(db2.transaction(['outbox'], 'readwrite').objectStore('outbox').delete(it.id)).then(function () {
+                  db2.close();
+                  return n + 1;
+                });
+              });
+            });
+          });
+        });
+        return chain;
+      });
+    });
+  }
+
+  function packStatus() {
+    return idbOpen().then(function (db) {
+      return idbReq(db.transaction(['kv'], 'readonly').objectStore('kv').get('bank')).then(function (rec) {
+        db.close();
+        if (rec && rec.questions && rec.questions.length) return { total: rec.questions.length, savedAt: rec.savedAt || 0 };
+        return null;
+      });
+    }).catch(function () { return null; });
+  }
+
+  function paintOffbar() {
+    var bar = document.querySelector('#qsp-offbar');
+    if (!bar) return;
+    var online = navigator.onLine !== false;
+    outboxCount().then(function (n) {
+      packStatus().then(function (pack) {
+        if (!document.body.contains(bar)) return;
+        if (online && n === 0) { bar.style.display = 'none'; return; }
+        bar.style.display = 'flex';
+        bar.style.cursor = online && n > 0 ? 'pointer' : 'default';
+        bar.title = online && n > 0 ? 'Tap to sync now' : '';
+        bar.innerHTML = '<span aria-hidden="true">' + (online ? '🔄' : '📴') + '</span><span>' +
+          (!online
+            ? (pack ? 'Offline — practicing from downloaded pack' : 'Offline — connect to download practice pack')
+            : ('Syncing ' + n + ' offline result' + (n > 1 ? 's' : '') + '… tap to retry')) + '</span>';
+      });
+    });
+  }
+
+  function trySyncNow() {
+    if (navigator.onLine === false) return;
+    outboxCount().then(function (n) {
+      if (!n) { paintOffbar(); return; }
+      syncOutbox().then(function (synced) {
+        paintOffbar();
+        if (synced > 0) showOffToast('Synced ' + synced + ' offline quiz' + (synced > 1 ? 'zes' : ''));
+      }).catch(function () { paintOffbar(); });
+    });
+  }
+
+  function injectOffbarCSS() {
+    if (document.getElementById('qsp-offcss')) return;
+    var s = document.createElement('style');
+    s.id = 'qsp-offcss';
+    s.textContent = [
+      '#qsp-offbar{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:99990;display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;font-size:.78rem;font-weight:600;background:#1c1917;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.25);font-family:Inter,system-ui,sans-serif;white-space:nowrap}',
+      '#qsp-offtoast{position:fixed;bottom:124px;left:50%;transform:translateX(-50%);z-index:99991;background:hsl(152 55% 45%);color:#fff;font-size:.8rem;font-weight:600;padding:10px 18px;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.25);font-family:Inter,system-ui,sans-serif}',
+      '#qsp-packcard{background:#fff;border:1px solid #e5e9e5;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.04);margin-bottom:20px;font-family:Inter,system-ui,sans-serif}',
+      '#qsp-packcard h3{font-size:15px;font-weight:700;color:#101813;margin:0 0 4px}',
+      '#qsp-packcard p{font-size:13px;color:#6b7686;margin:0 0 12px;line-height:1.5}',
+      '#qsp-packcard .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}',
+      '#qsp-packbtn{background:#22c55e;color:#fff;border:none;border-radius:9px;padding:9px 18px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}',
+      '#qsp-packbtn:disabled{opacity:.6;cursor:wait}',
+      '#qsp-packdel{background:none;border:1px solid #e2e8e2;border-radius:9px;padding:9px 14px;font-size:13px;font-weight:600;color:#5b6672;cursor:pointer;font-family:inherit}',
+      '#qsp-packmsg{font-size:12px;color:#8a94a0;margin:8px 0 0}'
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  function showOffToast(msg) {
+    try {
+      var old = document.querySelector('#qsp-offtoast');
+      if (old) old.remove();
+      var t = document.createElement('div');
+      t.id = 'qsp-offtoast';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(function () { if (t.parentElement) t.remove(); }, 4000);
+    } catch (e) {}
+  }
+
+  function initOffline() {
+    if (document.querySelector('#qsp-offbar')) return;
+    injectOffbarCSS();
+    var bar = document.createElement('div');
+    bar.id = 'qsp-offbar';
+    bar.setAttribute('role', 'status');
+    bar.style.display = 'none';
+    bar.addEventListener('click', function () { trySyncNow(); });
+    document.body.appendChild(bar);
+    paintOffbar();
+    window.addEventListener('online', function () {
+      paintOffbar();
+      trySyncNow();
+    });
+    window.addEventListener('offline', paintOffbar);
+    setInterval(function () { paintOffbar(); trySyncNow(); }, 15000);
+  }
+
+  // Home pack card (desktop): download/delete the offline bank
+  function enhancePackCard() {
+    try {
+      if (!isHomeRoute() || document.querySelector('#qsp-packcard')) return;
+      var sec = document.querySelector('section[aria-label="Practice session setup"]');
+      if (!sec) return;
+      var card = document.createElement('div');
+      card.id = 'qsp-packcard';
+      card.innerHTML = '<h3>📴 Offline Practice</h3><p id="qsp-packmsg">Checking…</p>' +
+        '<div class="row"><button type="button" id="qsp-packbtn">Download pack</button>' +
+        '<button type="button" id="qsp-packdel" style="display:none">Delete</button></div>';
+      sec.parentElement.insertBefore(card, sec.nextSibling);
+      var msg = card.querySelector('#qsp-packmsg');
+      var btn = card.querySelector('#qsp-packbtn');
+      var del = card.querySelector('#qsp-packdel');
+      function refresh() {
+        packStatus().then(function (pack) {
+          if (!document.body.contains(card)) return;
+          if (pack) {
+            var d = pack.savedAt ? ' · updated ' + new Date(pack.savedAt).toLocaleDateString() : '';
+            msg.textContent = pack.total.toLocaleString() + ' questions saved' + d + '. Quizzes, Beast Mode and results work offline; scores sync on reconnect.';
+            btn.textContent = 'Update pack';
+            del.style.display = '';
+          } else {
+            msg.textContent = 'Download the bank once, then practice anywhere — no internet needed.';
+            btn.textContent = 'Download pack';
+            del.style.display = 'none';
+          }
+        });
+        outboxCount().then(function (n) {
+          if (n > 0 && document.body.contains(card)) msg.textContent += ' ' + n + ' result' + (n > 1 ? 's' : '') + ' waiting to sync.';
+        });
+      }
+      refresh();
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        msg.textContent = 'Downloading questions…';
+        fetch('/questions/?limit=10000').then(function (r) {
+          if (!r.ok) throw 0;
+          return r.json();
+        }).then(function (qs) {
+          msg.textContent = 'Saving…';
+          return idbOpen().then(function (db) {
+            return idbReq(db.transaction(['kv'], 'readwrite').objectStore('kv').put({
+              k: 'bank', questions: qs, savedAt: Date.now(), total: qs.length
+            })).then(function () { db.close(); return qs.length; });
+          });
+        }).then(function (n) {
+          btn.disabled = false;
+          msg.textContent = 'Saved ' + n.toLocaleString() + ' questions for offline practice.';
+          paintOffbar();
+          refresh();
+        }).catch(function () {
+          btn.disabled = false;
+          msg.textContent = 'Download failed — check connection and retry.';
+        });
+      });
+      del.addEventListener('click', function () {
+        idbOpen().then(function (db) {
+          return idbReq(db.transaction(['kv'], 'readwrite').objectStore('kv').delete('bank')).then(function () { db.close(); });
+        }).then(refresh).catch(refresh);
+      });
+    } catch (e) {}
+  }
+
   // ── Solid backdrop above the pinned header (hides scrolled content) ──
   function ensureTopcover() {
     try {
@@ -681,6 +924,8 @@
     hookNav();
     try { injectStyles(); } catch (e) {} // sidebar groups + pinned header on every page
     try { ensureTopcover(); } catch (e) {}
+    try { registerSW(); } catch (e) {}
+    try { initOffline(); } catch (e) {}
     try { alignHero(); } catch (e) {}
     setTimeout(function () { try { alignHero(); } catch (e) {} }, 1500);
     setTimeout(function () { try { alignHero(); ensureTopcover(); } catch (e) {} }, 3500);

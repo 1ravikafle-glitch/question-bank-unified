@@ -298,6 +298,23 @@ if SEO_ENABLED:
         return PlainTextResponse(seo_pages.robots_txt(request))
 
 
+@app.get("/sw.js")
+async def service_worker():
+    from fastapi.responses import Response
+
+    sw_path = os.path.join(os.path.dirname(__file__), "sw.js")
+    try:
+        with open(sw_path, "r", encoding="utf-8") as f:
+            body = f.read()
+    except Exception:
+        raise HTTPException(status_code=404, detail="No service worker")
+    return Response(
+        body,
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
+
+
 def _not_found_page() -> HTMLResponse:
     return HTMLResponse(
         "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8' />"

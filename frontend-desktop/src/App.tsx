@@ -13,6 +13,7 @@ import About from './components/About';
 import Header from './components/Header';
 import DesktopSidebar from './components/DesktopSidebar';
 import MobileBottomNav from './components/MobileBottomNav';
+import OfflineBanner from './components/OfflineBanner';
 import Footer from './components/Footer';
 import { AuthContext } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -115,6 +116,9 @@ function AppShell() {
 
         {/* Mobile Bottom Navigation — visible only on < lg */}
         {showLayout && <MobileBottomNav />}
+
+        {/* Offline status + auto-sync */}
+        {showLayout && <OfflineBanner />}
       </div>
     </AuthContext.Provider>
   );

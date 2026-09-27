@@ -141,6 +141,35 @@ const ResultsScreen: React.FC = () => {
       animate="animate"
       style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}
     >
+      {/* Just-finished result (incl. offline-scored, queued for sync) */}
+      {quizResult && (
+        <div
+          className="card"
+          style={{
+            padding: '1rem 1.2rem',
+            border: '1px solid hsl(var(--primary) / 0.4)',
+            background: 'hsl(var(--primary) / 0.07)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.9rem',
+          }}
+          role="status"
+        >
+          <span style={{ fontSize: '1.75rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+            {quizResult.percentage}%
+          </span>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: '0.875rem', fontWeight: 600, margin: 0 }}>
+              You scored {quizResult.score} / {quizResult.total_questions}
+            </p>
+            {(quizResult as any).offline && (
+              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '2px 0 0' }}>
+                Offline result — saved on this device, will sync automatically when you reconnect.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       {/* ═══════════════════════════════════════════
            STAT TILES
           ═══════════════════════════════════════════ */}

@@ -37,19 +37,43 @@ export const fetchQuestionById = async (id: number) => {
   return response.data;
 };
 
+export const OFFLINE_NO_PACK = 'OFFLINE_NO_PACK';
+export const OFFLINE_QUEUED = 'OFFLINE_QUEUED';
+
+const isNetworkError = (e: any) =>
+  !e?.response && (e?.code === 'ERR_NETWORK' || e?.message === 'Network Error' || e instanceof TypeError);
+
 export const fetchRandomQuestions = async (
   params: { count?: number; category?: string; difficulty?: string } = {}
 ) => {
   const count = params.count ?? 10;
-  const response = await api.get<Question[]>(`/quiz/random/${count}`, {
-    params: { category: params.category, difficulty: params.difficulty },
-  });
-  return response.data;
+  try {
+    const response = await api.get<Question[]>(`/quiz/random/${count}`, {
+      params: { category: params.category, difficulty: params.difficulty },
+    });
+    return response.data;
+  } catch (e) {
+    if (!isNetworkError(e)) throw e;
+    // Offline: serve from the downloaded pack
+    const { getBank, sampleLocal } = await import('@/utils/offline');
+    const bank = await getBank();
+    if (!bank) throw new Error(OFFLINE_NO_PACK);
+    return sampleLocal(bank, count, params.category);
+  }
 };
 
 export const submitQuiz = async (answers: Record<number, string>, username: string = '') => {
-  const response = await api.post<QuizResult>('/quiz/submit', { answers, username });
-  return response.data;
+  try {
+    const response = await api.post<QuizResult>('/quiz/submit', { answers, username });
+    return response.data;
+  } catch (e) {
+    if (!isNetworkError(e)) throw e;
+    // Offline: queue for sync, caller shows local scoring
+    const { queueAttempt } = await import('@/utils/offline');
+    const total = Object.keys(answers).length;
+    await queueAttempt({ username, answers, total });
+    throw new Error(OFFLINE_QUEUED);
+  }
 };
 
 export const fetchQuestionsCount = async (
