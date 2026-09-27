@@ -92,7 +92,7 @@
       '.category-grid .subject-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.10)!important;border-color:hsl(var(--primary)/.4)!important}',
       '.category-grid .subject-card:active{transform:translateY(-1px) scale(.99)}',
       // Beast armed: suppress numeric pills even against framer-motion hover (!important beats inline)
-      'body.beast-home-on .qsp-num{background:hsl(var(--muted))!important;color:hsl(var(--muted-foreground))!important;border:1px solid hsl(var(--border))!important;box-shadow:none!important}',
+      'body.beast-home-on .qsp-num:not(#qsp-home-beast){background:hsl(var(--muted))!important;color:hsl(var(--muted-foreground))!important;border:1px solid hsl(var(--border))!important;box-shadow:none!important}',
       '.qsp-overlay{position:fixed;inset:0;z-index:99999;background:#f3f5f3;overflow-y:auto;padding:clamp(20px,5vh,56px) clamp(16px,4vw,32px) 90px;font-family:Inter,system-ui,-apple-system,sans-serif}',
       '@media(min-width:1024px){.qsp-overlay{left:280px}}',
       '.qsp-wrap{max-width:720px;margin:0 auto}',
@@ -220,8 +220,14 @@
   function beastFXOn(btn) {
     if (!btn || btn.dataset.armed === '1') return; // idempotent: no DOM churn → no observer loop
     btn.dataset.armed = '1';
+    if (btn.dataset.baseCss === undefined) btn.dataset.baseCss = btn.style.cssText;
     fxCleanup(btn);
     btn.classList.add('on');
+    // Explicit inline colors (copied base cssText would otherwise win over classes)
+    btn.style.background = '#22c55e';
+    btn.style.color = '#fff';
+    btn.style.border = '1px solid #22c55e';
+    btn.style.boxShadow = '0 4px 14px rgba(34,197,94,.4)';
     btn.innerHTML = '<span aria-hidden="true">&#x1f525;</span> <span class="qsp-beast-t">BEAST</span>';
     if (FX_OFF) return;
     btn.classList.add('beast-armed');
@@ -237,6 +243,7 @@
     if (!btn || btn.dataset.armed !== '1') return; // idempotent
     delete btn.dataset.armed;
     btn.classList.remove('on', 'beast-armed', 'beast-shake');
+    if (btn.dataset.baseCss !== undefined) btn.style.cssText = btn.dataset.baseCss;
     btn.innerHTML = '<span aria-hidden="true">&#x1f525;</span> <span class="qsp-beast-t">Beast</span>';
     fxCleanup(btn);
   }
@@ -494,7 +501,7 @@
       bp.title = 'Beast Mode — practice ALL questions: full bank or whole category';
       bp.setAttribute('aria-label', 'Beast Mode: practice all questions');
       bp.setAttribute('aria-pressed', 'false');
-      bp.className = ref.className;
+      bp.className = 'qsp-pill'; // base class so .on / hover rules apply
       bp.style.cssText = ref.style.cssText + ';flex:1;font-weight:700;white-space:nowrap;overflow:hidden;';
       bp.style.fontSize = '0.8125rem';
       bp.style.color = 'hsl(var(--muted-foreground))';

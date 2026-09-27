@@ -177,7 +177,17 @@ def rename_category(payload: RenameCategoryRequest, db: Session = Depends(databa
 
     count = db.query(models.Question).filter(models.Question.category == old).count()
     if count == 0:
-        raise HTTPException(status_code=404, detail=f"Category '{old}' not found")
+        # Fall back to whitespace-tolerant match (catches leading/trailing-space variants)
+        candidates = [
+            r[0] for r in db.query(models.Question.category).distinct().all() if r[0]
+        ]
+        tolerants = [c for c in candidates if c.strip() == old]
+        if len(tolerants) == 1:
+            old = tolerants[0]
+            count = db.query(models.Question).filter(models.Question.category == old).count()
+        else:
+            hint = f" Close matches: {tolerants}" if tolerants else ""
+            raise HTTPException(status_code=404, detail=f"Category '{payload.old_name.strip()}' not found.{hint}")
 
     existing = db.query(models.Question).filter(models.Question.category == new).count()
     if existing > 0:
@@ -185,12 +195,60 @@ def rename_category(payload: RenameCategoryRequest, db: Session = Depends(databa
 
     try:
         updated = db.query(models.Question).filter(models.Question.category == old).update({"category": new})
+        # Carry any admin emoji over to the new name
+        meta = db.query(models.CategoryMeta).filter(models.CategoryMeta.category == old).first()
+        if meta:
+            target = db.query(models.CategoryMeta).filter(models.CategoryMeta.category == new).first()
+            if target:
+                if not target.emoji:
+                    target.emoji = meta.emoji
+                db.delete(meta)
+            else:
+                meta.category = new
         db.commit()
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to rename category")
 
     return {"renamed": old, "to": new, "questions_updated": updated}
+
+
+class MergeCategoryRequest(BaseModel):
+    source: str
+    target: str
+
+
+@router.put("/categories/merge")
+def merge_categories(payload: MergeCategoryRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+    """Move all questions from one existing category into another (for duplicates)."""
+    source = (payload.source or "").strip()
+    target = (payload.target or "").strip()
+    if not source or not target:
+        raise HTTPException(status_code=400, detail="source and target are required")
+    if source == target:
+        raise HTTPException(status_code=400, detail="Source and target are the same")
+    sc = db.query(models.Question).filter(models.Question.category == source).count()
+    if sc == 0:
+        raise HTTPException(status_code=404, detail=f"Source category '{source}' not found")
+    tc = db.query(models.Question).filter(models.Question.category == target).count()
+    if tc == 0:
+        raise HTTPException(status_code=404, detail=f"Target category '{target}' not found")
+    try:
+        moved = db.query(models.Question).filter(models.Question.category == source).update({"category": target})
+        smeta = db.query(models.CategoryMeta).filter(models.CategoryMeta.category == source).first()
+        if smeta:
+            tmeta = db.query(models.CategoryMeta).filter(models.CategoryMeta.category == target).first()
+            if tmeta:
+                if not tmeta.emoji:
+                    tmeta.emoji = smeta.emoji
+                db.delete(smeta)
+            else:
+                smeta.category = target
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to merge categories")
+    return {"merged_from": source, "merged_to": target, "questions_moved": moved}
 
 
 @router.delete("/categories/{category_name}")
