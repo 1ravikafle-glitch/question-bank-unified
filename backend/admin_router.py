@@ -209,6 +209,11 @@ def rename_category(payload: RenameCategoryRequest, db: Session = Depends(databa
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to rename category")
+    try:
+        import questions_router
+        questions_router._cache.clear()
+    except Exception:
+        pass
 
     return {"renamed": old, "to": new, "questions_updated": updated}
 
@@ -248,6 +253,11 @@ def merge_categories(payload: MergeCategoryRequest, db: Session = Depends(databa
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to merge categories")
+    try:
+        import questions_router
+        questions_router._cache.clear()
+    except Exception:
+        pass
     return {"merged_from": source, "merged_to": target, "questions_moved": moved}
 
 
@@ -267,6 +277,11 @@ def delete_category(category_name: str, db: Session = Depends(database.get_db), 
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to delete category")
+    try:
+        import questions_router
+        questions_router._cache.clear()
+    except Exception:
+        pass
 
     return {"deleted_category": category_name, "questions_deleted": deleted}
 
