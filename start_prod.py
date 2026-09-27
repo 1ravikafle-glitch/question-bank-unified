@@ -263,6 +263,17 @@ async def serve_mobile_assets(request: Request, path: str = ""):
 async def serve_mobile_root():
     return FileResponse(os.path.join(MOBILE_DIR, "index.html"), media_type="text/html")
 
+# ── Root logo: same file as the PSC deploy. Old cached bundles request
+# /forestry-logo.png, which would otherwise hit the SEO real-404 page on the
+# Loksewa mirror (no such logo route) and show the SVG placeholder.
+@app.get("/forestry-logo.png")
+async def serve_root_logo():
+    for directory in (DESKTOP_DIR, MOBILE_DIR):
+        candidate = os.path.join(directory, "forestry-logo.png")
+        if os.path.isfile(candidate):
+            return FileResponse(candidate, media_type="image/png")
+    raise HTTPException(status_code=404, detail="logo not found")
+
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     # App opens directly (device-aware redirect); SEO landing pages live

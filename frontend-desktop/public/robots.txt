@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemap for Forestry PSC Preparation
+Sitemap: https://ravikafle.com.np/sitemap.xml
