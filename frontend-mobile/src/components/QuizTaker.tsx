@@ -216,8 +216,7 @@ function QuestionBox({
               textColor = T.textTertiary;
               badgeColor = T.textTertiary;
             }
-          }
-          return (
+          }            return (
             <button
               key={opt.key}
               onClick={() => role === 'active' && !revealed && onChoose(opt.key)}
@@ -229,7 +228,8 @@ function QuestionBox({
                 width: '100%',
                 textAlign: 'left',
                 padding: '15px 18px',
-                borderRadius: 12,
+                borderRadius: 16,
+                flexShrink: 0,
                 border: `1.5px solid ${border}`,
                 background: bg,
                 cursor: locked || showResult ? 'default' : 'pointer',
@@ -760,6 +760,21 @@ const QuizTaker: React.FC = () => {
   // (block:'nearest' walks up to the document) and yanks the user back to
   // the dot row mid-read. The desktop rail scrolls manually instead.
 
+  /* Fit-to-screen practice mode (<1024px): lock the document and let the
+     quiz layout flex to exactly fill the viewport — nothing to scroll,
+     everything visible; the options list scrolls internally only if a very
+     long option set can't fit. */
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023.98px)');
+    const apply = () => document.documentElement.classList.toggle('quiz-fit', mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => {
+      mq.removeEventListener('change', apply);
+      document.documentElement.classList.remove('quiz-fit');
+    };
+  }, []);
+
   const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
       try { navigator.vibrate?.(8); } catch {}
@@ -946,7 +961,7 @@ const QuizTaker: React.FC = () => {
                   justifyContent: 'center',
                   gap: 8,
                   padding: '13px 14px',
-                  borderRadius: 12,
+                  borderRadius: 14,
                   border: `1px solid ${T.accent}`,
                   background: `${T.accent}14`,
                   color: T.textPrimary,
@@ -1061,7 +1076,7 @@ const QuizTaker: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '12px 14px',
-                    borderRadius: 12,
+                    borderRadius: 14,
                     fontSize: 14,
                     fontWeight: 500,
                     fontFamily: T.font,
@@ -1089,7 +1104,7 @@ const QuizTaker: React.FC = () => {
                       marginTop: 4,
                       background: 'hsl(var(--popover, hsl(var(--card))))',
                       border: `1px solid ${T.border}`,
-                      borderRadius: 12,
+                      borderRadius: 14,
                       boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
                       zIndex: 20,
                       maxHeight: 224,
@@ -1132,7 +1147,7 @@ const QuizTaker: React.FC = () => {
               style={{
                 width: '100%',
                 padding: '14px 0',
-                borderRadius: 12,
+                borderRadius: 14,
                 fontSize: 15,
                 fontWeight: 700,
                 fontFamily: T.font,
@@ -1168,7 +1183,7 @@ const QuizTaker: React.FC = () => {
                   style={{
                     width: '100%',
                     padding: '12px 0',
-                    borderRadius: 12,
+                    borderRadius: 14,
                     fontSize: 14,
                     fontWeight: 600,
                     fontFamily: T.font,
@@ -1263,8 +1278,12 @@ const QuizTaker: React.FC = () => {
           background: linear-gradient(to top, hsl(0 84% 60% / 0.12), hsl(0 84% 60% / 0.04)), var(--nav-glass-bg) !important;
           border-top: 2px solid hsl(0 84% 60% / 0.5) !important;
         }
-        /* Landscape: compress hero + progress row so the question fits. */
+        /* Landscape: fit-mode bottom padding must match the SHORTER chrome
+           (compact quiz bar + nav), not the portrait 61+56 values. */
         @media (orientation: landscape) and (max-height: 500px) {
+          .quiz-apple {
+            padding-bottom: calc(56px + 48px + 8px + env(safe-area-inset-bottom, 0px)) !important;
+          }
           .quiz-hero-row { margin-bottom: 6px !important; }
           .quiz-hero-row > div > div:last-child { font-size: 16px !important; }
           .quiz-hero-row > div > div:first-child { font-size: 10px !important; }
@@ -1488,7 +1507,7 @@ const QuizTaker: React.FC = () => {
               <div
                 style={{
                   padding: '12px 16px',
-                  borderRadius: 12,
+                  borderRadius: 14,
                   background: T.dangerTint,
                   border: `1px solid ${T.danger}`,
                   display: 'flex',
@@ -1505,7 +1524,7 @@ const QuizTaker: React.FC = () => {
             <div
               style={{
                 padding: '12px 16px',
-                borderRadius: 12,
+                borderRadius: 14,
                 background: T.successTint,
                 border: `1px solid ${T.success}`,
                 display: 'flex',
@@ -1614,7 +1633,7 @@ const QuizTaker: React.FC = () => {
             color: currentIndex === 0 ? 'hsl(var(--muted-foreground) / 0.4)' : T.textPrimary,
             background: currentIndex === 0 ? 'transparent' : T.card,
             border: `1px solid ${currentIndex === 0 ? 'transparent' : T.border}`,
-            borderRadius: 12,
+            borderRadius: 14,
             padding: '10px 18px',
             cursor: currentIndex === 0 ? 'not-allowed' : 'pointer',
             opacity: currentIndex === 0 ? 0.4 : 1,
@@ -1660,7 +1679,7 @@ const QuizTaker: React.FC = () => {
               color: '#fff',
               background: T.accent,
               border: 'none',
-              borderRadius: 12,
+              borderRadius: 14,
               padding: '10px 18px',
               cursor: 'pointer',
               flex: '0 0 auto',
@@ -1682,7 +1701,7 @@ const QuizTaker: React.FC = () => {
               color: '#fff',
               background: T.accent,
               border: 'none',
-              borderRadius: 12,
+              borderRadius: 14,
               padding: '10px 18px',
               cursor: 'pointer',
               flex: '0 0 auto',
@@ -1702,7 +1721,7 @@ const QuizTaker: React.FC = () => {
               color: 'hsl(var(--muted-foreground) / 0.4)',
               background: 'transparent',
               border: '1px solid transparent',
-              borderRadius: 12,
+              borderRadius: 14,
               padding: '10px 18px',
               cursor: 'not-allowed',
               flex: '0 0 auto',

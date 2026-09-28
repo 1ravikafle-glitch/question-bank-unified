@@ -1,7 +1,7 @@
 import { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
-import { fetchQuestionsCount, fetchCategories, authLogin } from '../services/api';
+import { fetchQuestionsCount, fetchCategories, authLogin, getCachedStats } from '../services/api';
 import { ForestryLogo } from '@/components/ForestryLogo';
 import { toast } from 'react-hot-toast';
 
@@ -18,6 +18,12 @@ const Login: React.FC = () => {
   const [totalCategories, setTotalCategories] = useState<number | null>(null);
 
   useEffect(() => {
+    // Paint instantly from the session cache, then revalidate in background.
+    const cached = getCachedStats();
+    if (cached) {
+      setTotalQuestions(cached.count);
+      setTotalCategories(cached.cats);
+    }
     const loadStats = async () => {
       try {
         const [countData, categories] = await Promise.all([
@@ -26,6 +32,10 @@ const Login: React.FC = () => {
         ]);
         setTotalQuestions(countData.count);
         setTotalCategories(categories.length);
+        sessionStorage.setItem(
+          'qb:stats:v1',
+          JSON.stringify({ t: Date.now(), count: countData.count, cats: categories.length })
+        );
       } catch {
         // Non-fatal
       }

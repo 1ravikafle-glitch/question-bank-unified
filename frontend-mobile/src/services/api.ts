@@ -76,6 +76,40 @@ export const submitQuiz = async (answers: Record<number, string>, username: stri
   }
 };
 
+/* Instant-login-paint cache: the login screen's question/category counts
+   are shown to every user on every visit — serve them from sessionStorage
+   (5-min TTL) and revalidate in the background. Also primes the HTTP cache
+   so the very first visit is fast on the home screen too. */
+const STATS_CACHE_KEY = 'qb:stats:v1';
+const STATS_TTL_MS = 5 * 60 * 1000;
+
+export const prefetchStats = async (): Promise<void> => {
+  try {
+    const [countData, categories] = await Promise.all([
+      fetchQuestionsCount({}),
+      fetchCategories(),
+    ]);
+    sessionStorage.setItem(
+      STATS_CACHE_KEY,
+      JSON.stringify({ t: Date.now(), count: countData.count, cats: categories.length })
+    );
+  } catch {
+    /* non-fatal */
+  }
+};
+
+export const getCachedStats = (): { count: number; cats: number } | null => {
+  try {
+    const raw = sessionStorage.getItem(STATS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Date.now() - parsed.t > STATS_TTL_MS) return null;
+    return { count: parsed.count, cats: parsed.cats };
+  } catch {
+    return null;
+  }
+};
+
 export const fetchQuestionsCount = async (
   params: { category?: string; difficulty?: string } = {}
 ) => {

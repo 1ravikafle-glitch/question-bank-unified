@@ -306,8 +306,9 @@ const QuestionsBank: React.FC = () => {
 
       {/* ── Toolbar ─────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {/* Row 1: Search + Category */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        {/* Row 1: Search + Category — stacked on phones (a 12rem select
+            beside the search crushed it to 50px), side-by-side on ≥640px. */}
+        <div className="qb-toolbar-row" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', flex: 1 }} role="search" aria-label="Search questions">
             <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none', display: 'flex' }}>
               <SearchIcon />
@@ -350,9 +351,11 @@ const QuestionsBank: React.FC = () => {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="input"
+            className="input qb-category-select"
             style={{
               minWidth: '12rem',
+              flex: '1 1 12rem',
+              maxWidth: '100%',
               height: '40px',
               fontSize: '0.8125rem',
               cursor: 'pointer',

@@ -13,6 +13,23 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <App />
 )
 
+/* Speed: prefetch every route chunk + stats the moment the browser is idle.
+   Routes are code-split — without this the first tap on Practice/Questions
+   waits on a network round-trip; with it, navigation is instant (chunks are
+   already in cache). requestIdleCallback keeps this off the critical path. */
+const warmup = () => {
+  import('./components/QuizTaker').catch(() => {});
+  import('./components/QuestionsBank').catch(() => {});
+  import('./components/ResultsScreen').catch(() => {});
+  import('./components/ProgressTracker').catch(() => {});
+  import('./services/api').then((m) => m.prefetchStats()).catch(() => {});
+};
+if ('requestIdleCallback' in window) {
+  (window as any).requestIdleCallback(warmup, { timeout: 3000 });
+} else {
+  setTimeout(warmup, 1500);
+}
+
 // Offline support: cache app shell + API reads for subway-mode practice.
 // Register immediately (not on window.load — ad/font requests can delay it).
 if ('serviceWorker' in navigator) {
