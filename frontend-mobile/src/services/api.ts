@@ -148,12 +148,30 @@ export const fetchQuestionHistory = async (userIdentifier: string): Promise<Reco
 };
 
 // Auth: login or auto-register with username+password
+//
+// The response may carry a signed `sso_token` used to open Elfak GIS Pro
+// Studio already signed in. It is absent when the server has no SSO_SECRET
+// configured, so this stays a no-op in that case.
+export const SSO_TOKEN_KEY = 'fpsc-sso-token';
+
 export const authLogin = async (username: string, password: string) => {
-  const response = await api.post<{ user_identifier: string; is_new: boolean }>('/auth/login', {
+  const response = await api.post<{
+    user_identifier: string;
+    is_new: boolean;
+    sso_token?: string | null;
+  }>('/auth/login', {
     username,
     password,
   });
-  return response.data;
+  const data = response.data;
+  if (data.sso_token) {
+    try {
+      localStorage.setItem(SSO_TOKEN_KEY, data.sso_token);
+    } catch {
+      /* private mode — the GIS link simply falls back to a plain URL */
+    }
+  }
+  return data;
 };
 
 // Fetch specific questions by their IDs

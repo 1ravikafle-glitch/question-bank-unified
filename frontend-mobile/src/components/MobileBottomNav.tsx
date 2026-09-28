@@ -3,6 +3,7 @@ import { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { AuthContext } from '@/context/AuthContext';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useSound } from '@/context/SoundContext';
+import { gisHref } from '@/components/DesktopSidebar';
 
 /* ── Haptic feedback ─────────────────────────────────────────── */
 function haptic(ms = 10) {
@@ -237,6 +238,39 @@ const MobileBottomNav: React.FC = () => {
                   {sfxEnabled ? 'On' : 'Off'}
                 </span>
               </button>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px mx-5" style={{ background: 'hsl(var(--border))' }} />
+
+            {/* Apps — Elfak GIS Pro Studio (separate service, opens in a new tab) */}
+            <div className="p-3">
+              <a
+                href={gisHref()}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  haptic(8);
+                  setShowSheet(false);
+                  const w = window.open(gisHref(), '_blank', 'noopener,noreferrer');
+                  if (w) w.opener = null;
+                }}
+                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
+                style={{
+                  color: 'hsl(var(--primary))',
+                  background: 'hsl(var(--primary) / 0.08)',
+                  border: '1px dashed hsl(var(--primary) / 0.45)',
+                  textDecoration: 'none',
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-8 flex-shrink-0">
+                  <path d="M1 6l8-3 8 3 8-3v15l-8 3-8-3-8 3z" />
+                  <path d="M9 3v15M15 6v15" />
+                </svg>
+                <span className="flex-1 text-left">GIS Pro Studio</span>
+                <span style={{ fontSize: '11px', opacity: 0.6 }}>&#8599;</span>
+              </a>
             </div>
 
             {/* Divider */}

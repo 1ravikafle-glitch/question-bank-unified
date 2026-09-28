@@ -6,6 +6,7 @@ import os
 import database
 import models
 import bcrypt
+import sso
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -34,6 +35,9 @@ class AuthRequest(BaseModel):
 class AuthResponse(BaseModel):
     user_identifier: str
     is_new: bool
+    # Signed handoff token for Elfak GIS Pro Studio. None when SSO_SECRET is
+    # unset, in which case clients fall back to a plain link.
+    sso_token: Optional[str] = None
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -54,7 +58,11 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
                 admin_user = models.User(username=ADMIN_USERNAME, password=hash_password(ADMIN_PASSWORD))
                 db.add(admin_user)
                 db.commit()
-            return AuthResponse(user_identifier=ADMIN_USERNAME, is_new=False)
+            return AuthResponse(
+                user_identifier=ADMIN_USERNAME,
+                is_new=False,
+                sso_token=sso.mint(ADMIN_USERNAME, is_admin=True),
+            )
 
         # Regular user login
         existing = db.query(models.User).filter(models.User.username == username).first()
@@ -68,13 +76,21 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
                     raise HTTPException(status_code=401, detail="Invalid credentials")
                 existing.password = hash_password(password)
                 db.commit()
-            return AuthResponse(user_identifier=username, is_new=False)
+            return AuthResponse(
+                user_identifier=username,
+                is_new=False,
+                sso_token=sso.mint(username),
+            )
 
         # New user — auto-create
         new_user = models.User(username=username, password=hash_password(password))
         db.add(new_user)
         db.commit()
-        return AuthResponse(user_identifier=username, is_new=True)
+        return AuthResponse(
+            user_identifier=username,
+            is_new=True,
+            sso_token=sso.mint(username),
+        )
 
     except HTTPException:
         raise
@@ -87,6 +103,38 @@ def verify_admin_user(x_admin_user: Optional[str] = Header(None)):
     if not x_admin_user or x_admin_user.strip().lower() not in ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Access denied: admin only")
     return x_admin_user.strip()
+
+
+@router.get("/sso/status")
+def sso_status():
+    """Whether cross-site single sign-on is configured on this deployment."""
+    return {"enabled": sso.sso_enabled()}
+
+
+@router.post("/sso/refresh")
+def sso_refresh(req: AuthRequest, db: Session = Depends(database.get_db)):
+    """
+    Re-mint an SSO token for an already-authenticated user.
+
+    Requires the same credentials as /auth/login, so it can never be used to
+    obtain a token without knowing the password. The browser calls this when
+    its cached GIS link token is missing or expired.
+    """
+    username = req.username.strip()
+    password = req.password.strip()
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Username and password are required")
+
+    is_admin = bool(ADMIN_USERNAME) and username.lower() == ADMIN_USERNAME.lower()
+    if is_admin:
+        if ADMIN_PASSWORD and password != ADMIN_PASSWORD:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+    else:
+        existing = db.query(models.User).filter(models.User.username == username).first()
+        if not existing or not verify_password(password, existing.password):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    return {"sso_token": sso.mint(username, is_admin=is_admin), "enabled": sso.sso_enabled()}
 
 
 @router.get("/users")

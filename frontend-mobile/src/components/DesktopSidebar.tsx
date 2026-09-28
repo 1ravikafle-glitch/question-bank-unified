@@ -132,6 +132,34 @@ const navContainerVariants = {
   animate: { transition: { staggerChildren: 0.04 } },
 };
 
+const GisIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 6l8-3 8 3 8-3v15l-8 3-8-3-8 3z" />
+    <path d="M9 3v15M15 6v15" />
+  </svg>
+);
+
+/** Sibling GIS app. Kept here so both apps stay in sync. */
+export const GIS_URL = 'https://elfakgisprostudio.onrender.com/';
+
+/**
+ * Build the GIS link, carrying the SSO token when we hold one so the click
+ * lands in the studio already signed in. Falls back to a plain link.
+ */
+export const gisHref = (): string => {
+  if (typeof window === 'undefined') return GIS_URL;
+  let token: string | null = null;
+  try {
+    token = localStorage.getItem('fpsc-sso-token');
+  } catch {
+    /* private mode — plain link */
+  }
+  if (token && token.length > 20) {
+    return `${GIS_URL.replace(/\/$/, '')}/sso/exchange?t=${encodeURIComponent(token)}`;
+  }
+  return GIS_URL;
+};
+
 const DesktopSidebar: React.FC = () => {
   const { userId, logout } = useContext(AuthContext);
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
@@ -314,6 +342,55 @@ const DesktopSidebar: React.FC = () => {
             </span>
             About
           </NavLink>
+        </div>
+
+        {/* Apps — Elfak GIS Pro Studio (separate service, opens in a new tab) */}
+        <div data-qsp-gis-group="1" style={{ marginBottom: '0.5rem' }}>
+          <p
+            className="px-3"
+            style={{
+              fontSize: '0.6875rem',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'hsl(var(--foreground) / 0.45)',
+              marginBottom: '0.375rem',
+              paddingTop: '1rem',
+            }}
+          >
+            Apps
+          </p>
+          <motion.div
+            variants={prefersReducedMotion() ? undefined : navContainerVariants}
+            initial="initial"
+            animate="animate"
+          >
+            <a
+              href={gisHref()}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.preventDefault();
+                sfxClick();
+                const w = window.open(gisHref(), '_blank', 'noopener,noreferrer');
+                if (w) w.opener = null;
+              }}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg font-semibold transition-all duration-200 hover:bg-[hsl(var(--primary)/0.14)]"
+              style={{
+                fontSize: '0.9375rem',
+                color: 'hsl(var(--primary))',
+                background: 'hsl(var(--primary) / 0.08)',
+                border: '1px dashed hsl(var(--primary) / 0.45)',
+                textDecoration: 'none',
+              }}
+            >
+              <span className="flex-shrink-0" style={{ transform: 'scale(1.1)' }}>
+                <GisIcon />
+              </span>
+              <span className="flex-1">GIS Pro Studio</span>
+              <span style={{ fontSize: '11px', opacity: 0.6 }}>&#8599;</span>
+            </a>
+          </motion.div>
         </div>
       </nav>
 

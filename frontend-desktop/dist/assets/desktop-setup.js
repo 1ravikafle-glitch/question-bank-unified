@@ -72,6 +72,123 @@
     });
   }
 
+
+  // ── Apps: Elfak GIS Pro Studio (separate Render service, opens in a new tab)
+  //     Appended as its own group. Nothing else in the sidebar is touched.
+  var GIS_URL = 'https://elfakgisprostudio.onrender.com/';
+  var SSO_KEY = 'fpsc-sso-token';
+
+  function gisHref() {
+    var t = null;
+    try { t = localStorage.getItem(SSO_KEY); } catch (e) {}
+    if (t && String(t).length > 20) {
+      return GIS_URL.replace(/\/$/, '') + '/sso/exchange?t=' + encodeURIComponent(t);
+    }
+    return GIS_URL;
+  }
+
+  function injectGisLink() {
+    try {
+      var nav = document.querySelector('.desktop-sidebar nav');
+      if (!nav) return;
+      var existing = nav.querySelector('[data-qsp-gis]');
+      if (existing) { existing.setAttribute('href', gisHref()); return; }
+
+      var d = document.createElement('div');
+      d.setAttribute('data-qsp-gis-group', '1');
+
+      var label = document.createElement('p');
+      label.className = 'px-3';
+      label.setAttribute('style', 'font-size:0.6875rem;font-weight:600;text-transform:uppercase;' +
+        'letter-spacing:0.08em;color:hsl(var(--foreground) / 0.45);' +
+        'margin-bottom:0.375rem;padding-top:1rem');
+      label.textContent = 'Apps';
+      d.appendChild(label);
+
+      var a = document.createElement('a');
+      a.setAttribute('data-qsp-gis', '1');
+      a.setAttribute('href', gisHref());
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+      a.setAttribute('style', 'display:flex;align-items:center;gap:0.75rem;' +
+        'padding:0.5rem 0.75rem;border-radius:0.5rem;font-weight:500;font-size:0.9375rem;' +
+        'color:hsl(var(--primary));background:hsl(var(--primary) / 0.08);' +
+        'border:1px dashed hsl(var(--primary) / 0.45);text-decoration:none');
+
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '15'); svg.setAttribute('height', '15');
+      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '1.8');
+      svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+      svg.style.flexShrink = '0';
+      var p1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p1.setAttribute('d', 'M1 6l8-3 8 3 8-3v15l-8 3-8-3-8 3z');
+      var p2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p2.setAttribute('d', 'M9 3v15M15 6v15');
+      svg.appendChild(p1); svg.appendChild(p2);
+      a.appendChild(svg);
+
+      var span = document.createElement('span');
+      span.style.flex = '1';
+      span.textContent = 'GIS Pro Studio';
+      a.appendChild(span);
+
+      var arrow = document.createElement('span');
+      arrow.setAttribute('aria-hidden', 'true');
+      arrow.style.fontSize = '11px';
+      arrow.style.opacity = '.6';
+      arrow.textContent = '\u2197';
+      a.appendChild(arrow);
+
+      d.appendChild(a);
+      nav.appendChild(d);
+    } catch (e) {}
+  }
+
+  // Re-append if React re-renders the sidebar, and refresh the href after login.
+  function watchGis() {
+    try {
+      var nav = document.querySelector('.desktop-sidebar nav');
+      if (!nav) { setTimeout(watchGis, 500); return; }
+      new MutationObserver(function () { injectGisLink(); })
+        .observe(nav, { childList: true });
+    } catch (e) {}
+  }
+
+  // Capture the SSO token that /auth/login returns, so the link can carry it.
+  function hookGisSso() {
+    if (window.__qsp_gis_sso) return;
+    window.__qsp_gis_sso = true;
+    try {
+      var openOrig = XMLHttpRequest.prototype.open;
+      var sendOrig = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function (m, url) {
+        try { this.__qspUrl = url; } catch (e) {}
+        return openOrig.apply(this, arguments);
+      };
+      XMLHttpRequest.prototype.send = function () {
+        try {
+          var self = this;
+          this.addEventListener('load', function () {
+            try {
+              var u = String(self.__qspUrl || '');
+              if (u.indexOf('/auth/login') === -1 && u.indexOf('/auth/sso/refresh') === -1) return;
+              if (self.readyState !== 4 || self.status !== 200) return;
+              var d = JSON.parse(self.responseText);
+              if (d && d.sso_token && d.sso_token.length > 20) {
+                if (localStorage.getItem(SSO_KEY) !== d.sso_token) {
+                  localStorage.setItem(SSO_KEY, d.sso_token);
+                  injectGisLink();
+                }
+              }
+            } catch (e) {}
+          });
+        } catch (e) {}
+        return sendOrig.apply(this, arguments);
+      };
+    } catch (e) {}
+  }
+
   function injectStyles() {
     if (document.getElementById('qsp-css')) return;
     var s = document.createElement('style');
@@ -483,6 +600,7 @@
       history.pushState = function () {
         var r = origPush.apply(this, arguments);
         setTimeout(check, 60);
+        setTimeout(function () { try { injectGisLink(); } catch (e) {} }, 80);
         return r;
       };
       var origReplace = history.replaceState;
@@ -497,6 +615,9 @@
     try {
       var mo = new MutationObserver(function () {
         try { enhanceHomeCard(); } catch (e) {}
+        // React can replace the whole <nav>, which kills the nav-scoped
+        // observer, so re-assert the Apps group from here as well.
+        try { injectGisLink(); } catch (e) {}
       });
       mo.observe(document.body, { childList: true, subtree: true });
     } catch (e) {}
@@ -901,9 +1022,17 @@
     setInterval(function () { paintOffbar(); trySyncNow(); }, 15000);
   }
 
-  // Home pack card (desktop): download/delete the offline bank
+  // Home pack card (desktop).
+  //
+  // Retired: the question bank now downloads automatically on first visit and
+  // a 2s toast reports it, so a manual Download / Update / Delete card on the
+  // home page is redundant. Kept as a no-op so existing call sites stay valid,
+  // and it defensively removes the node if a cached copy is still in the DOM.
   function enhancePackCard() {
     try {
+      var stale = document.querySelector('#qsp-packcard');
+      if (stale && stale.parentElement) stale.parentElement.removeChild(stale);
+      if (true) return;
       if (!isHomeRoute() || document.querySelector('#qsp-packcard')) return;
       var sec = document.querySelector('section[aria-label="Practice session setup"]');
       if (!sec) return;
@@ -1015,6 +1144,7 @@
   function init() {
     hookNav();
     try { injectStyles(); } catch (e) {} // sidebar groups + pinned header on every page
+    try { injectGisLink(); watchGis(); hookGisSso(); } catch (e) {} // Apps > GIS Pro Studio
     try { ensureTopcover(); } catch (e) {}
     try { registerSW(); } catch (e) {}
     try { initOffline(); } catch (e) {}
