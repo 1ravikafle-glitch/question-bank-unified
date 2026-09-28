@@ -1,0 +1,190 @@
+/*
+  Responsive scale & orientation layer
+  ------------------------------------
+  Imported after ios.css. Makes every screen adapt to the real device:
+  - small Android phones (320-359px): tighter spacing, wrapped grids
+  - large iPhones/tablets: fluid type via clamp(), capped content width
+  - landscape phones (short viewport): compact chrome so content fits
+  All rules are pure CSS — no JS resize listeners needed.
+*/
+
+/* ── 1. Fluid display type ─────────────────────────────────────────────────
+   Headings scale with viewport instead of jumping at breakpoints. Base
+   h1-h4 already shrink at ≤640px in globals.css; these clamps smooth the
+   utility classes used by page headers (Admin, About, empty states). */
+.text-5xl { font-size: clamp(1.75rem, 4.5vw + 0.5rem, 3rem) !important; }
+.text-4xl { font-size: clamp(1.5rem, 3.5vw + 0.5rem, 2.25rem) !important; }
+.text-3xl { font-size: clamp(1.35rem, 2.5vw + 0.5rem, 1.875rem) !important; }
+
+/* ── 2. Very small phones (≤359px: iPhone SE 1st gen, small Androids) ───── */
+@media (max-width: 359px) {
+  /* Tighter page gutters (inline 5% padding stays, this adds nothing —
+     instead tighten component padding): */
+  .card { padding: 0.85rem; }
+  .stat-tile { padding: 0.6rem 0.4rem !important; }
+  .stat-tile-label { font-size: 0.625rem; }
+
+  /* Option rows: keep text on one line where possible */
+  .answer-option { padding: 10px 12px; gap: 10px; }
+
+  /* Login card breathes better with less padding */
+  main[role="main"] > div { padding: 16px !important; }
+
+  /* Question count chips (10/20/50/100/Beast) compress */
+  .chip { padding: 6px 10px; font-size: 0.75rem; }
+}
+
+/* ── 3. Landscape phones (short viewport, e.g. iPhone in hand) ────────────
+   Vertical space is scarce: compact the fixed chrome and quiz paddings so
+   question + options + nav bar fit without scrolling per question. */
+
+/* Quiz canvas padding (moved here from a JS window.innerWidth check that
+   never updated on orientation change — CSS reacts instantly). */
+.quiz-apple { padding: 16px 16px 100px; }
+@media (max-width: 640px) {
+  .quiz-apple { padding: 10px 12px 120px; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Top bar: 44px tall (spacer matches via sibling rule below) */
+  header[aria-label="Top bar"] {
+    min-height: calc(44px + env(safe-area-inset-top, 0px)) !important;
+  }
+  header[aria-label="Top bar"] + div[aria-hidden="true"] {
+    height: calc(44px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  /* Bottom nav: shorter bar */
+  nav[aria-label="Mobile navigation"] {
+    min-height: 46px !important;
+  }
+  nav[aria-label="Mobile navigation"] svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  /* Quiz sticky prev/next bar sits closer to the bottom */
+  .quiz-apple > div:last-child,
+  div[style*="calc(60px + env(safe-area-inset-bottom"] {
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  /* Quiz canvas: less headroom, account for the shorter chrome */
+  .quiz-apple {
+    padding-top: 6px !important;
+  }
+
+  /* Options: tighter rows so 4 options + question fit above the fold */
+  .answer-option { padding: 9px 14px; }
+  .quiz-apple-shell { gap: 0 !important; }
+
+  /* Generic page headers on short screens */
+  h1 { margin-top: 0; }
+
+  /* Login card: slimmer padding + tighter inputs so it fits a short
+     landscape viewport without scrolling. */
+  main[role="main"] .card {
+    padding: 12px 18px !important;
+  }
+  main[role="main"] .card form {
+    gap: 8px !important;
+  }
+  main[role="main"] .card .input {
+    height: 38px !important;
+  }
+  main[role="main"] .card h1,
+  main[role="main"] .card p {
+    margin-top: 2px !important;
+    margin-bottom: 4px !important;
+  }
+}
+
+/* ── 4. Tablets portrait (768-1023px): bottom nav is still active, single
+   column would stretch full width — cap and center content. ────────────── */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  main > div:not(.quiz-apple) {
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+}
+
+/* ── 5. Adaptive grids for components with hardcoded columns ────────────── */
+/* Admin: stats row (3 tiles) — wraps instead of squeezing on small phones */
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  overflow: visible;
+  padding: 2px;
+  margin: -2px;
+}
+/* Admin: upload/category two-pane stacks on phones, side-by-side on desktop */
+.admin-two-col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  overflow: visible;
+  padding: 2px;
+  margin: -2px;
+}
+@media (min-width: 1024px) {
+  .admin-two-col { grid-template-columns: repeat(2, 1fr); }
+}
+/* Admin: user progress mini-stats — 4 tiles wrap to 2x2 on small screens */
+.admin-user-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 0.5rem;
+}
+/* Admin: edit-form option inputs — 1 col on phones, 2 col from 480px */
+.admin-opt-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+@media (min-width: 480px) {
+  .admin-opt-grid { grid-template-columns: repeat(2, 1fr); }
+}
+/* Dashboard skeleton stat trio — matches the real page's adaptive layout */
+.skel-3-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+/* About hero: stacked on phones, two columns on tablets+ */
+.about-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+}
+@media (min-width: 768px) {
+  .about-hero { grid-template-columns: 1.15fr 0.85fr; gap: 1.5rem; }
+}
+
+/* ── 6. Generic safety nets ──────────────────────────────────────────────── */
+/* Long unbroken tokens (URLs, formulas in questions) can push width on
+   tiny screens — let them wrap instead of overflowing. */
+main p, main h1, main h2, main h3, .answer-option span {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Tables inside admin/manage panes scroll horizontally inside their card
+   instead of stretching the page. */
+.card > table, .overflow-x-guard {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Quiz progress dots row: allow wrapping on very narrow screens */
+.quiz-apple-shell .progress-dot-row {
+  flex-wrap: wrap;
+}

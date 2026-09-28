@@ -91,7 +91,7 @@ const About: React.FC = () => {
           <div className="absolute top-0 right-0 w-72 h-72 -translate-y-1/3 translate-x-1/4 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(var(--moss-600) / 0.10), transparent 70%)' }} aria-hidden="true" />
           <div className="absolute bottom-0 left-0 w-56 h-56 translate-y-1/3 -translate-x-1/4 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(142 40% 40% / 0.08), transparent 70%)' }} aria-hidden="true" />
 
-          <div className="relative z-10 grid gap-6 items-center" style={{ gridTemplateColumns: '1.15fr 0.85fr' }}>
+          <div className="about-hero">
             <div className="text-center">
               <div className="mx-auto mb-4 flex justify-center">
                 <ForestryLogo size={84} />

@@ -4,7 +4,6 @@ import { AuthContext } from '@/context/AuthContext';
 import { fetchQuestionsCount, fetchCategories, authLogin } from '../services/api';
 import { ForestryLogo } from '@/components/ForestryLogo';
 import { toast } from 'react-hot-toast';
-import { motion } from 'framer-motion';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -71,7 +70,7 @@ const Login: React.FC = () => {
     <main
       role="main"
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -80,10 +79,10 @@ const Login: React.FC = () => {
           'radial-gradient(circle at 50% 40%, hsl(142 71% 45% / 0.06), transparent 70%), hsl(var(--background))',
       }}
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+      {/* CSS animation instead of framer-motion: the login screen is the
+          first thing every visitor paints — keeping framer-motion out of this
+          path avoids loading a ~40KB gzip animation library for two fades. */}
+      <div
         className="card"
         style={{
           maxWidth: '400px',
@@ -91,6 +90,7 @@ const Login: React.FC = () => {
           padding: '40px',
           borderRadius: 'var(--apple-radius-xl)',
           boxShadow: 'var(--shadow-lg)',
+          animation: 'scaleIn 0.4s cubic-bezier(0.25, 0.1, 0.25, 1)',
         }}
       >
         {/* Brand */}
@@ -237,13 +237,11 @@ const Login: React.FC = () => {
               </p>
             )}
 
-            <motion.button
+            <button
               type="submit"
               className="btn btn-primary"
               disabled={loading || !username.trim() || !password.trim()}
               aria-label={loading ? 'Signing in' : 'Sign in'}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
               style={{
                 width: '100%',
                 height: '44px',
@@ -277,7 +275,7 @@ const Login: React.FC = () => {
               ) : (
                 'Sign in'
               )}
-            </motion.button>
+            </button>
           </div>
         </form>
 
@@ -308,7 +306,7 @@ const Login: React.FC = () => {
             ? `${totalQuestions.toLocaleString()} questions \u00A0\u2022\u00A0 ${totalCategories} categories`
             : 'Loading…'}
         </p>
-      </motion.div>
+      </div>
     </main>
   );
 };

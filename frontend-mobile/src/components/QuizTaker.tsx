@@ -159,6 +159,7 @@ function QuestionBox({
       }}
     >
       <div
+        className="quiz-q-kicker"
         style={{
           fontSize: 11,
           fontWeight: 600,
@@ -173,6 +174,7 @@ function QuestionBox({
       </div>
 
       <div
+        className="quiz-q-text"
         style={{
           fontSize: 20,
           fontWeight: 600,
@@ -186,7 +188,9 @@ function QuestionBox({
         {qText}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+      {/* quiz-options-stack: column on portrait phones, 2-col grid in
+          landscape (see the injected <style> in QuizTaker main view). */}
+      <div className="quiz-options-stack" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
         {qOptions.map((opt) => {
           const isSelected = selected === opt.key;
           const isCorrectOpt = opt.key === qCorrect;
@@ -743,12 +747,20 @@ const QuizTaker: React.FC = () => {
       setTimeout(() => {
         setCurrentIndex((i) => i + 1);
         setFading(false);
+        // New question starts at the top — otherwise the page keeps the
+        // previous scroll offset and the user lands mid-question.
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 220);
       sfxClick();
     } else {
       submitQuizRequest(selected);
     }
   }, [currentIndex, questions.length, submitQuizRequest, selected, sfxClick]);
+
+  /* Keeps the current dot visible when the strip is scrollable (long sets). */
+  const scrollToCurrentDot = useCallback((el: HTMLDivElement | null) => {
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, []);
 
   const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
@@ -1197,7 +1209,9 @@ const QuizTaker: React.FC = () => {
         WebkitFontSmoothing: 'antialiased' as const,
         display: 'flex',
         justifyContent: 'center',
-        padding: window.innerWidth < 640 ? '10px 12px 120px' : '16px 16px 100px',
+        /* Mobile-compact padding on ≤640px via CSS (responsive.css also
+           tightens it in landscape); desktop keeps roomier padding. */
+        padding: undefined,
         minHeight: '100%',
       }}
     >
@@ -1209,6 +1223,67 @@ const QuizTaker: React.FC = () => {
         @media (min-width: 641px) {
           .quiz-grid-2col { grid-template-columns: 1fr 1fr; }
         }
+        /* Landscape phones: options flow in 2 columns to use the width. */
+        @media (orientation: landscape) and (max-height: 500px) and (min-width: 560px) {
+          .quiz-options-stack { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+        }
+        /* Progress dots: CSS-sized (replaces window.innerWidth check that
+           never updated on rotation). Phone 12px, desktop 16px. */
+        .quiz-dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
+        @media (max-width: 640px) {
+          .quiz-dot { width: 12px; height: 12px; }
+        }
+        /* Real responsive utilities (sm:flex / sm:block don't exist in the
+           shared stylesheet). !important beats the inline display style. */
+        .desktop-only-flex { display: none !important; }
+        .desktop-640-block { display: none !important; }
+        @media (min-width: 640px) {
+          .desktop-only-flex { display: flex !important; }
+          .desktop-640-block { display: block !important; }
+        }
+        /* Long sets (Beast / 100+): hide the strip on phones — the 1/N pill
+           carries position — and make it a compact scrollable rail on wider
+           screens. Prevents a ~39,000px-wide DOM strip. */
+        @media (max-width: 1023px) {
+          .quiz-progress-row-many { display: none !important; }
+        }
+        @media (min-width: 1024px) {
+          .quiz-progress-row-many {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
+          }
+          .quiz-progress-row-many .quiz-dot { width: 10px; height: 10px; }
+        }
+        /* Sticky bar tints to the result: instant correct/incorrect signal
+           visible even while the question card scrolls away. */
+        .quiz-sticky-correct {
+          background: linear-gradient(to top, hsl(142 71% 45% / 0.14), hsl(142 71% 45% / 0.05)), var(--nav-glass-bg) !important;
+          border-top: 2px solid hsl(142 71% 45% / 0.55) !important;
+        }
+        .quiz-sticky-wrong {
+          background: linear-gradient(to top, hsl(0 84% 60% / 0.12), hsl(0 84% 60% / 0.04)), var(--nav-glass-bg) !important;
+          border-top: 2px solid hsl(0 84% 60% / 0.5) !important;
+        }
+        /* Landscape: compress hero + progress row so the question fits. */
+        @media (orientation: landscape) and (max-height: 500px) {
+          .quiz-hero-row { margin-bottom: 6px !important; }
+          .quiz-hero-row > div > div:last-child { font-size: 16px !important; }
+          .quiz-hero-row > div > div:first-child { font-size: 10px !important; }
+          .quiz-progress-row { margin-bottom: 4px !important; }
+          .quiz-progress-row svg { width: 13px !important; height: 13px !important; }
+          .quiz-dot { width: 9px !important; height: 9px !important; }
+          /* Compact option buttons so 4 options fit above the fold. */
+          .quiz-options-stack button { padding: 6px 10px !important; gap: 8px !important; }
+          .quiz-options-stack button > span:first-child { width: 22px !important; height: 22px !important; font-size: 10px !important; }
+          .quiz-options-stack button > span:nth-child(2) { font-size: 13px !important; }
+          /* Compact question text + kicker. */
+          .quiz-q-kicker { font-size: 9px !important; margin-bottom: 4px !important; }
+          .quiz-q-text { font-size: 14px !important; line-height: 1.35 !important; margin-bottom: 8px !important; }
+          /* Question card: drop the 360px min-height + heavy padding that
+             dominate short landscape viewports. */
+          .quiz-grid-2col > div:first-child { min-height: 0 !important; padding: 10px 12px !important; }
+        }
       `}</style>
       <div className="quiz-apple-shell" style={{ width: '100%', maxWidth: 640 }}>
         <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -1216,7 +1291,7 @@ const QuizTaker: React.FC = () => {
         </div>
 
         {/* Header row — Practice quiz + controls */}
-        <div className="lg:mb-5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div className="quiz-hero-row lg:mb-5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 13, color: T.textSecondary, fontWeight: 500, fontFamily: T.font }}>Practice quiz</div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', fontFamily: T.font, color: T.textPrimary }}>Forestry PSC</div>
@@ -1333,8 +1408,15 @@ const QuizTaker: React.FC = () => {
           ))}
         </div>
 
-        {/* Thin dot strip for overall standing */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+        {/* Thin dot strip for overall standing. Long sets (Beast mode)
+            collapse to a horizontally scrollable strip; on phones the strip
+            is hidden entirely — the 1/N counter pill carries position. */}
+        <div
+          className={
+            'quiz-progress-row' + (questions.length > 60 ? ' quiz-progress-row-many' : '')
+          }
+          style={{ display: 'flex', gap: 6, marginBottom: 20 }}
+        >
           {resultsForProgress.map((a, i) => {
             const isCurrent = i === currentIndex;
             let bg: string = 'hsl(var(--muted))';
@@ -1349,14 +1431,12 @@ const QuizTaker: React.FC = () => {
             return (
               <div
                 key={questions[i]?.id ?? i}
+                ref={isCurrent ? scrollToCurrentDot : undefined}
+                className="quiz-dot"
                 style={{
-                  width: window.innerWidth < 640 ? 12 : 16,
-                  height: window.innerWidth < 640 ? 12 : 16,
-                  borderRadius: '50%',
                   background: bg,
                   border: `1.5px solid ${border}`,
                   boxShadow: isCurrent ? `0 0 0 2px ${T.accentTint}, 0 0 0 3.5px ${T.accent}` : 'none',
-                  flexShrink: 0,
                   transition: 'width 200ms, height 200ms',
                 }}
               />
@@ -1378,7 +1458,7 @@ const QuizTaker: React.FC = () => {
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
           {nextQ && (
-            <div className="hidden sm:block">
+            <div className="desktop-640-block">
               <QuestionBox
                 role="next"
                 question={nextQ}
@@ -1393,10 +1473,12 @@ const QuizTaker: React.FC = () => {
           )}
         </div>
 
-        {/* Feedback + next control, only under active column */}
+        {/* Feedback + next control — desktop only; mobile gets the feedback
+            strip inside the sticky bottom bar (utilities like sm:flex don't
+            exist in this codebase, hence the dedicated class). */}
         {isLocked && !finished && (
           <div
-            className="hidden sm:flex"
+            className="desktop-only-flex"
             style={{
               marginTop: 16,
               maxWidth: nextQ ? 'calc(50% - 8px)' : '100%',
@@ -1463,7 +1545,7 @@ const QuizTaker: React.FC = () => {
 
         {finished && (
           <div
-            className="hidden sm:flex"
+            className="desktop-only-flex"
             style={{
               marginTop: 16,
               padding: '18px 20px',
@@ -1499,7 +1581,14 @@ const QuizTaker: React.FC = () => {
 
       {/* ── Mobile sticky bottom nav bar ── */}
       <div
-        className="lg:hidden"
+        className={
+          'lg:hidden' +
+          (isLocked && !finished
+            ? isCorrect
+              ? ' quiz-sticky-correct'
+              : ' quiz-sticky-wrong'
+            : '')
+        }
         style={{
           position: 'fixed',
           bottom: 'calc(60px + env(safe-area-inset-bottom, 0px))',
@@ -1539,7 +1628,26 @@ const QuizTaker: React.FC = () => {
           ← Prev
         </button>
 
-        <div style={{ flex: 1, textAlign: 'center' }}>
+        <div style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 0 }}>
+          {/* Result line: replaces the bare counter the moment an answer is
+              locked in — always visible, never cut off. */}
+          {isLocked && !finished && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: '0.02em',
+                color: isCorrect ? T.success : T.danger,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '100%',
+                fontFamily: T.font,
+              }}
+            >
+              {isCorrect ? '✓ Correct' : `✗ Correct: ${activeCorrectKey}`}
+            </span>
+          )}
           <span style={{ fontSize: 12, fontWeight: 600, color: T.textSecondary, fontFamily: T.font }}>
             {currentIndex + 1} / {questions.length}
           </span>
@@ -1565,7 +1673,9 @@ const QuizTaker: React.FC = () => {
             Next →
           </button>
         )}
-        {isLocked && isLastQuestion && !finished && (
+        {/* Submit on the last question (was dead code: the old condition
+            contradicted itself, leaving no button on the final question). */}
+        {isLocked && isLastQuestion && (
           <button
             onClick={() => submitQuizRequest(selected)}
             style={{

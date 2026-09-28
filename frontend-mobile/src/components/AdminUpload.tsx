@@ -327,7 +327,7 @@ const AdminUpload: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', overflow: 'visible', padding: '2px', margin: '-2px' }}>
+      <div className="admin-stats-grid">
         <div className="stat-tile">
           <span className="stat-tile-value" style={{ color: 'hsl(var(--primary))' }}>{totalCount.toLocaleString()}</span>
           <span className="stat-tile-label">Questions</span>
@@ -343,7 +343,7 @@ const AdminUpload: React.FC = () => {
       </div>
 
       {/* Two-column layout: Upload left, Category Management right */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', overflow: 'visible', padding: '2px', margin: '-2px' }}>
+      <div className="admin-two-col">
 
         {/* Left column: Import */}
         <div className="space-y-4">
@@ -523,7 +523,7 @@ Answer key:
                           <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', padding: '0.5rem 0' }}>Loading…</p>
                         ) : (
                           <div className="space-y-3" style={{ paddingTop: '0.75rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+                            <div className="admin-user-stats">
                               {[
                                 { label: 'Attempts', value: userProgress.total_attempts },
                                 { label: 'Questions', value: userProgress.total_attempted },
@@ -681,7 +681,7 @@ Answer key:
                       <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))', display: 'block', marginBottom: '4px' }}>Question</label>
                       <textarea value={editForm.question_text} onChange={(e) => setEditForm({ ...editForm, question_text: e.target.value })} className="input" style={{ width: '100%', minHeight: '4rem', resize: 'vertical' }} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                    <div className="admin-opt-grid">
                       {(['a', 'b', 'c', 'd'] as const).map(key => (
                         <div key={key}>
                           <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))', display: 'block', marginBottom: '4px' }}>Option {key.toUpperCase()}</label>

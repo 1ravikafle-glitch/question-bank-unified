@@ -81,8 +81,13 @@ const MobileTopBar: React.FC = () => {
           </button>
         )}
       </header>
-      {/* Spacer so fixed bar never covers content (mobile only) */}
-      <div className="lg:hidden" style={{ height: 52 }} aria-hidden="true" />
+      {/* Spacer so fixed bar never covers content (mobile only).
+          Grows with the iOS safe-area top inset (notch / Dynamic Island). */}
+      <div
+        className="lg:hidden"
+        style={{ height: 'calc(52px + env(safe-area-inset-top, 0px))' }}
+        aria-hidden="true"
+      />
       {open &&
         createPortal(
           <div

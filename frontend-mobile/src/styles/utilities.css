@@ -971,7 +971,7 @@
   background: hsl(154 18% 26%);
   border-radius: 4px;
 }
-.dark ::-webkit-scrollbar-thumb:hover {
+@media (hover: hover) .dark ::-webkit-scrollbar-thumb:hover {
   background: hsl(154 18% 32%);
 }
 

@@ -4,6 +4,10 @@ import './styles/variables.css'
 import './styles/globals.css'
 import './styles/components.css'
 import './styles/utilities.css'
+// iOS layer: safe areas, dvh, 16px inputs, tap/scroll behavior fixes.
+import './styles/ios.css'
+// Responsive scale layer: fluid type, landscape phones, tablets, small screens.
+import './styles/responsive.css'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <App />

@@ -1,14 +1,18 @@
-const CACHE_NAME = 'forestry-psc-v2';
+const CACHE_NAME = 'forestry-psc-v3';
 const STATIC_ASSETS = [
   '/',
   '/mobile',
-  '/health',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      // addAll rejects the whole install if ANY url 404s (e.g. the old
+      // '/health' entry), which silently killed offline support. Use
+      // individual adds so one bad URL can't break the worker.
+      return Promise.all(
+        STATIC_ASSETS.map((url) => cache.add(url).catch(() => {}))
+      );
     })
   );
   self.skipWaiting();
@@ -29,6 +33,27 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (event.request.method !== 'GET') return;
+
+  // HTML navigations must always revalidate: users get stale app shells
+  // otherwise (the old cache-first strategy served yesterday's bundle after
+  // a deploy until the SW itself updated). Assets stay cache-first — they're
+  // content-hashed.
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, clone);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request, { ignoreSearch: true }))
+    );
+    return;
+  }
 
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/questions/') || url.pathname.startsWith('/quiz/') || url.pathname.startsWith('/progress/')) {
     event.respondWith(

@@ -1,0 +1,107 @@
+/*
+  iOS / iPhone Safari optimization layer
+  --------------------------------------
+  Imported LAST so these rules win cascade ties with the base stylesheets.
+  Everything here is scoped to touch/Apple behavior and is harmless on
+  desktop. Covers: dynamic viewport height, safe areas (notch + home
+  indicator), input zoom, double-tap delay, sticky hover, rubber-band
+  overscroll, fixed-bar repaint flicker.
+*/
+
+/* ── 1. Dynamic viewport height ────────────────────────────────────────────
+   100vh on iOS Safari includes the area hidden behind the collapsing URL
+   bar, so full-height screens overflow. dvh tracks the real visible
+   viewport. Desktop browsers without dvh keep 100vh via the fallback. */
+html, body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Login screen centers with flex — use dvh so the card never sits under
+   the collapsed toolbar area. */
+main[role="main"] {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ── 2. Safe areas (requires viewport-fit=cover in index.html) ────────────
+   Top bar is position:fixed at top:0 — pad it down by the notch/Dynamic
+   Island inset and grow the matching spacer. */
+header[aria-label="Top bar"] {
+  /* !important required: the bar sets padding/height inline */
+  padding-top: env(safe-area-inset-top, 0px) !important;
+  height: auto !important;
+  min-height: calc(52px + env(safe-area-inset-top, 0px));
+}
+header[aria-label="Top bar"] + div[aria-hidden="true"].lg\:hidden,
+header[aria-label="Top bar"] ~ div[style*="height: 52"] {
+  height: calc(52px + env(safe-area-inset-top, 0px)) !important;
+}
+
+/* ── 3. Kill iOS input auto-zoom ──────────────────────────────────────────
+   Safari zooms any focused input whose font-size < 16px. Inputs use
+   0.875rem (14px) => every login/admin field zoomed the whole page. */
+@media (max-width: 1023px) {
+  .input,
+  .textarea,
+  .select,
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
+/* ── 4. Instant taps: remove double-tap delay + gray flash ────────────────
+   touch-action:manipulation removes the ~300ms double-tap-zoom wait.
+   -webkit-tap-highlight-color removes the translucent gray square. */
+button,
+a,
+[role="button"],
+input[type="submit"],
+label[for],
+.nav-pill,
+.chip,
+.answer-option {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── 5. Kill sticky :hover on touch ───────────────────────────────────────
+   Handled at the source: the :hover rules in components.css / globals.css /
+   utilities.css are wrapped in @media (hover: hover) so touch devices never
+   get them (iOS otherwise applies them on first tap and sticks). */
+
+/* ── 6. Scroll containment + rubber-band control ──────────────────────────
+   Standalone iOS PWAs rubber-band the whole document from any bounce.
+   Contain overscroll to the body so inner scrollers behave natively. */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Momentum scrolling for inner scroll containers (carousel rail + quiz
+   navigator) — otherwise iOS scrolls them with the slow main-thread path. */
+.overflow-auto,
+.scroll-area {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── 7. GPU-composite fixed bars ───────────────────────────────────────────
+   iOS repaints fixed elements during scroll (flicker behind the blur).
+   Promoting them to their own layer makes the top/bottom bars rock solid. */
+header[aria-label="Top bar"],
+nav[aria-label="Mobile navigation"] {
+  transform: translateZ(0);
+}
+
+/* ── 8. Long-press callout suppression on chrome elements ─────────────────
+   A long-press on nav/option buttons opened the iOS magnifier/callout
+   instead of being treated as a press. */
+button,
+[role="button"],
+.answer-option,
+.nav-pill {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

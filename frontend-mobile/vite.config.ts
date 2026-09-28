@@ -28,6 +28,7 @@ export default defineConfig({
       '/quiz/wrong-queue': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
       '/quiz/question-history': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
       '/questions/count': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
+      '/questions/': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
       '/questions/categories': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
       '/questions/by-ids': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
     },

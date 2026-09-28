@@ -224,7 +224,7 @@ const Dashboard: React.FC = () => {
           {/* Main content skeleton */}
           <div>
             <div className="skeleton" style={{ height: '10rem', borderRadius: 'var(--apple-radius-lg)', marginBottom: '1.5rem' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+            <div className="skel-3-grid">
               {[1, 2, 3].map((_, i) => (
                 <div key={i} className="skeleton" style={{ height: '5rem', borderRadius: 'var(--apple-radius-lg)' }} />
               ))}
