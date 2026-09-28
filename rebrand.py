@@ -23,7 +23,7 @@ DIST_DIRS = [
 TEXT_EXTS = {".html", ".js", ".css", ".json", ".xml", ".txt", ".svg", ".webmanifest"}
 
 # Canonical host of the primary site. On mirror services, set SITE_URL to the
-# mirror's own origin (e.g. https://forestryloksewapreparation.onrender.com)
+# mirror's own origin (e.g. https://forestry-loksewapreparation.onrender.com)
 # so sitemap.xml, canonical links, og:url and JSON-LD URLs stay self-consistent.
 PRIMARY_HOST = "https://ravikafle.com.np"
 
