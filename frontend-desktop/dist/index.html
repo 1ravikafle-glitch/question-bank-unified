@@ -119,10 +119,17 @@
           var path = location.hash || location.pathname;
           var isQuiz = path.includes('/quiz') || path.includes('/attempt');
           ad.style.display = isQuiz ? 'none' : '';
+          // An unfilled slot cannot be clicked anyway; let clicks pass
+          // through so it never blocks the logo or header buttons.
+          try {
+            var ins = ad.querySelector('ins.adsbygoogle');
+            var unfilled = ins && ins.getAttribute('data-ad-status') === 'unfilled';
+            ad.style.pointerEvents = unfilled ? 'none' : '';
+          } catch (e) {}
         });
-        obs.observe(document.body, {childList:true, subtree:true});
+        obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['data-ad-status']});
       })();
     </script>
-    <script src="/desktop/assets/desktop-setup.js?v=gis2" defer></script>
+    <script src="/desktop/assets/desktop-setup.js?v=perf2" defer></script>
   </body>
 </html>

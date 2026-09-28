@@ -62,6 +62,62 @@ export async function downloadPack(
   return { total: questions.length, savedAt: Date.now() };
 }
 
+// ── Chunked background download ──────────────────────────────────────
+// Bank JSON runs ~365 bytes/question, so PAGE_SIZE keeps every network hop
+// well under ~0.5MB. Between hops we yield to the browser (idle callback +
+// a short pause) so scrolling, typing and animations never stutter while the
+// pack downloads silently in the background.
+const PAGE_SIZE = 1200;
+const CHUNK_PAUSE_MS = 650;
+
+function nextIdle(): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const ric = (window as any).requestIdleCallback;
+      if (typeof ric === 'function') {
+        ric(() => resolve(), { timeout: 1500 });
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
+    setTimeout(resolve, 0);
+  });
+}
+
+const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Download the bank page by page, yielding between pages for smoothness. */
+export async function downloadPackPaged(
+  page: (skip: number, limit: number) => Promise<Question[]>,
+  total: number,
+  onProgress?: (done: number, total: number) => void
+): Promise<OfflinePackInfo> {
+  const questions: Question[] = [];
+  const want = Math.max(0, Math.floor(total) || 0);
+  for (let skip = 0; skip < want; skip += PAGE_SIZE) {
+    if (!isOnline()) throw new Error('offline');
+    const chunk = await page(skip, Math.min(PAGE_SIZE, want - skip));
+    if (!chunk || chunk.length === 0) break;
+    questions.push(...chunk);
+    onProgress?.(questions.length, want);
+    await nextIdle();
+    await pause(CHUNK_PAUSE_MS);
+  }
+  const db = await openDB();
+  try {
+    await req(
+      db
+        .transaction(['kv'], 'readwrite')
+        .objectStore('kv')
+        .put({ k: 'bank', questions, savedAt: Date.now(), total: questions.length })
+    );
+  } finally {
+    db.close();
+  }
+  return { total: questions.length, savedAt: Date.now() };
+}
+
 export async function getBank(): Promise<Question[] | null> {
   try {
     const db = await openDB();
@@ -191,10 +247,11 @@ function saveDataMode(): boolean {
 /**
  * Ensure an offline pack exists without any user action. Call on app boot.
  * Downloads when missing, older than 7 days, or when the server bank grew.
- * Skips silently when offline, on metered connections, or on failure.
+ * The bank arrives in small pages with pauses between them, so the UI stays
+ * smooth. Skips silently when offline, on metered connections, or on failure.
  */
 export async function ensurePack(
-  fetcher: () => Promise<Question[]>,
+  pager: (skip: number, limit: number) => Promise<Question[]>,
   counter: () => Promise<number>,
   opts: { maxAgeDays?: number } = {}
 ): Promise<'ok' | 'downloaded' | 'skipped'> {
@@ -202,22 +259,16 @@ export async function ensurePack(
     if (!isOnline() || saveDataMode()) return 'skipped';
     const maxAge = (opts.maxAgeDays ?? 7) * 86400000;
     const info = await packInfo();
+    const total = await counter().catch(() => 0);
     if (info && Date.now() - info.savedAt < maxAge) {
       // Fresh pack: re-download only if the server bank changed size
-      if (!(await needsUpdate(counter, info))) return 'ok';
+      if (!total || total === info.total) return 'ok';
     }
-    const pack = await downloadPack(fetcher);
+    if (!total) return 'skipped';
+    const pack = await downloadPackPaged(pager, total);
     return pack.total > 0 ? 'downloaded' : 'skipped';
   } catch {
     return 'skipped';
-  }
-}
-
-async function needsUpdate(counter: () => Promise<number>, info: OfflinePackInfo): Promise<boolean> {
-  try {
-    return (await counter()) !== info.total;
-  } catch {
-    return false;
   }
 }
 

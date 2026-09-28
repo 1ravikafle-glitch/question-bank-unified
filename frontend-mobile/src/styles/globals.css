@@ -100,6 +100,10 @@ html {
 /* --- Body --- */
 body {
 	background-color: hsl(var(--background));
+	/* Tasteful dot-grid texture, ~5% ink: visible in open space, invisible
+	   behind cards. Same tile works in light and dark themes. */
+	background-image: radial-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1.1px);
+	background-size: 22px 22px;
 	color: hsl(var(--foreground));
 	font-family: var(--font-sans);
 	font-size: var(--font-size-base);

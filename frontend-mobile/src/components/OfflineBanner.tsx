@@ -30,9 +30,10 @@ const OfflineBanner: React.FC = () => {
       setHasPack(!!(await packInfo()));
     };
     refresh();
-    // Silent auto-download: keep an offline pack ready without any taps
+    // Silent auto-download: bank arrives in small pages with pauses between
+    // them, so the UI stays smooth. One 2s toast reports completion.
     ensurePack(
-      () => fetchQuestions({ limit: 10000 }),
+      (skip, limit) => fetchQuestions({ skip, limit }),
       () => fetchQuestionsCount().then((r) => r.count)
     ).then((res) => {
       if (!alive) return;
@@ -48,6 +49,7 @@ const OfflineBanner: React.FC = () => {
     const onOffline = () => {
       setOnline(false);
       setDismissed(false);
+      toast('You are offline — practicing from the downloaded pack', { duration: 2000 });
       // Auto-dismiss the offline notice after 5s (sync pill still appears when needed)
       setTimeout(() => setDismissed(true), 5000);
     };

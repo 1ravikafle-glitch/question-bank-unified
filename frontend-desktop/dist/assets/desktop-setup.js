@@ -189,6 +189,128 @@
     } catch (e) {}
   }
 
+
+  // ── Sidebar footer: Preferences + Account as proper groups ──
+  // The theme buttons, sound toggle and user menu ship as loose rows with
+  // tiny/faint labels. Group them like the nav sections above (same 14px
+  // card, same 11px section label) without touching their behaviour.
+  function sectionLabel(text) {
+    var p = document.createElement('p');
+    p.className = 'px-3';
+    p.setAttribute('style', 'font-size:0.6875rem;font-weight:600;text-transform:uppercase;' +
+      'letter-spacing:0.08em;color:hsl(var(--foreground) / 0.45);' +
+      'margin-bottom:0.375rem;padding-top:0.25rem');
+    p.textContent = text;
+    return p;
+  }
+
+  function polishSidebarFooter() {
+    try {
+      var aside = document.querySelector('.desktop-sidebar');
+      if (!aside) return;
+      var blocks = [];
+      for (var i = 0; i < aside.children.length; i++) {
+        var ch = aside.children[i];
+        if (ch.tagName !== 'DIV' || ch.querySelector('nav')) continue;
+        blocks.push(ch);
+      }
+      // First footer block = theme + sound → "Preferences" group card
+      var pref = null;
+      for (var j = 0; j < blocks.length; j++) {
+        if (blocks[j].querySelector('.theme-toggle-btn')) { pref = blocks[j]; break; }
+      }
+      if (pref && !pref.getAttribute('data-qsp-foot')) {
+        pref.setAttribute('data-qsp-foot', 'prefs');
+        pref.insertBefore(sectionLabel('Preferences'), pref.firstChild);
+      }
+      if (pref) {
+        // Re-asserted every run: React re-renders can wipe these nodes.
+        var tiny = pref.querySelectorAll('p[class*="0.625rem"]');
+        for (var t = 0; t < tiny.length; t++) tiny[t].style.display = 'none';
+        var spans = pref.querySelectorAll('span');
+        for (var q = 0; q < spans.length; q++) {
+          if ((spans[q].textContent || '').trim() === 'Sound effects') {
+            spans[q].style.fontSize = '0.9375rem';
+            spans[q].style.fontWeight = '500';
+            spans[q].style.color = 'hsl(var(--foreground))';
+            break;
+          }
+        }
+        // Theme options read as rows, like the nav links above: icon +
+        // label side by side, full-width capsules.
+        var grid = pref.querySelector('.grid');
+        if (grid && !grid.getAttribute('data-qsp-grid')) {
+          grid.setAttribute('data-qsp-grid', '1');
+          grid.style.display = 'flex';
+          grid.style.flexDirection = 'column';
+          grid.style.gap = '6px';
+          grid.style.padding = '0';
+          grid.style.background = 'none';
+        }
+        var btns = pref.querySelectorAll('.theme-toggle-btn');
+        for (var k = 0; k < btns.length; k++) {
+          (function (b) {
+            var cap = b.querySelector('[data-qsp-cap]');
+            if (!cap) {
+              cap = document.createElement('span');
+              cap.setAttribute('data-qsp-cap', '1');
+              b.appendChild(cap);
+            }
+            cap.textContent = b.getAttribute('title') || '';
+            // Individual properties only: never wipe the app's own inline
+            // styles (it marks the active theme via background).
+            cap.style.fontSize = '0.9375rem';
+            cap.style.fontWeight = '500';
+            cap.style.color = 'hsl(var(--foreground))';
+            cap.style.flex = '1';
+            cap.style.textAlign = 'left';
+            b.style.display = 'flex';
+            b.style.flexDirection = 'row';
+            b.style.alignItems = 'center';
+            b.style.gap = '9px';
+            b.style.width = '100%';
+            b.style.padding = '0.5rem 0.75rem';
+            b.style.borderRadius = '11px';
+            b.style.border = '1px solid hsl(var(--border)/.55)';
+            if (!b.style.background || b.style.background === 'none') {
+              b.style.background = 'hsl(var(--muted)/.35)';
+            }
+            b.style.cursor = 'pointer';
+          })(btns[k]);
+        }
+        // Sound row gets the same capsule treatment.
+        var sndSpan = null;
+        var spans2 = pref.querySelectorAll('span');
+        for (var w = 0; w < spans2.length; w++) {
+          if ((spans2[w].textContent || '').trim() === 'Sound effects') { sndSpan = spans2[w]; break; }
+        }
+        var sndRow = sndSpan ? sndSpan.parentElement : null;
+        if (sndRow && !sndRow.getAttribute('data-qsp-snd')) {
+          sndRow.setAttribute('data-qsp-snd', '1');
+          sndRow.style.display = 'flex';
+          sndRow.style.alignItems = 'center';
+          sndRow.style.justifyContent = 'space-between';
+          sndRow.style.gap = '9px';
+          sndRow.style.width = '100%';
+          sndRow.style.padding = '0.5rem 0.75rem';
+          sndRow.style.borderRadius = '11px';
+          sndRow.style.border = '1px solid hsl(var(--border)/.55)';
+          sndRow.style.background = 'hsl(var(--muted)/.35)';
+          sndRow.style.marginTop = '6px';
+        }
+      }
+      // User block → "Account" group card (menu behaviour untouched)
+      var user = null;
+      for (var m = 0; m < blocks.length; m++) {
+        if (blocks[m].querySelector('[aria-label="User menu"]')) { user = blocks[m]; break; }
+      }
+      if (user && !user.getAttribute('data-qsp-foot')) {
+        user.setAttribute('data-qsp-foot', 'account');
+        user.insertBefore(sectionLabel('Account'), user.firstChild);
+      }
+    } catch (e) {}
+  }
+
   function injectStyles() {
     if (document.getElementById('qsp-css')) return;
     var s = document.createElement('style');
@@ -201,12 +323,23 @@
       '.desktop-sidebar nav a:not([aria-current="page"]){border:1px solid hsl(var(--border)/.55)!important;border-radius:11px!important;background:hsl(var(--muted)/.35)!important;transition:transform .18s ease,background .18s ease,box-shadow .18s ease,border-color .18s ease!important}',
       '.desktop-sidebar nav a:not([aria-current="page"]):hover{transform:translateX(3px);background:hsl(var(--muted)/.75)!important;border-color:hsl(var(--primary)/.45)!important;box-shadow:0 4px 14px rgba(0,0,0,.10)!important}',
       '.desktop-sidebar nav a:active{transform:translateX(1px) scale(.99)}',
+      // Login contrast only: darker submit fill + full-opacity stats text.
+      // Scoped to the password form so no other primary button changes.
+      'form:has(input[type="password"]) button[type="submit"].btn-primary{background-color:#15803d!important;color:#fff!important}',
+      '.dark form:has(input[type="password"]) button[type="submit"].btn-primary{background-color:hsl(var(--primary))!important;color:hsl(var(--primary-foreground))!important}',
+      'div.card:has(input[type="password"]) p[style*="opacity:"]{opacity:1!important}',
       '@media(min-width:1024px){.desktop-sidebar>a[href="/"]{height:64px!important;padding-top:0!important;padding-bottom:0!important;display:flex!important;align-items:center!important}}',
       '@media(min-width:1024px){.desktop-sidebar{padding-top:56px!important}}',
       '@media(min-width:1024px){header[aria-label="Header"]{position:fixed!important;top:56px!important;right:0!important;left:280px!important;margin-left:0!important;height:64px!important;z-index:50!important}}',
       '@media(min-width:1024px){div.min-h-screen:has(>header[aria-label="Header"]) #main-content{padding-top:72px!important}}',
       '#qsp-topcover{position:fixed;top:0;left:280px;right:0;height:124px;background:hsl(var(--background));z-index:44;pointer-events:none;display:none}',
       '@media(min-width:1024px){#qsp-topcover.on{display:block}}',
+      // Sidebar footer groups: same card language as the nav sections.
+      '.desktop-sidebar>div[data-qsp-foot]{margin:0 .75rem .75rem!important;background:hsl(var(--muted)/.45)!important;border:1px solid hsl(var(--border)/.6)!important;border-radius:14px!important;padding:.5rem .375rem .625rem!important}',
+      '.desktop-sidebar>div[data-qsp-foot] .theme-toggle-btn{border-radius:10px!important}',
+      // Whole-app texture: subtle dot grid (~5% ink) over the page background.
+      // Cards stay opaque, so it reads only in open space, both themes.
+      'body{background-image:radial-gradient(hsl(var(--foreground)/.05) 1px,transparent 1.1px)!important;background-size:22px 22px!important}',
       // Home category cards: capsule emphasis + hover lift + clear contrast + tighter grid
       '.category-grid{gap:.625rem!important}',
       '.category-grid .subject-card{border-radius:14px!important;border:1px solid hsl(var(--border))!important;background:hsl(var(--card))!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important}',
@@ -216,19 +349,19 @@
       '.category-grid .subject-card p,.category-grid .subject-card span{opacity:1!important}',
       // Beast armed: suppress numeric pills even against framer-motion hover (!important beats inline)
       'body.beast-home-on .qsp-num:not(#qsp-home-beast){background:hsl(var(--muted))!important;color:hsl(var(--muted-foreground))!important;border:1px solid hsl(var(--border))!important;box-shadow:none!important}',
-      '.qsp-overlay{position:fixed;inset:0;z-index:99999;background:#f3f5f3;overflow-y:auto;padding:clamp(20px,5vh,56px) clamp(16px,4vw,32px) 90px;font-family:Inter,system-ui,-apple-system,sans-serif}',
+      '.qsp-overlay{position:fixed;inset:0;z-index:99999;background:hsl(var(--background));overflow-y:auto;padding:clamp(20px,5vh,56px) clamp(16px,4vw,32px) 90px;font-family:Inter,system-ui,-apple-system,sans-serif}',
       '@media(min-width:1024px){.qsp-overlay{left:280px}}',
       '.qsp-wrap{max-width:720px;margin:0 auto}',
-      '.qsp-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;padding:0 0 14px;font-family:inherit}',
-      '.qsp-back:hover{color:#0f172a}',
-      '.qsp-card{background:#fff;border:1px solid #e5e9e5;border-radius:14px;padding:clamp(20px,3vw,30px);box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 32px rgba(0,0,0,.06)}',
-      '.qsp-title{font-size:19px;font-weight:700;color:#101813;margin:0 0 4px;letter-spacing:-.01em}',
-      '.qsp-sub{font-size:13px;color:#6b7686;margin:0 0 20px}',
-      '.qsp-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a94a0;margin:0 0 8px}',
+      '.qsp-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:hsl(var(--muted-foreground));font-size:13px;font-weight:600;cursor:pointer;padding:0 0 14px;font-family:inherit}',
+      '.qsp-back:hover{color:hsl(var(--foreground))}',
+      '.qsp-card{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:14px;padding:clamp(20px,3vw,30px);box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 32px rgba(0,0,0,.06)}',
+      '.qsp-title{font-size:19px;font-weight:700;color:hsl(var(--foreground));margin:0 0 4px;letter-spacing:-.01em}',
+      '.qsp-sub{font-size:13px;color:hsl(var(--muted-foreground));margin:0 0 20px}',
+      '.qsp-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:hsl(var(--muted-foreground));margin:0 0 8px}',
       '.qsp-pills{display:flex;gap:8px;margin-bottom:20px}',
-      '.qsp-pill{flex:1;padding:11px 0;border-radius:9px;border:1px solid #e2e8e2;background:#f4f6f4;color:#5b6672;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .13s;font-family:inherit}',
-      '.qsp-pill:hover{border-color:#86c78f;color:#15803d}',
-      '.qsp-pill.on{background:#22c55e;border-color:#22c55e;color:#fff;box-shadow:0 3px 12px rgba(34,197,94,.35)}',
+      '.qsp-pill{flex:1;padding:11px 0;border-radius:9px;border:1px solid hsl(var(--border));background:hsl(var(--muted));color:hsl(var(--muted-foreground));font-size:13.5px;font-weight:600;cursor:pointer;transition:all .13s;font-family:inherit}',
+      '.qsp-pill:hover{border-color:hsl(var(--primary) / .55);color:hsl(var(--primary))}',
+      '.qsp-pill.on{background:hsl(var(--primary));border-color:hsl(var(--primary));color:hsl(var(--primary-foreground));box-shadow:0 3px 12px rgba(34,197,94,.35)}',
       '.qsp-pill.beast-armed{position:relative;overflow:hidden;font-size:12px;animation:beastGlow 1.6s ease-in-out infinite}',
       '@keyframes beastGlow{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.55),0 4px 14px rgba(34,197,94,.35)}50%{box-shadow:0 0 18px 4px rgba(251,146,60,.75),0 4px 18px rgba(34,197,94,.5)}}',
       '.qsp-pill.beast-shake{animation:beastShake .45s ease,beastGlow 1.6s ease-in-out .45s infinite}',
@@ -239,26 +372,27 @@
       '@keyframes sparkBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx,20px),var(--dy,-20px)) scale(.1);opacity:0}}',
       '.fx-dragon{position:absolute;top:1px;left:0;font-size:13px;line-height:1;pointer-events:none;animation:dragonFly 1.9s linear forwards}',
       '@keyframes dragonFly{0%{transform:translate(-30px,0);opacity:0}8%{opacity:1}92%{opacity:1}100%{transform:translate(420px,0);opacity:0}}',
-      '.qsp-select{width:100%;padding:11px 38px 11px 13px;border-radius:9px;border:1px solid #dfe4de;background:#fff;color:#1c2420;font-size:13.5px;font-family:inherit;margin-bottom:18px;appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%2394a3b8\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.6\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e");background-position:right 12px center;background-repeat:no-repeat;background-size:15px}',
-      '.qsp-select:focus{outline:none;border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.15)}',
+      '.qsp-select{width:100%;padding:11px 38px 11px 13px;border-radius:9px;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--foreground));font-size:13.5px;font-family:inherit;margin-bottom:18px;appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%2394a3b8\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.6\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e");background-position:right 12px center;background-repeat:no-repeat;background-size:15px}',
+      '.dark .qsp-select{background-image:url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%23aab7a4\' stroke-width=\'1.6\' stroke-linecap=\'round\' stroke-linejoin=\'round\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")}',
+      '.qsp-select:focus{outline:none;border-color:hsl(var(--primary));box-shadow:0 0 0 3px rgba(34,197,94,.15)}',
       '.qsp-emoji-chip{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:hsl(var(--muted));font-size:.9rem;flex-shrink:0;margin-right:.55rem}',
       '.category-dropdown-item>span[style*="margin-right:"]{display:none!important}',
       '.category-dropdown-item>span:empty{display:none}',
-      '.qsp-start{width:100%;padding:13px 0;border-radius:10px;border:none;font-size:14.5px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:all .13s;font-family:inherit;box-shadow:0 3px 12px rgba(34,197,94,.3)}',
-      '.qsp-start:hover{background:#16a34a}',
+      '.qsp-start{width:100%;padding:13px 0;border-radius:10px;border:none;font-size:14.5px;font-weight:700;cursor:pointer;background:hsl(var(--primary));color:hsl(var(--primary-foreground));transition:all .13s;font-family:inherit;box-shadow:0 3px 12px rgba(34,197,94,.3)}',
+      '.qsp-start:hover{background:hsl(var(--primary) / .88)}',
       '.qsp-start:active{transform:scale(.99)}',
-      '.qsp-continue{width:100%;padding:13px 14px;border-radius:10px;border:1px solid #86c78f;background:#f0fdf4;color:#15803d;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;transition:all .13s;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 3px 12px rgba(34,197,94,.18)}',
-      '.qsp-continue:hover{background:#dcfce7}',
+      '.qsp-continue{width:100%;padding:13px 14px;border-radius:10px;border:1px solid hsl(var(--primary) / .55);background:hsl(var(--primary) / .10);color:hsl(var(--primary));font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;transition:all .13s;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 3px 12px rgba(34,197,94,.18)}',
+      '.qsp-continue:hover{background:hsl(var(--primary) / .18)}',
       '.qsp-continue:active{transform:scale(.99)}',
-      '.qsp-wrong{margin-top:14px;background:#fef1f0;border:1px solid #f5d5d0;border-radius:10px;padding:13px 14px 14px}',
+      '.qsp-wrong{margin-top:14px;background:hsl(var(--destructive) / .08);border:1px solid hsl(var(--destructive) / .28);border-radius:10px;padding:13px 14px 14px}',
       '.qsp-wrong-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}',
-      '.qsp-wrong-label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#991b1b}',
-      '.qsp-wrong-time{font-size:12px;color:#b68080}',
+      '.qsp-wrong-label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:hsl(var(--destructive))}',
+      '.qsp-wrong-time{font-size:12px;color:hsl(var(--destructive) / .72)}',
       '.qsp-wrong-btn{width:100%;padding:12px 0;border-radius:9px;border:none;font-size:13.5px;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(135deg,#ef4444 0%,#ea580c 100%);box-shadow:0 3px 12px rgba(239,68,68,.3);transition:all .13s;font-family:inherit}',
       '.qsp-wrong-btn:hover{filter:brightness(1.05)}',
       '.qsp-wrong-btn:active{transform:scale(.99)}',
-      '.qsp-loading{text-align:center;padding:36px 0;color:#8a94a0;font-size:13px}',
-      '.qsp-spin{width:28px;height:28px;border:3px solid #e2e8e2;border-top-color:#22c55e;border-radius:50%;animation:qsp-spin .65s linear infinite;margin:0 auto 10px}',
+      '.qsp-loading{text-align:center;padding:36px 0;color:hsl(var(--muted-foreground));font-size:13px}',
+      '.qsp-spin{width:28px;height:28px;border:3px solid hsl(var(--border));border-top-color:hsl(var(--primary));border-radius:50%;animation:qsp-spin .65s linear infinite;margin:0 auto 10px}',
       '@keyframes qsp-spin{to{transform:rotate(360deg)}}'
     ].join('');
     document.head.appendChild(s);
@@ -592,6 +726,19 @@
     } catch (e) {}
   }
 
+  // Mutation bursts (React mounting can emit hundreds) must not each run
+  // the full enhancement pass: coalesce into one trailing run so the main
+  // thread never wedges under a storm of observer callbacks.
+  var enhanceTimer = null;
+  function scheduleEnhance() {
+    if (enhanceTimer) return;
+    enhanceTimer = setTimeout(function () {
+      enhanceTimer = null;
+      try { enhanceHomeCard(); } catch (e) {}
+      try { injectGisLink(); polishSidebarFooter(); } catch (e) {}
+    }, 120);
+  }
+
   function hookNav() {
     if (window.__qsp_hooked) return;
     window.__qsp_hooked = true;
@@ -614,10 +761,9 @@
     // Re-enhance home card across React re-renders (which wipe injected nodes)
     try {
       var mo = new MutationObserver(function () {
-        try { enhanceHomeCard(); } catch (e) {}
-        // React can replace the whole <nav>, which kills the nav-scoped
-        // observer, so re-assert the Apps group from here as well.
-        try { injectGisLink(); } catch (e) {}
+        // Coalesced (see scheduleEnhance): a burst of mutations schedules a
+        // single pass instead of running the full DOM work per mutation.
+        scheduleEnhance();
       });
       mo.observe(document.body, { childList: true, subtree: true });
     } catch (e) {}
@@ -972,8 +1118,49 @@
   function initOffline() {
     if (document.querySelector('#qsp-offbar')) return;
     injectOffbarCSS();
-    // Silent auto-download: keep an offline pack ready without any taps.
-    // Skipped when offline, on metered connections, or when the pack is fresh.
+    // Silent auto-download: bank arrives in small pages (~1200 questions,
+    // well under 0.5MB each) with a pause between them, so scrolling and
+    // animations never stutter. Skipped when offline, on metered
+    // connections, or when the pack is fresh.
+    function yieldToBrowser(done) {
+      try {
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(function () { done(); }, { timeout: 1500 });
+          return;
+        }
+      } catch (e) {}
+      setTimeout(done, 0);
+    }
+    function saveBank(qs) {
+      return idbOpen().then(function (db) {
+        return idbReq(db.transaction(['kv'], 'readwrite').objectStore('kv').put({
+          k: 'bank', questions: qs, savedAt: Date.now(), total: qs.length
+        })).then(function () { db.close(); });
+      });
+    }
+    function downloadPaged(total, onDone) {
+      var PAGE = 1200, all = [], skip = 0;
+      function next() {
+        if (navigator.onLine === false) return; // went offline mid-download
+        if (skip >= total) {
+          if (all.length) saveBank(all).then(function () { paintOffbar(); if (onDone) onDone(); }).catch(function () {});
+          return;
+        }
+        fetch('/questions/?skip=' + skip + '&limit=' + Math.min(PAGE, total - skip)).then(function (r) {
+          if (!r.ok) throw 0;
+          return r.json();
+        }).then(function (qs) {
+          if (!qs || !qs.length) {
+            if (all.length) saveBank(all).then(function () { paintOffbar(); }).catch(function () {});
+            return;
+          }
+          for (var i = 0; i < qs.length; i++) all.push(qs[i]);
+          skip += qs.length;
+          yieldToBrowser(function () { setTimeout(next, 650); });
+        }).catch(function () {});
+      }
+      next();
+    }
     try {
       var saveData = false;
       try {
@@ -982,28 +1169,13 @@
       } catch (e) {}
       if (navigator.onLine !== false && !saveData) {
         packStatus().then(function (pack) {
-          var need = true;
-          var done = function (doDownload) {
-            if (!doDownload) return;
-            fetch('/questions/?limit=10000').then(function (r) {
-              if (!r.ok) throw 0;
-              return r.json();
-            }).then(function (qs) {
-              if (!qs || !qs.length) return;
-              return idbOpen().then(function (db) {
-                return idbReq(db.transaction(['kv'], 'readwrite').objectStore('kv').put({
-                  k: 'bank', questions: qs, savedAt: Date.now(), total: qs.length
-                })).then(function () { db.close(); });
-              });
-            }).then(function () { paintOffbar(); }).catch(function () {});
-          };
-          if (pack && (Date.now() - pack.savedAt) < 7 * 86400000) {
-            fetch('/questions/count/').then(function (r) { return r.json(); }).then(function (d) {
-              done(!d || d.count !== pack.total);
-            }).catch(function () {});
-          } else {
-            done(true); // missing or stale pack → (re)download
-          }
+          fetch('/questions/count/').then(function (r) { return r.json(); }).then(function (d) {
+            var total = (d && d.count) || 0;
+            var fresh = pack && (Date.now() - pack.savedAt) < 7 * 86400000;
+            if (fresh && total === pack.total) return; // up to date
+            if (!total) return;
+            downloadPaged(total, function () { showOffToast('Offline pack ready — practice works without internet'); });
+          }).catch(function () {});
         }).catch(function () {});
       }
     } catch (e) {}
@@ -1018,7 +1190,10 @@
       paintOffbar();
       trySyncNow();
     });
-    window.addEventListener('offline', paintOffbar);
+    window.addEventListener('offline', function () {
+      paintOffbar();
+      showOffToast('You are offline — practicing from the downloaded pack');
+    });
     setInterval(function () { paintOffbar(); trySyncNow(); }, 15000);
   }
 
@@ -1145,6 +1320,7 @@
     hookNav();
     try { injectStyles(); } catch (e) {} // sidebar groups + pinned header on every page
     try { injectGisLink(); watchGis(); hookGisSso(); } catch (e) {} // Apps > GIS Pro Studio
+    try { polishSidebarFooter(); } catch (e) {}
     try { ensureTopcover(); } catch (e) {}
     try { registerSW(); } catch (e) {}
     try { initOffline(); } catch (e) {}
