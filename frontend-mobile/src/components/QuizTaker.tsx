@@ -756,11 +756,9 @@ const QuizTaker: React.FC = () => {
       submitQuizRequest(selected);
     }
   }, [currentIndex, questions.length, submitQuizRequest, selected, sfxClick]);
-
-  /* Keeps the current dot visible when the strip is scrollable (long sets). */
-  const scrollToCurrentDot = useCallback((el: HTMLDivElement | null) => {
-    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-  }, []);
+  // NOTE: no scrollIntoView on the current dot — it scrolls the whole page
+  // (block:'nearest' walks up to the document) and yanks the user back to
+  // the dot row mid-read. The desktop rail scrolls manually instead.
 
   const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
@@ -1431,7 +1429,6 @@ const QuizTaker: React.FC = () => {
             return (
               <div
                 key={questions[i]?.id ?? i}
-                ref={isCurrent ? scrollToCurrentDot : undefined}
                 className="quiz-dot"
                 style={{
                   background: bg,

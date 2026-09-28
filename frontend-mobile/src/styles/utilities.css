@@ -988,9 +988,12 @@
 /* Mobile bottom nav padding */
 .pb-20 { padding-bottom: 5rem; }
 
-/* Prevent horizontal overflow globally */
+/* Prevent horizontal overflow globally.
+   overflow-x: clip (not hidden) — `hidden` on the root boxes makes the
+   page a programmatic-scroll container on iOS and can freeze user panning;
+   `clip` kills horizontal overflow without touching vertical scrolling. */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Safe area support for mobile browsers */

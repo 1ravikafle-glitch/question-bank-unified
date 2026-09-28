@@ -346,8 +346,8 @@ a:active,
 	h2 { font-size: 1.25rem; letter-spacing: -0.015em; }
 	h3 { font-size: 1.1rem; letter-spacing: -0.01em; }
 
-	/* Prevent horizontal overflow */
-	body { overflow-x: hidden; }
+	/* Prevent horizontal overflow (clip, not hidden — see utilities.css) */
+	body { overflow-x: clip; }
 
 	/* Touch-friendly button sizing */
 	.btn { min-height: 44px; }

@@ -11,7 +11,9 @@
 /* ── 1. Dynamic viewport height ────────────────────────────────────────────
    100vh on iOS Safari includes the area hidden behind the collapsing URL
    bar, so full-height screens overflow. dvh tracks the real visible
-   viewport. Desktop browsers without dvh keep 100vh via the fallback. */
+   viewport. Desktop browsers without dvh keep 100vh via the fallback.
+   NOTE: no overflow/height caps on html/body — the document must stay a
+   plain, momentum-scrolled box or iOS pages feel frozen. */
 html, body {
   min-height: 100vh;
   min-height: 100dvh;
@@ -85,6 +87,17 @@ body {
 .scroll-area {
   -webkit-overflow-scrolling: touch;
 }
+
+/* iOS page-scroll killer: overflow-x:hidden on the scrolling boxes forces
+   Safari into a paint-heavy clipping path and, combined with overscroll
+   contain, can make the page feel stuck on some iOS versions. Hide the
+   overflow at a non-scrolling wrapper instead: clip the x-axis, keep the
+   y-axis untouched so the document remains a plain scroller. */
+html, body {
+  overflow-x: clip;
+  overscroll-behavior-y: auto;
+}
+
 
 /* ── 7. GPU-composite fixed bars ───────────────────────────────────────────
    iOS repaints fixed elements during scroll (flicker behind the blur).
