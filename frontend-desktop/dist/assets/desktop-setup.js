@@ -75,7 +75,7 @@
 
   // ── Apps: Elfak GIS Pro Studio (separate Render service, opens in a new tab)
   //     Appended as its own group. Nothing else in the sidebar is touched.
-  var GIS_URL = 'https://elfakgisprostudio.onrender.com/';
+  var GIS_URL = 'https://elfakgisstudio.onrender.com/';
   var SSO_KEY = 'fpsc-sso-token';
 
   function gisHref() {

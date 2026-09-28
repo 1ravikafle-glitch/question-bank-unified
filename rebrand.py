@@ -27,6 +27,27 @@ TEXT_EXTS = {".html", ".js", ".css", ".json", ".xml", ".txt", ".svg", ".webmanif
 # so sitemap.xml, canonical links, og:url and JSON-LD URLs stay self-consistent.
 PRIMARY_HOST = "https://ravikafle.com.np"
 
+
+def detect_site_brand() -> str:
+    """Return ``loksewa`` for the Loksewa Render service, otherwise ``psc``.
+
+    An explicit SITE_BRAND always wins. When it is absent, Render's own
+    service identity/host variables identify the Loksewa deployment. This
+    lets the two services share one repository and database while keeping
+    their visible branding separate.
+    """
+    explicit = os.environ.get("SITE_BRAND", "").strip().lower()
+    if explicit in ("loksewa", "psc"):
+        return explicit
+    identity = " ".join(
+        [
+            os.environ.get("RENDER_SERVICE_NAME", ""),
+            os.environ.get("RENDER_EXTERNAL_HOSTNAME", ""),
+            os.environ.get("RENDER_EXTERNAL_URL", ""),
+        ]
+    ).lower()
+    return "loksewa" if "loksewa" in identity else "psc"
+
 # Ordered longest-first so specific phrases are replaced before generic ones.
 REPLACEMENTS = [
     ("Forestry PSC Preparation — Loksewa MCQ • Success", "Forestry Loksewa Preparation — MCQ • Success"),

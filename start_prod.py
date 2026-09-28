@@ -13,6 +13,18 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
 
+# ── Service brand detection ──────────────────────────────────────────────
+# The PSC and Loksewa services share this repository and database. An explicit
+# SITE_BRAND always wins, but a Loksewa Render service is also recognized from
+# Render's own identity/host variables when SITE_BRAND was not configured.
+from rebrand import detect_site_brand
+
+if detect_site_brand() == "loksewa":
+    os.environ.setdefault("SITE_BRAND", "loksewa")
+    external_url = os.getenv("RENDER_EXTERNAL_URL", "").strip().rstrip("/")
+    if external_url and not os.getenv("SITE_URL"):
+        os.environ["SITE_URL"] = external_url
+
 from database import engine, is_postgres, SessionLocal
 from models import Base
 import models
@@ -125,6 +137,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://question-bank-app.onrender.com",
+        "https://forestry-pscpreparation.onrender.com",
+        "https://forestry-loksewapreparation.onrender.com",
+        "https://elfakgisstudio.onrender.com",
         "https://ravikafle.com.np",
         "https://ravikafle.pages.dev",
         "https://15877980.ravikafle.pages.dev",
@@ -183,6 +198,17 @@ import seo_pages
 
 SEO_ENABLED = seo_pages.IS_LOKSEWA  # Loksewa mirror only; PSC service unchanged
 print(f"[SEO] Landing pages {'ENABLED' if SEO_ENABLED else 'OFF (PSC mode)'}", file=sys.stderr)
+
+if SEO_ENABLED:
+    # A Loksewa deployment can miss the separate build-time rebrand step.
+    # Rewriting its own ephemeral dist copy at startup keeps the Loksewa
+    # index branded without touching shared source or the shared database.
+    try:
+        import rebrand
+
+        rebrand.main()
+    except Exception as exc:
+        print(f"[REBRAND] Startup rebrand failed: {exc}", file=sys.stderr)
 
 app.include_router(quiz_router.router)
 app.include_router(questions_router.router)

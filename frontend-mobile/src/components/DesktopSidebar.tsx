@@ -140,7 +140,7 @@ const GisIcon = () => (
 );
 
 /** Sibling GIS app. Kept here so both apps stay in sync. */
-export const GIS_URL = 'https://elfakgisprostudio.onrender.com/';
+export const GIS_URL = 'https://elfakgisstudio.onrender.com/';
 
 /**
  * Build the GIS link, carrying the SSO token when we hold one so the click
