@@ -3,6 +3,7 @@ import { useContext, useState, useRef, useEffect, useCallback, type ReactNode } 
 import { createPortal } from 'react-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { useSound } from '@/context/SoundContext';
+import { useTheme } from '@/context/ThemeContext';
 import { isAdmin } from '@/config/admin';
 import { ForestryLogo } from '@/components/ForestryLogo';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,16 +64,17 @@ interface DropdownItemProps {
   onClick: () => void;
   color?: string;
   hoverBg?: string;
+  pressBg?: string;
   children: React.ReactNode;
 }
 
-const DropdownItem: React.FC<DropdownItemProps> = ({ onClick, color, hoverBg, children }) => (
+const DropdownItem: React.FC<DropdownItemProps> = ({ onClick, color, hoverBg, pressBg, children }) => (
   <motion.button
     type="button"
     onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
     whileHover={prefersReducedMotion() ? undefined : { backgroundColor: hoverBg || 'rgba(255,255,255,0.06)' }}
-    whileTap={prefersReducedMotion() ? undefined : { backgroundColor: 'rgba(255,255,255,0.10)', scale: 0.975 }}
+    whileTap={prefersReducedMotion() ? undefined : { backgroundColor: pressBg || 'rgba(255,255,255,0.10)', scale: 0.975 }}
     transition={{ duration: 0.12 }}
     className="w-full text-left font-medium flex items-center gap-2.5"
     style={{
@@ -93,6 +95,8 @@ const DropdownItem: React.FC<DropdownItemProps> = ({ onClick, color, hoverBg, ch
 const Header: React.FC = () => {
   const { userId, logout } = useContext(AuthContext);
   const { enabled: sfxEnabled, toggle: toggleSfx } = useSound();
+  const { resolved: themeResolved } = useTheme();
+  const darkMenu = themeResolved === 'dark';
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -175,18 +179,19 @@ const Header: React.FC = () => {
           }
             style={{
               position: 'fixed',
-              top: '60px',
+              top: '64px',
               right: '16px',
               width: 'min(260px, calc(100vw - 28px))',
               borderRadius: '19px',
               padding: '8px',
               zIndex: 99999,
-              background: 'rgba(30,30,32,0.94)',
-              border: '1px solid rgba(255,255,255,0.10)',
+              background: darkMenu ? 'rgba(30,30,32,0.94)' : 'rgba(255,255,255,0.92)',
+              border: darkMenu ? '1px solid rgba(255,255,255,0.10)' : '1px solid hsl(var(--border))',
               backdropFilter: 'blur(30px) saturate(130%)',
               WebkitBackdropFilter: 'blur(30px) saturate(130%)',
-              boxShadow:
-                'inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.5), 0 4px 18px rgba(0,0,0,0.4)',
+              boxShadow: darkMenu
+                ? 'inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.5), 0 4px 18px rgba(0,0,0,0.4)'
+                : '0 24px 70px rgba(0,0,0,0.16), 0 4px 18px rgba(0,0,0,0.10)',
               transformOrigin: 'top right',
               overflow: 'hidden',
             }}
@@ -217,7 +222,7 @@ const Header: React.FC = () => {
               <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
                 <span
                   style={{
-                    color: '#fff',
+                    color: darkMenu ? '#fff' : 'hsl(var(--foreground))',
                     fontSize: 14,
                     fontWeight: 600,
                     lineHeight: 1.25,
@@ -229,13 +234,13 @@ const Header: React.FC = () => {
                 >
                   {userId}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, lineHeight: 1.3 }}>
+                <span style={{ color: darkMenu ? 'rgba(255,255,255,0.55)' : 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.3 }}>
                   Forestry PSC
                 </span>
               </span>
             </div>
 
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '2px 4px 4px' }} />
+            <div style={{ height: 1, background: darkMenu ? 'rgba(255,255,255,0.08)' : 'hsl(var(--border))', margin: '2px 4px 4px' }} />
 
             {/* Sound effects — iOS-style toggle wired to the existing store */}
             <div
@@ -246,7 +251,7 @@ const Header: React.FC = () => {
                 minHeight: 44,
                 padding: '6px 10px',
                 borderRadius: 12,
-                color: '#fff',
+                color: darkMenu ? '#fff' : 'hsl(var(--foreground))',
                 fontSize: '0.9375rem',
                 fontWeight: 500,
               }}
@@ -260,8 +265,8 @@ const Header: React.FC = () => {
                   width: 34,
                   height: 20,
                   borderRadius: 999,
-                  background: sfxEnabled ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.14)',
-                  border: sfxEnabled ? '1px solid transparent' : '1px solid rgba(255,255,255,0.12)',
+                  background: sfxEnabled ? 'hsl(var(--primary))' : darkMenu ? 'rgba(255,255,255,0.14)' : 'hsl(var(--muted))',
+                  border: sfxEnabled ? '1px solid transparent' : darkMenu ? '1px solid rgba(255,255,255,0.12)' : '1px solid hsl(var(--border))',
                   transition: 'background 0.3s cubic-bezier(.22,1,.36,1)',
                   cursor: 'pointer',
                   padding: 0,
@@ -289,15 +294,15 @@ const Header: React.FC = () => {
             </div>
 
             {isAdmin(userId) && (
-              <DropdownItem onClick={handleAdmin} color="#fff">
+              <DropdownItem onClick={handleAdmin} color={darkMenu ? '#fff' : 'hsl(var(--foreground))'} hoverBg={darkMenu ? undefined : 'hsl(var(--muted))'} pressBg={darkMenu ? undefined : 'hsl(var(--muted))'}>
                 <span aria-hidden="true" style={{ fontSize: 15, opacity: 0.75 }}>⚙</span>
                 <span style={{ flex: 1 }}>Admin</span>
                 <span aria-hidden="true" style={{ opacity: 0.4, fontSize: 15 }}>›</span>
               </DropdownItem>
             )}
 
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '4px 4px 4px' }} />
-            <DropdownItem onClick={handleLogout} color="#ff453a" hoverBg="rgba(255,69,58,0.08)">
+            <div style={{ height: 1, background: darkMenu ? 'rgba(255,255,255,0.08)' : 'hsl(var(--border))', margin: '4px 4px 4px' }} />
+            <DropdownItem onClick={handleLogout} color="#ff453a" hoverBg="rgba(255,69,58,0.08)" pressBg="rgba(255,69,58,0.14)">
               <span aria-hidden="true" style={{ fontSize: 15, opacity: 0.85 }}>↪</span>
               Log out
             </DropdownItem>

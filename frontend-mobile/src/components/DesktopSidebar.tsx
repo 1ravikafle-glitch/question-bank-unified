@@ -344,7 +344,7 @@ const DesktopSidebar: React.FC = () => {
           </NavLink>
         </div>
 
-        {/* Apps — Elfak GIS Pro Studio (separate service, opens in a new tab) */}
+        {/* Apps — Elfak GIS Studio (separate service, opens in a new tab) */}
         <div data-qsp-gis-group="1" style={{ marginBottom: '0.5rem' }}>
           <p
             className="px-3"
@@ -387,7 +387,7 @@ const DesktopSidebar: React.FC = () => {
               <span className="flex-shrink-0" style={{ transform: 'scale(1.1)' }}>
                 <GisIcon />
               </span>
-              <span className="flex-1">GIS Pro Studio</span>
+              <span className="flex-1">GIS Studio</span>
               <span style={{ fontSize: '11px', opacity: 0.6 }}>&#8599;</span>
             </a>
           </motion.div>

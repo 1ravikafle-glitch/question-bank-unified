@@ -8,6 +8,7 @@ import QuizTaker from './components/QuizTaker';
 import ResultsScreen from './components/ResultsScreen';
 import ProgressTracker from './components/ProgressTracker';
 import AdminUpload from './components/AdminUpload';
+import Settings from './components/Settings';
 import Login from './components/Login';
 import About from './components/About';
 import Header from './components/Header';
@@ -20,6 +21,19 @@ import { authLogin } from './services/api';
 import { ThemeProvider } from './context/ThemeContext';
 import { SoundProvider } from './context/SoundContext';
 import { isAdmin } from './config/admin';
+
+/** Every route change starts at the top — never resume mid-page scroll. */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    try {
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname]);
+  return null;
+}
 
 function AppShell() {
   const [userId, setUserId] = useState<string>(() => localStorage.getItem('userId') || '');
@@ -127,6 +141,7 @@ function AppShell() {
               <Route path="/results" element={userId ? <ResultsScreen /> : <Navigate to="/login" replace />} />
               <Route path="/progress" element={userId ? <ProgressTracker /> : <Navigate to="/login" replace />} />
               <Route path="/admin" element={userId && isAdmin(userId) ? <AdminUpload /> : <Navigate to="/" replace />} />
+              <Route path="/settings" element={userId ? <Settings /> : <Navigate to="/login" replace />} />
               <Route path="/about" element={<About />} />
               <Route path="*" element={userId ? <Navigate to="/" replace /> : <Navigate to="/login" replace />} />
             </Routes>
@@ -153,6 +168,7 @@ function AppShell() {
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <ThemeProvider>
         <SoundProvider>
           <AppShell />

@@ -243,7 +243,7 @@ const MobileBottomNav: React.FC = () => {
             {/* Divider */}
             <div className="h-px mx-5" style={{ background: 'hsl(var(--border))' }} />
 
-            {/* Apps — Elfak GIS Pro Studio (separate service, opens in a new tab) */}
+            {/* Apps — Elfak GIS Studio (separate service, opens in a new tab) */}
             <div className="p-3">
               <a
                 href={gisHref()}
@@ -268,7 +268,7 @@ const MobileBottomNav: React.FC = () => {
                   <path d="M1 6l8-3 8 3 8-3v15l-8 3-8-3-8 3z" />
                   <path d="M9 3v15M15 6v15" />
                 </svg>
-                <span className="flex-1 text-left">GIS Pro Studio</span>
+                <span className="flex-1 text-left">GIS Studio</span>
                 <span style={{ fontSize: '11px', opacity: 0.6 }}>&#8599;</span>
               </a>
             </div>

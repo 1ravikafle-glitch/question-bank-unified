@@ -97,11 +97,12 @@
     <title>Forestry PSC Preparation | Forestry Loksewa, Ban & PSC Preparation MCQs — 3,100+ Questions</title>
 
     <style>
-      #ad-top-inline{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:8px 0;position:relative;z-index:100}
+      #ad-top-inline{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:8px 0;position:relative;z-index:1}
+      #ad-top-inline:empty{display:none}
     </style>
       <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7976760719077018" crossorigin="anonymous"></script>
-    <script type="module" crossorigin src="/assets/index-CBQwJrR0.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Od8ggB_W.css">
+    <script type="module" crossorigin src="/assets/index-BkmVn7R1.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BuLZF57_.css">
   </head>
   <body>
     <div id="ad-top-inline">
@@ -111,21 +112,32 @@
     <div id="root"></div>
     <script>
       (function(){
-        var obs = new MutationObserver(function(){
+        var t0 = Date.now();
+        var collapseEmpty = function(){
           var ad = document.getElementById('ad-top-inline');
           if (!ad) return;
           var path = location.hash || location.pathname;
           var isQuiz = path.includes('/quiz') || path.includes('/attempt');
-          ad.style.display = isQuiz ? 'none' : '';
+          if (isQuiz) { ad.style.display = 'none'; return; }
+          var ins = null;
+          try { ins = ad.querySelector('ins.adsbygoogle'); } catch (e) {}
+          var status = ins ? ins.getAttribute('data-ad-status') : null;
+          if (status === 'unfilled') { ad.style.display = 'none'; return; }
+          // Google sometimes never answers: after a grace period, an iframe-
+          // less slot is provably empty (nothing to click, nothing earned).
+          var settled = Date.now() - t0 > 9000;
+          var hasAd = !!(ins && ins.querySelector('iframe'));
+          if (settled && !hasAd) { ad.style.display = 'none'; return; }
+          ad.style.display = '';
           // An unfilled slot cannot be clicked anyway; let clicks pass
           // through so it never blocks the logo or header buttons.
-          try {
-            var ins = ad.querySelector('ins.adsbygoogle');
-            var unfilled = ins && ins.getAttribute('data-ad-status') === 'unfilled';
-            ad.style.pointerEvents = unfilled ? 'none' : '';
-          } catch (e) {}
-        });
+          try { ad.style.pointerEvents = (status && status !== 'filled') ? 'none' : ''; } catch (e) {}
+        };
+        var obs = new MutationObserver(function(){ collapseEmpty(); });
         obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['data-ad-status']});
+        setTimeout(collapseEmpty, 4000);
+        setTimeout(collapseEmpty, 9000);
+        collapseEmpty();
       })();
     </script>
   </body>

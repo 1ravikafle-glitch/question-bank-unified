@@ -15,6 +15,7 @@ import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
+import { useQuizPrefs } from '@/quizPrefs';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ---------------------------------------------------------------------------
@@ -397,6 +398,9 @@ const QuizTaker: React.FC = () => {
 
   // Setup screen state
   const [showSetup, setShowSetup] = useState(false);
+  // Wrong-question mode never auto-starts: the user confirms first.
+  const [wrongReady, setWrongReady] = useState(false);
+  const [wrongTotal, setWrongTotal] = useState<number | null>(null);
   const [setupCategories, setSetupCategories] = useState<string[]>([]);
   const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
   useEffect(() => { fetchCategoryEmoji().then(setEmojiMeta).catch(() => {}); }, []);
@@ -405,12 +409,12 @@ const QuizTaker: React.FC = () => {
   const [setupQuizCount, setSetupQuizCount] = useState(10);
   const [setupBeastMode, setSetupBeastMode] = useState(false);
   const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
+  const [quizPrefs] = useQuizPrefs();
   const [setupCategory, setSetupCategory] = useState('');
   const [showSetupCategoryDropdown, setShowSetupCategoryDropdown] = useState(false);
 
   const isPracticeWrongMode = location.pathname === '/quiz/practice-wrong';
   const wrongQuestionIds = (location.state as { wrongQuestionIds?: number[] })?.wrongQuestionIds ?? EMPTY_ARRAY;
-  const source = (location.state as { source?: string })?.source || '';
   const urlParams = new URLSearchParams(location.search);
   const questionIdFromUrl = urlParams.get('qid');
   const countParam = urlParams.get('count');
@@ -432,13 +436,32 @@ const QuizTaker: React.FC = () => {
     const loadQuestions = async () => {
       setLoading(true);
       try {
+        if (isPracticeWrongMode && !wrongReady) {
+          // Confirm screen first: load only the count, never the questions.
+          try {
+            if (wrongQuestionIds.length > 0) {
+              setWrongTotal(wrongQuestionIds.length);
+            } else {
+              const queue = await fetchWrongQueue(userId || 'anonymous');
+              setWrongTotal(queue.questions?.length || 0);
+            }
+          } catch {
+            setWrongTotal(0);
+          } finally {
+            setLoading(false);
+          }
+          return;
+        }
         if (!isPracticeWrongMode && !questionIdFromUrl) {
           // No URL params — ALWAYS show the setup menu (never auto-start).
           // A mid-quiz save becomes an explicit Continue choice, never a forced resume.
           if (!countParam && !categoryParam) {
             let resume: { index: number; total: number } | null = null;
             try {
-              const raw = localStorage.getItem(QUIZ_STORAGE_KEY);
+              if (!quizPrefs.resume) {
+                localStorage.removeItem(QUIZ_STORAGE_KEY);
+              }
+              const raw = quizPrefs.resume ? localStorage.getItem(QUIZ_STORAGE_KEY) : null;
               if (raw) {
                 const saved: QuizPersistedState = JSON.parse(raw);
                 const fresh = (Date.now() - (saved.savedAt || 0)) < RESUME_WINDOW_MS;
@@ -486,7 +509,7 @@ const QuizTaker: React.FC = () => {
         let questionsData: Question[];
         if (isPracticeWrongMode && wrongQuestionIds.length > 0) {
           questionsData = await fetchQuestionsByIds(wrongQuestionIds);
-        } else if (isPracticeWrongMode && source === 'queue') {
+        } else if (isPracticeWrongMode) {
           const queue = await fetchWrongQueue(userId || 'anonymous');
           questionsData = queue.questions || [];
         } else if (questionIdFromUrl) {
@@ -515,7 +538,7 @@ const QuizTaker: React.FC = () => {
     };
     loadQuestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questionIdFromUrl, countParam, categoryParam, isPracticeWrongMode]);
+  }, [questionIdFromUrl, countParam, categoryParam, isPracticeWrongMode, wrongReady]);
 
   // Local scoring when offline (answers queued for server sync later)
   const scoreLocally = (qs: Question[], sel: Record<number, string>) => {
@@ -704,6 +727,11 @@ const QuizTaker: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(SECONDS_PER_QUESTION);
   useEffect(() => {
     if (loading || questions.length === 0 || submitting || !currentQuestion) return;
+    if (!quizPrefs.timer) {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      setTimeLeft(SECONDS_PER_QUESTION);
+      return;
+    }
     if (isLocked) {
       if (timerRef.current) window.clearInterval(timerRef.current);
       return;
@@ -723,7 +751,7 @@ const QuizTaker: React.FC = () => {
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
     };
-  }, [currentIndex, isLocked, loading, questions.length, submitting]);
+  }, [currentIndex, isLocked, loading, questions.length, submitting, quizPrefs.timer]);
 
   const handleSelect = useCallback(
     (key: string) => {
@@ -856,6 +884,68 @@ const QuizTaker: React.FC = () => {
   };
 
   if (loading) return <QuizSkeleton />;
+  // Wrong-question mode: confirm before anything starts. No auto-start.
+  if (isPracticeWrongMode && !wrongReady) {
+    return (
+      <div
+        className="quiz-apple"
+        style={{
+          background: T.page,
+          fontFamily: T.font,
+          color: T.textPrimary,
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '24px 24px 60px',
+          minHeight: '100%',
+        }}
+      >
+        <div style={{ width: '100%', maxWidth: 560 }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none',
+              border: 'none', color: T.textSecondary, fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', padding: '0 0 14px', fontFamily: T.font,
+            }}
+          >
+            ← Back
+          </button>
+          <div
+            style={{
+              background: T.card, border: `1px solid ${T.border}`, borderRadius: 18,
+              padding: '30px 28px', textAlign: 'center',
+              boxShadow: '0 1px 2px rgba(0,0,0,.04),0 12px 32px rgba(0,0,0,.06)',
+            }}
+          >
+            <div style={{ fontSize: 34, marginBottom: 10 }} aria-hidden="true">🔁</div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px', color: T.textPrimary }}>
+              Review wrong questions
+            </h1>
+            <p style={{ fontSize: 14, color: T.textSecondary, margin: '0 0 22px', lineHeight: 1.55 }}>
+              {wrongTotal === null
+                ? 'Checking your review queue…'
+                : wrongTotal > 0
+                  ? `${wrongTotal} question${wrongTotal > 1 ? 's need' : ' needs'} another look. Ready when you are — nothing starts until you say so.`
+                  : 'All caught up! No wrong questions waiting for review.'}
+            </p>
+            {wrongTotal !== null && wrongTotal > 0 && (
+              <button
+                onClick={() => { try { navigator.vibrate?.(10); } catch {} setLoading(true); setWrongReady(true); }}
+                style={{
+                  width: '100%', padding: '13px 0', borderRadius: 12, border: 'none',
+                  fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
+                  background: T.accent, color: '#fff',
+                  boxShadow: '0 3px 12px rgba(34,197,94,.3)',
+                }}
+              >
+                Start Review — {wrongTotal} question{wrongTotal > 1 ? 's' : ''}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (showSetup) {
     return (
       <div
@@ -1210,7 +1300,7 @@ const QuizTaker: React.FC = () => {
           .quiz-grid-2col { grid-template-columns: 1fr 1fr; }
         }
       `}</style>
-      <div className="quiz-apple-shell" style={{ width: '100%', maxWidth: 640 }}>
+      <div className="quiz-apple-shell" style={{ width: '100%' }}>
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {announcement}
         </div>
