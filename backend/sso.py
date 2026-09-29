@@ -59,15 +59,26 @@ def mint(username: str, is_admin: bool = False) -> Optional[str]:
 
     Token layout: ``<b64url(payload)>.<b64url(hmac)>``
     """
-    secret = _secret()
+    return mint_for(username, is_admin=is_admin, audience=AUDIENCE, ttl=TOKEN_TTL_SECONDS)
+
+
+def mint_for(
+    username: str,
+    is_admin: bool = False,
+    audience: str = AUDIENCE,
+    ttl: int = TOKEN_TTL_SECONDS,
+    secret: Optional[bytes] = None,
+) -> Optional[str]:
+    """Mint a signed token with an explicit audience, TTL and secret."""
+    secret = secret if secret is not None else _secret()
     if secret is None or not username:
         return None
     payload = {
         "u": username,
         "a": 1 if is_admin else 0,
-        "aud": AUDIENCE,
+        "aud": audience,
         "iat": int(time.time()),
-        "exp": int(time.time()) + TOKEN_TTL_SECONDS,
+        "exp": int(time.time()) + ttl,
     }
     body = _b64e(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     sig = _b64e(hmac.new(secret, body.encode("ascii"), hashlib.sha256).digest())
@@ -80,7 +91,12 @@ def verify(token: str) -> Optional[dict]:
 
     Mirrors the checks performed on the GIS side.
     """
-    secret = _secret()
+    return verify_for(token, audience=AUDIENCE)
+
+
+def verify_for(token: str, audience: str = AUDIENCE, secret: Optional[bytes] = None) -> Optional[dict]:
+    """Validate a token against an explicit audience and secret."""
+    secret = secret if secret is not None else _secret()
     if secret is None or not token or "." not in token:
         return None
     body, _, sig = token.partition(".")
@@ -96,7 +112,7 @@ def verify(token: str) -> Optional[dict]:
         return None
     if not isinstance(payload, dict):
         return None
-    if payload.get("aud") != AUDIENCE:
+    if payload.get("aud") != audience:
         return None
     if not payload.get("u"):
         return None

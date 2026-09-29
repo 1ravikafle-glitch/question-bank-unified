@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from typing import Tuple
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc
@@ -7,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 import models
 import database
 import schemas
+import session
 import sys
 import random
 
@@ -49,11 +51,14 @@ def _resolve_answer_key(selected: str, options: dict) -> str:
 def submit_quiz(
     submission: schemas.QuizSubmission,
     db: Session = Depends(database.get_db),
+    caller: Tuple[None, bool] = Depends(session.current_user),
 ):
     if not submission.answers:
         raise HTTPException(status_code=400, detail="No answers provided")
 
-    username = submission.username if submission.username else "anonymous"
+    # A valid session token is authoritative; otherwise preserve the
+    # historical anonymous/client-supplied behavior.
+    username = caller[0] or (submission.username if submission.username else "anonymous")
     answers = _normalize_answers(submission.answers)
     question_ids = list(answers.keys())
 
@@ -183,7 +188,12 @@ def _calc_stats(progress_rows, questions_by_id: Dict[int, models.Question]):
 
 
 @router.get("/progress/{user_identifier}")
-def get_user_progress(user_identifier: str, db: Session = Depends(database.get_db)):
+def get_user_progress(
+    user_identifier: str,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[None, bool] = Depends(session.current_user),
+):
+    user_identifier = caller[0] or user_identifier
     total_questions = db.query(models.Question).count()
 
     all_rows = db.query(models.UserProgress).filter(
@@ -244,7 +254,12 @@ def get_user_progress(user_identifier: str, db: Session = Depends(database.get_d
 
 
 @router.get("/question-history/{user_identifier}")
-def get_question_history(user_identifier: str, db: Session = Depends(database.get_db)):
+def get_question_history(
+    user_identifier: str,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[None, bool] = Depends(session.current_user),
+):
+    user_identifier = caller[0] or user_identifier
     rows = (
         db.query(models.UserProgress)
         .filter(models.UserProgress.user_identifier == user_identifier)
@@ -336,7 +351,12 @@ def get_attempt_detail(attempt_id: int, db: Session = Depends(database.get_db)):
 
 
 @router.get("/wrong-queue/{user_identifier}")
-def get_wrong_queue(user_identifier: str, db: Session = Depends(database.get_db)):
+def get_wrong_queue(
+    user_identifier: str,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[None, bool] = Depends(session.current_user),
+):
+    user_identifier = caller[0] or user_identifier
     queue_rows = db.query(models.WrongQuestionQueue).filter(
         models.WrongQuestionQueue.user_identifier == user_identifier,
         models.WrongQuestionQueue.cleared_at.is_(None),
@@ -359,10 +379,15 @@ class ClearQueueRequest(BaseModel):
 
 
 @router.post("/wrong-queue/clear")
-def clear_wrong_queue(payload: ClearQueueRequest, db: Session = Depends(database.get_db)):
+def clear_wrong_queue(
+    payload: ClearQueueRequest,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[None, bool] = Depends(session.current_user),
+):
+    user_identifier = caller[0] or payload.user_identifier
     try:
         db.query(models.WrongQuestionQueue).filter(
-            models.WrongQuestionQueue.user_identifier == payload.user_identifier,
+            models.WrongQuestionQueue.user_identifier == user_identifier,
             models.WrongQuestionQueue.question_id.in_(payload.question_ids),
             models.WrongQuestionQueue.cleared_at.is_(None),
         ).update({"cleared_at": sqlfunc.now()}, synchronize_session="fetch")

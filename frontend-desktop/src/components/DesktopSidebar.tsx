@@ -7,7 +7,7 @@ import { useSound } from '@/context/SoundContext';
 import { useSfx } from '@/hooks/useSfx';
 import { isAdmin } from '@/config/admin';
 import { ForestryLogo } from '@/components/ForestryLogo';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
 const HomeIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -102,9 +102,79 @@ const ChevronUpIcon = () => (
   </svg>
 );
 
-const navSections = [
+const RetryIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </svg>
+);
+
+const CheckCircleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
+);
+
+const GearIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+);
+
+const GisIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 6l8-3 8 3 8-3v15l-8 3-8-3-8 3z" />
+    <path d="M9 3v15M15 6v15" />
+  </svg>
+);
+
+const GisExternalIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 17L17 7M9 7h8v8" />
+  </svg>
+);
+
+/** Sibling GIS app. Kept here so both apps stay in sync. */
+export const GIS_URL = 'https://elfakgisstudio.onrender.com/';
+
+/**
+ * Build the GIS link, carrying the SSO token when we hold one so the click
+ * lands in the studio already signed in. Falls back to a plain link.
+ */
+export const gisHref = (): string => {
+  if (typeof window === 'undefined') return GIS_URL;
+  let token: string | null = null;
+  try {
+    token = localStorage.getItem('fpsc-sso-token');
+  } catch {
+    /* private mode — plain link */
+  }
+  if (token && token.length > 20) {
+    return `${GIS_URL.replace(/\/$/, '')}/sso/exchange?t=${encodeURIComponent(token)}`;
+  }
+  return GIS_URL;
+};
+
+interface NavItemDef {
+  to: string;
+  label: string;
+  end?: boolean;
+  icon: React.ReactNode;
+  adminOnly?: boolean;
+}
+
+interface NavSectionDef {
+  section: string;
+  items: NavItemDef[];
+}
+
+/* Quiet Apple-style groups: no cards, plain labels; only the active
+   destination carries a subtle sliding surface. */
+const navSections: NavSectionDef[] = [
   {
-    section: 'LEARN',
+    section: 'Home',
     items: [
       { to: '/', label: 'Home', end: true, icon: <HomeIcon /> },
       { to: '/quiz', label: 'Practice', end: false, icon: <ClockIcon /> },
@@ -112,10 +182,24 @@ const navSections = [
     ],
   },
   {
-    section: 'TRACK',
+    section: 'Review',
     items: [
-      { to: '/results', label: 'Results', end: false, icon: <BarChartIcon /> },
+      { to: '/quiz/practice-wrong', label: 'Wrong Questions', end: false, icon: <RetryIcon /> },
+      { to: '/results', label: 'Results', end: false, icon: <CheckCircleIcon /> },
+    ],
+  },
+  {
+    section: 'Insights',
+    items: [
       { to: '/progress', label: 'Progress', end: false, icon: <TrendingUpIcon /> },
+    ],
+  },
+  {
+    section: 'Settings',
+    items: [
+      { to: '/settings', label: 'Settings', end: false, icon: <GearIcon /> },
+      { to: '/admin', label: 'Admin', end: false, icon: <UploadIcon />, adminOnly: true },
+      { to: '/about', label: 'About', end: false, icon: <InfoIcon /> },
     ],
   },
 ];
@@ -123,9 +207,13 @@ const navSections = [
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const navItemVariants = {
+const navItemVariants: Variants = {
   initial: { opacity: 0, x: -8 },
-  animate: { opacity: 1, x: 0, transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] } },
+  animate: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] },
+  },
 };
 
 const navContainerVariants = {
@@ -205,18 +293,12 @@ const DesktopSidebar: React.FC = () => {
         </span>
       </Link>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-1">
-        {navSections.map((section, idx) => (
+      {/* Navigation — quiet groups; only the active destination gets a surface */}
+      <nav className="flex-1 overflow-y-auto px-3 py-1" style={{ overscrollBehavior: 'contain' }}>
+        {navSections.map((section) => (
           <div
             key={section.section}
-            style={{
-              marginBottom: idx < navSections.length - 1 ? '0.75rem' : '0.5rem',
-              background: 'hsl(var(--muted) / 0.45)',
-              border: '1px solid hsl(var(--border) / 0.6)',
-              borderRadius: 14,
-              padding: '0.5rem 0.375rem 0.625rem',
-            }}
+            style={{ marginBottom: '1.375rem' }}
             aria-label={`${section.section} navigation group`}
           >
             <p
@@ -227,8 +309,7 @@ const DesktopSidebar: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 color: 'hsl(var(--foreground) / 0.45)',
-                marginBottom: '0.375rem',
-                paddingTop: idx === 0 ? '0.5rem' : '1rem',
+                marginBottom: '0.25rem',
               }}
             >
               {section.section}
@@ -238,103 +319,97 @@ const DesktopSidebar: React.FC = () => {
               initial="initial"
               animate="animate"
             >
-              {section.items.map((item) => (
-                <motion.div key={item.to} variants={navItemVariants}>
-                  <NavLink
-                    to={item.to}
-                    end={item.end}
-                    onClick={sfxClick}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
-                        isActive
-                          ? 'text-[hsl(var(--primary))]'
-                          : 'text-[hsl(var(--foreground) / 0.7)] hover:text-foreground hover:bg-[hsl(var(--muted))]'
-                      }`
-                    }
-                    style={({ isActive }) => ({
-                      fontSize: '0.9375rem',
-                      background: isActive ? 'hsl(var(--primary) / 0.12)' : 'transparent',
-                    })}
-                  >
-                    <span className="flex-shrink-0" style={{ transform: 'scale(1.1)' }}>{item.icon}</span>
-                    {item.label}
-                  </NavLink>
-                </motion.div>
-              ))}
+              {section.items.map((item) => {
+                if (item.adminOnly && !isAdmin(userId)) return null;
+                return (
+                  <motion.div key={item.to} variants={navItemVariants}>
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      onClick={sfxClick}
+                      title={item.label}
+                      className={({ isActive }) =>
+                        `relative flex items-center gap-3 px-3 py-2 rounded-[10px] font-medium ${
+                          isActive
+                            ? 'text-[hsl(var(--primary))]'
+                            : 'text-[hsl(var(--foreground) / 0.7)] hover:text-foreground hover:bg-[hsl(var(--muted))]'
+                        }`
+                      }
+                      style={({ isActive }) => ({
+                        fontSize: '0.9375rem',
+                        transition:
+                          'color 180ms cubic-bezier(.25,.1,.25,1), background-color 180ms cubic-bezier(.25,.1,.25,1), transform 180ms cubic-bezier(.25,.1,.25,1)',
+                      })}
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {isActive && (
+                            <motion.span
+                              layoutId="qsp-nav-active"
+                              transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                borderRadius: 10,
+                                background: 'hsl(var(--primary) / 0.12)',
+                              }}
+                              aria-hidden="true"
+                            />
+                          )}
+                          <span className="flex-shrink-0" style={{ position: 'relative', transform: 'scale(1.1)' }}>
+                            {item.icon}
+                          </span>
+                          <span style={{ position: 'relative' }}>{item.label}</span>
+                        </>
+                      )}
+                    </NavLink>
+                  </motion.div>
+                );
+              })}
             </motion.div>
           </div>
         ))}
 
-        {/* Admin section */}
-        {isAdmin(userId) && (
-          <div
+        {/* Apps — sibling GIS studio (separate service, opens in a new tab) */}
+        <div style={{ marginBottom: '1.375rem' }} aria-label="Apps navigation group">
+          <p
+            className="px-3"
             style={{
-              marginTop: '0.75rem',
-              background: 'hsl(var(--muted) / 0.45)',
-              border: '1px solid hsl(var(--border) / 0.6)',
-              borderRadius: 14,
-              padding: '0.5rem 0.375rem 0.625rem',
+              fontSize: '0.6875rem',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'hsl(var(--foreground) / 0.45)',
+              marginBottom: '0.25rem',
             }}
-            aria-label="Manage navigation group"
           >
-            <p
-              className="px-3"
-              style={{
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: 'hsl(var(--foreground) / 0.45)',
-                marginBottom: '0.375rem',
-                paddingTop: '0.25rem',
-              }}
-            >
-              Manage
-            </p>
-            <NavLink
-              to="/admin"
-              onClick={sfxClick}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'text-amber-600 dark:text-amber-400'
-                    : 'text-[hsl(var(--foreground) / 0.7)] hover:text-foreground hover:bg-[hsl(var(--muted))]'
-                }`
-              }
-              style={({ isActive }) => ({
-                fontSize: '0.9375rem',
-                background: isActive ? 'hsl(38 92% 50% / 0.1)' : 'transparent',
-              })}
-            >
-              <span className="flex-shrink-0" style={{ transform: 'scale(1.1)' }}>
-                <UploadIcon />
-              </span>
-              Admin
-            </NavLink>
-          </div>
-        )}
-
-        {/* About link */}
-        <div
-          style={{
-            marginTop: '0.75rem',
-            background: 'hsl(var(--muted) / 0.45)',
-            border: '1px solid hsl(var(--border) / 0.6)',
-            borderRadius: 14,
-            padding: '0.5rem 0.375rem 0.625rem',
-          }}
-          aria-label="About navigation group"
-        >
-          <NavLink
-            to="/about"
-            className="flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--muted))] transition-colors"
-            style={{ fontSize: '0.9375rem' }}
+            Apps
+          </p>
+          <a
+            href={gisHref()}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              sfxClick();
+              const w = window.open(gisHref(), '_blank', 'noopener,noreferrer');
+              if (w) w.opener = null;
+            }}
+            title="GIS Pro Studio — opens in a new tab"
+            className="relative flex items-center gap-3 px-3 py-2 rounded-[10px] font-semibold transition-all duration-200 text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.12)]"
+            style={{
+              fontSize: '0.9375rem',
+              background: 'hsl(var(--primary) / 0.06)',
+              border: '1px dashed hsl(var(--primary) / 0.4)',
+              textDecoration: 'none',
+            }}
           >
             <span className="flex-shrink-0" style={{ transform: 'scale(1.1)' }}>
-              <InfoIcon />
+              <GisIcon />
             </span>
-            About
-          </NavLink>
+            <span className="flex-1">GIS Pro Studio</span>
+            <GisExternalIcon />
+          </a>
         </div>
       </nav>
 

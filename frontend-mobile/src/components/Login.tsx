@@ -12,7 +12,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { setUserId, setPassword: setAuthPassword } = useContext(AuthContext);
+  const { setUserId, setSessionToken } = useContext(AuthContext);
 
   const [totalQuestions, setTotalQuestions] = useState<number | null>(null);
   const [totalCategories, setTotalCategories] = useState<number | null>(null);
@@ -54,7 +54,8 @@ const Login: React.FC = () => {
       const result = await authLogin(username.trim(), password.trim());
 
       setUserId(result.user_identifier);
-      setAuthPassword(password.trim());
+      setSessionToken(result.session_token || '');
+      try { localStorage.removeItem('password'); } catch { /* already gone */ }
 
       if (result.is_new) {
         toast.success(`Welcome! New account created for "${result.user_identifier}"`);

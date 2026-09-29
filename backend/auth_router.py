@@ -6,6 +6,7 @@ import os
 import database
 import models
 import bcrypt
+import session
 import sso
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -38,6 +39,9 @@ class AuthResponse(BaseModel):
     # Signed handoff token for Elfak GIS Pro Studio. None when SSO_SECRET is
     # unset, in which case clients fall back to a plain link.
     sso_token: Optional[str] = None
+    # Authenticated session token. The browser stores THIS (never the
+    # password) and sends it as `Authorization: Bearer <token>`.
+    session_token: Optional[str] = None
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -62,6 +66,7 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
                 user_identifier=ADMIN_USERNAME,
                 is_new=False,
                 sso_token=sso.mint(ADMIN_USERNAME, is_admin=True),
+                session_token=session.mint_session(ADMIN_USERNAME, is_admin=True),
             )
 
         # Regular user login
@@ -80,6 +85,7 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
                 user_identifier=username,
                 is_new=False,
                 sso_token=sso.mint(username),
+                session_token=session.mint_session(username),
             )
 
         # New user — auto-create
@@ -90,6 +96,7 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
             user_identifier=username,
             is_new=True,
             sso_token=sso.mint(username),
+            session_token=session.mint_session(username),
         )
 
     except HTTPException:
@@ -99,10 +106,7 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=500, detail="Login failed")
 
 
-def verify_admin_user(x_admin_user: Optional[str] = Header(None)):
-    if not x_admin_user or x_admin_user.strip().lower() not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Access denied: admin only")
-    return x_admin_user.strip()
+
 
 
 @router.get("/sso/status")
@@ -138,13 +142,13 @@ def sso_refresh(req: AuthRequest, db: Session = Depends(database.get_db)):
 
 
 @router.get("/users")
-def list_users(db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin_user)):
+def list_users(db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     users = db.query(models.User).all()
     return {"users": [{"id": u.id, "username": u.username, "created_at": str(u.created_at)} for u in users]}
 
 
 @router.get("/users/{username}/progress")
-def get_user_progress(username: str, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin_user)):
+def get_user_progress(username: str, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     user = db.query(models.User).filter(models.User.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail=f"User '{username}' not found")
@@ -219,7 +223,7 @@ def get_user_progress(username: str, db: Session = Depends(database.get_db), adm
 
 
 @router.delete("/users/{username}")
-def delete_user(username: str, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin_user)):
+def delete_user(username: str, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     user = db.query(models.User).filter(models.User.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail=f"User '{username}' not found")

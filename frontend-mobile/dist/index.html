@@ -50,7 +50,7 @@
       #ad-top-mobile{max-height:130px;overflow:hidden}
       #ad-top-mobile:empty{display:none}
     </style>
-    <script type="module" crossorigin src="/assets/index-DynFbt2x.js"></script>
+    <script type="module" crossorigin src="/assets/index-0l4hMRhO.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-mhLx3zlA.css">
   </head>
   <body>
@@ -72,6 +72,12 @@
           var path = location.hash || location.pathname;
           var isQuiz = path.includes('/quiz') || path.includes('/attempt');
           ad.style.display = isQuiz ? 'none' : '';
+          // An empty slot cannot be tapped anyway; let touches pass through
+          // so it never covers the fixed top bar. Restored when filled.
+          try {
+            var filled = ins && ins.getAttribute('data-ad-status') === 'filled';
+            ad.style.pointerEvents = filled ? '' : 'none';
+          } catch (e) {}
         };
         var obs = new MutationObserver(function(){ collapseEmpty(); });
         obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['data-ad-status']});

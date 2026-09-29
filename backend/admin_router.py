@@ -9,6 +9,7 @@ from sqlalchemy import func
 
 import models
 import database
+import session
 from docx_parser import extract_questions_and_answers, guess_category_from_filename
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -17,12 +18,7 @@ ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Elfak").strip()
 ADMIN_USERS = [ADMIN_USERNAME.lower()]
 
 
-def verify_admin(x_admin_user: Optional[str] = Header(None)):
-    if not x_admin_user:
-        raise HTTPException(status_code=401, detail="Admin authentication required")
-    if x_admin_user.strip().lower() not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Access denied: admin only")
-    return x_admin_user.strip()
+
 
 
 class RenameCategoryRequest(BaseModel):
@@ -36,13 +32,13 @@ class CategoryMetaRequest(BaseModel):
 
 
 @router.get("/category-meta")
-def admin_get_category_meta(db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+def admin_get_category_meta(db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     rows = db.query(models.CategoryMeta).all()
     return {"emoji": {r.category: r.emoji for r in rows}}
 
 
 @router.put("/category-meta")
-def admin_set_category_meta(payload: CategoryMetaRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+def admin_set_category_meta(payload: CategoryMetaRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     name = (payload.category or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="category is required")
@@ -70,7 +66,7 @@ async def upload_docx(
     files: List[UploadFile] = File(...),
     category: Optional[str] = Form(None),
     db: Session = Depends(database.get_db),
-    admin_user: str = Depends(verify_admin),
+    admin_user: str = Depends(session.require_admin),
 ):
     results = []
     total_imported = 0
@@ -167,7 +163,7 @@ def list_categories(db: Session = Depends(database.get_db)):
 
 
 @router.put("/categories/rename")
-def rename_category(payload: RenameCategoryRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+def rename_category(payload: RenameCategoryRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     old = payload.old_name.strip()
     new = payload.new_name.strip()
     if not old or not new:
@@ -224,7 +220,7 @@ class MergeCategoryRequest(BaseModel):
 
 
 @router.put("/categories/merge")
-def merge_categories(payload: MergeCategoryRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+def merge_categories(payload: MergeCategoryRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     """Move all questions from one existing category into another (for duplicates)."""
     source = (payload.source or "").strip()
     target = (payload.target or "").strip()
@@ -262,7 +258,7 @@ def merge_categories(payload: MergeCategoryRequest, db: Session = Depends(databa
 
 
 @router.delete("/categories/{category_name}")
-def delete_category(category_name: str, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+def delete_category(category_name: str, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     category_name = category_name.strip()
     if not category_name:
         raise HTTPException(status_code=400, detail="Category name is required")
@@ -301,7 +297,7 @@ def list_all_questions_for_admin(
 
 
 @router.put("/questions/{question_id}")
-def update_question(question_id: int, payload: dict, db: Session = Depends(database.get_db), admin_user: str = Depends(verify_admin)):
+def update_question(question_id: int, payload: dict, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if question is None:
         raise HTTPException(status_code=404, detail="Question not found")

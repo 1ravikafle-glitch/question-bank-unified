@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import QuestionList from './components/QuestionList';
 import QuestionsBank from './components/QuestionsBank';
@@ -16,13 +16,36 @@ import MobileBottomNav from './components/MobileBottomNav';
 import OfflineBanner from './components/OfflineBanner';
 import Footer from './components/Footer';
 import { AuthContext } from './context/AuthContext';
+import { authLogin } from './services/api';
 import { ThemeProvider } from './context/ThemeContext';
 import { SoundProvider } from './context/SoundContext';
 import { isAdmin } from './config/admin';
 
 function AppShell() {
   const [userId, setUserId] = useState<string>(() => localStorage.getItem('userId') || '');
-  const [password, setPassword] = useState<string>(() => localStorage.getItem('password') || '');
+  const [sessionToken, setSessionTokenState] = useState<string>(() => localStorage.getItem('fpsc-session') || '');
+
+  // One-time upgrade: exchange a legacy stored password for a session token,
+  // then delete the password so plaintext credentials are never persisted.
+  useEffect(() => {
+    const legacy = localStorage.getItem('password');
+    if (userId && legacy && !localStorage.getItem('fpsc-session')) {
+      authLogin(userId, legacy)
+        .then((r) => {
+          if (r.session_token) {
+            localStorage.setItem('fpsc-session', r.session_token);
+            setSessionTokenState(r.session_token);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          localStorage.removeItem('password');
+        });
+    } else {
+      localStorage.removeItem('password');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const location = useLocation();
 
   const isLogin = location.pathname === '/login';
@@ -32,8 +55,10 @@ function AppShell() {
   const logout = () => {
     localStorage.removeItem('userId');
     localStorage.removeItem('password');
+    localStorage.removeItem('fpsc-session');
+    localStorage.removeItem('fpsc-sso-token');
     setUserId('');
-    setPassword('');
+    setSessionTokenState('');
   };
 
   const handleSetUserId = (id: string) => {
@@ -42,14 +67,14 @@ function AppShell() {
     else localStorage.removeItem('userId');
   };
 
-  const handleSetPassword = (pw: string) => {
-    setPassword(pw);
-    if (pw) localStorage.setItem('password', pw);
-    else localStorage.removeItem('password');
+  const handleSetSessionToken = (token: string) => {
+    setSessionTokenState(token);
+    if (token) localStorage.setItem('fpsc-session', token);
+    else localStorage.removeItem('fpsc-session');
   };
 
   return (
-    <AuthContext.Provider value={{ userId, password, setUserId: handleSetUserId, setPassword: handleSetPassword, logout }}>
+    <AuthContext.Provider value={{ userId, sessionToken, setUserId: handleSetUserId, setSessionToken: handleSetSessionToken, logout }}>
       {/* Skip navigation link */}
       <a href="#main-content" className="skip-link">
         Skip to main content

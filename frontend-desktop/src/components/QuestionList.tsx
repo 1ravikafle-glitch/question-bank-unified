@@ -1,6 +1,7 @@
 import { useEffect, useState, useContext, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchQuestionsCount, fetchCategories, fetchUserProgress, fetchWrongQueue, fetchQuestions } from '../services/api';
+import { fetchQuestionsCount, fetchCategories, fetchUserProgress, fetchWrongQueue, fetchQuestions,
+  fetchCategoryCounts,} from '../services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { sortCategories } from '@/utils/categorySort';
@@ -140,13 +141,8 @@ const Dashboard: React.FC = () => {
         ]);
 
         try {
-          const allQs = await fetchQuestions({ limit: 10000 });
-          const counts = new Map<string, number>();
-          allQs.forEach((q: any) => {
-            const cat = q.category || 'Uncategorized';
-            counts.set(cat, (counts.get(cat) || 0) + 1);
-          });
-          setQuestionCounts(counts);
+          const counts = await fetchCategoryCounts();
+          setQuestionCounts(new Map(Object.entries(counts || {})));
         } catch {}
 
         setTotal(totalResp.count);

@@ -144,6 +144,23 @@
   --apple-radius-full: 9999px;
   --apple-transition: cubic-bezier(0.25, 0.1, 0.25, 1);
   --apple-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* --- Motion: single source of truth (instant / standard / spring) --- */
+  --ease-spring: cubic-bezier(.22, 1, .36, 1);
+  --ease-standard: cubic-bezier(.25, .1, .25, 1);
+  --dur-instant: 120ms;
+  --dur-standard: 220ms;
+  --dur-spring: 380ms;
+
+  /* --- Z-index scale --- */
+  --z-base: 0;
+  --z-sticky: 30;
+  --z-sidebar: 40;
+  --z-header: 50;
+  --z-dropdown: 1000;
+  --z-overlay: 9990;
+  --z-popover: 99999;
+  --z-toast: 100000;
 }
 
 /* ── Apple Quiz — scoped overrides (reference T) ──────────────

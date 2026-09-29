@@ -2,16 +2,16 @@ import { createContext } from 'react';
 
 export interface AuthContextValue {
   userId: string;
-  password: string;
+  sessionToken: string;
   setUserId: (id: string) => void;
-  setPassword: (pw: string) => void;
+  setSessionToken: (token: string) => void;
   logout: () => void;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
   userId: '',
-  password: '',
+  sessionToken: '',
   setUserId: () => {},
-  setPassword: () => {},
+  setSessionToken: () => {},
   logout: () => {},
 });

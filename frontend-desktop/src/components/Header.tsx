@@ -62,19 +62,32 @@ const SettingsIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill=
 interface DropdownItemProps {
   onClick: () => void;
   color?: string;
+  hoverBg?: string;
   children: React.ReactNode;
 }
 
-const DropdownItem: React.FC<DropdownItemProps> = ({ onClick, color, children }) => (
-  <button
+const DropdownItem: React.FC<DropdownItemProps> = ({ onClick, color, hoverBg, children }) => (
+  <motion.button
     type="button"
     onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
-    className="w-full text-left px-3 py-2 text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))] flex items-center gap-2.5"
-    style={{ color: color || 'hsl(var(--foreground))' }}
+    whileHover={prefersReducedMotion() ? undefined : { backgroundColor: hoverBg || 'rgba(255,255,255,0.06)' }}
+    whileTap={prefersReducedMotion() ? undefined : { backgroundColor: 'rgba(255,255,255,0.10)', scale: 0.975 }}
+    transition={{ duration: 0.12 }}
+    className="w-full text-left font-medium flex items-center gap-2.5"
+    style={{
+      color: color || '#fff',
+      minHeight: 44,
+      padding: '6px 10px',
+      borderRadius: 12,
+      fontSize: '0.9375rem',
+      background: 'transparent',
+      border: 'none',
+      cursor: 'pointer',
+    }}
   >
     {children}
-  </button>
+  </motion.button>
 );
 
 const Header: React.FC = () => {
@@ -83,12 +96,33 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeToken = useRef(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const pageTitle = routeTitles[location.pathname] || 'Forestry PSC';
   const userInitial = userId ? userId.charAt(0).toUpperCase() : '?';
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  // Animated dismiss for toggle/outside/Escape paths: play the exit state,
+  // then unmount. A token guards against stale timers (e.g. reopening
+  // mid-close). Item clicks that navigate away unmount instantly.
+  const closeAnimated = useCallback(() => {
+    const token = ++closeToken.current;
+    setClosing(true);
+    setTimeout(() => {
+      if (closeToken.current !== token) return;
+      setMenuOpen(false);
+      setClosing(false);
+    }, 180);
+  }, []);
+
+  const openMenu = useCallback(() => {
+    closeToken.current += 1; // cancel any pending animated close
+    setClosing(false);
+    setMenuOpen(true);
+  }, []);
 
   const handleLogout = useCallback(() => {
     setMenuOpen(false);
@@ -101,89 +135,176 @@ const Header: React.FC = () => {
     navigate('/admin');
   }, [navigate]);
 
-  // Close on outside click — bubble phase, fires AFTER button onClick
+  // Close on outside click — bubble phase, fires AFTER button onClick.
+  // Escape closes too and returns focus to the trigger.
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
       if (triggerRef.current && triggerRef.current.contains(e.target as Node)) return;
-      setMenuOpen(false);
+      closeAnimated();
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeAnimated();
+        triggerRef.current?.focus({ preventScroll: true });
+      }
     };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen]);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [menuOpen, closeAnimated]);
 
-  const dropdownNode = menuOpen ? createPortal(
-    <div
-      style={{
-        position: 'fixed',
-        top: '56px',
-        right: '16px',
-        width: '224px',
-        borderRadius: '12px',
-        padding: '6px 0',
-        zIndex: 99999,
-        border: '1px solid hsl(var(--border))',
-        background: 'hsl(var(--popover))',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
-      }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <div className="px-3 py-2">
-        <p className="text-sm font-medium text-foreground">{userId}</p>
-      </div>
-      <div style={{ height: '1px', background: 'hsl(var(--border))', margin: '2px 0' }} />
-
-      {/* SFX toggle — visible in both mobile and desktop dropdowns */}
-      <div
-        className="flex items-center justify-between px-3 py-2"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <span className="text-sm text-muted-foreground">Sound effects</span>
-        <button
-          onClick={(e) => { e.stopPropagation(); toggleSfx(); }}
-          className="relative flex-shrink-0"
-          style={{
-            width: 36,
-            height: 20,
-            borderRadius: 10,
-            background: sfxEnabled ? 'hsl(142 40% 45%)' : 'hsl(var(--muted))',
-            border: `1px solid ${sfxEnabled ? 'hsl(142 40% 35%)' : 'hsl(var(--border))'}`,
-            transition: 'background 0.2s, border-color 0.2s',
-            cursor: 'pointer',
-            padding: 0,
-          }}
-          aria-label={sfxEnabled ? 'Disable sound effects' : 'Enable sound effects'}
-        >
-          <span
+  const dropdownNode = menuOpen
+      ? createPortal(
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: -4 }}
+          animate={
+            closing
+              ? { opacity: 0, scale: 0.97, y: -3 }
+              : { opacity: 1, scale: 1, y: 0 }
+          }
+          transition={
+            prefersReducedMotion()
+              ? { duration: 0.01 }
+              : closing
+                ? { duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }
+                : { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
+          }
             style={{
-              position: 'absolute',
-              top: 2,
-              left: sfxEnabled ? 18 : 2,
-              width: 14,
-              height: 14,
-              borderRadius: '50%',
-              background: 'white',
-              transition: 'left 0.2s',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+              position: 'fixed',
+              top: '60px',
+              right: '16px',
+              width: 'min(260px, calc(100vw - 28px))',
+              borderRadius: '19px',
+              padding: '8px',
+              zIndex: 99999,
+              background: 'rgba(30,30,32,0.94)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              backdropFilter: 'blur(30px) saturate(130%)',
+              WebkitBackdropFilter: 'blur(30px) saturate(130%)',
+              boxShadow:
+                'inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.5), 0 4px 18px rgba(0,0,0,0.4)',
+              transformOrigin: 'top right',
+              overflow: 'hidden',
             }}
-          />
-        </button>
-      </div>
+            onMouseDown={(e) => e.stopPropagation()}
+            role="menu"
+            aria-label="Account menu"
+          >
+            {/* Profile header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 10px' }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  background: 'hsl(var(--primary))',
+                  color: '#fff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  flexShrink: 0,
+                }}
+              >
+                {userInitial}
+              </span>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                <span
+                  style={{
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    lineHeight: 1.25,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: 170,
+                  }}
+                >
+                  {userId}
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, lineHeight: 1.3 }}>
+                  Forestry PSC
+                </span>
+              </span>
+            </div>
 
-      <div style={{ height: '1px', background: 'hsl(var(--border))', margin: '2px 0' }} />
-      {isAdmin(userId) && (
-        <DropdownItem onClick={handleAdmin}>
-          <SettingsIcon />
-          Admin
-        </DropdownItem>
-      )}
-      <DropdownItem onClick={handleLogout} color="hsl(var(--destructive))">
-        <LogOutIcon />
-        Log out
-      </DropdownItem>
-    </div>,
-    document.body
-  ) : null;
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '2px 4px 4px' }} />
+
+            {/* Sound effects — iOS-style toggle wired to the existing store */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                minHeight: 44,
+                padding: '6px 10px',
+                borderRadius: 12,
+                color: '#fff',
+                fontSize: '0.9375rem',
+                fontWeight: 500,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <span aria-hidden="true" style={{ fontSize: 15, opacity: 0.75 }}>♪</span>
+              <span style={{ flex: 1 }}>Sound effects</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleSfx(); }}
+                style={{
+                  width: 34,
+                  height: 20,
+                  borderRadius: 999,
+                  background: sfxEnabled ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.14)',
+                  border: sfxEnabled ? '1px solid transparent' : '1px solid rgba(255,255,255,0.12)',
+                  transition: 'background 0.3s cubic-bezier(.22,1,.36,1)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  position: 'relative',
+                  flexShrink: 0,
+                }}
+                aria-label={sfxEnabled ? 'Disable sound effects' : 'Enable sound effects'}
+                aria-checked={sfxEnabled}
+                role="switch"
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 2,
+                    left: sfxEnabled ? 17 : 3,
+                    width: 14,
+                    height: 14,
+                    borderRadius: '50%',
+                    background: 'white',
+                    transition: 'left 0.3s cubic-bezier(.22,1,.36,1)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  }}
+                />
+              </button>
+            </div>
+
+            {isAdmin(userId) && (
+              <DropdownItem onClick={handleAdmin} color="#fff">
+                <span aria-hidden="true" style={{ fontSize: 15, opacity: 0.75 }}>⚙</span>
+                <span style={{ flex: 1 }}>Admin</span>
+                <span aria-hidden="true" style={{ opacity: 0.4, fontSize: 15 }}>›</span>
+              </DropdownItem>
+            )}
+
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '4px 4px 4px' }} />
+            <DropdownItem onClick={handleLogout} color="#ff453a" hoverBg="rgba(255,69,58,0.08)">
+              <span aria-hidden="true" style={{ fontSize: 15, opacity: 0.85 }}>↪</span>
+              Log out
+            </DropdownItem>
+          </motion.div>,
+          document.body
+        )
+      : null;
 
   return (
     <>
@@ -215,21 +336,54 @@ const Header: React.FC = () => {
         </AnimatePresence>
 
         {userId && (
-          <button
+          <motion.button
             ref={triggerRef}
             type="button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors hover:opacity-80"
+            onClick={() => (menuOpen ? closeAnimated() : openMenu())}
+            whileHover={prefersReducedMotion() ? undefined : { scale: 1.04 }}
+            whileTap={prefersReducedMotion() ? undefined : { scale: 0.92 }}
+            animate={menuOpen ? { scale: 0.96 } : { scale: 1 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             style={{
-              background: 'hsl(var(--primary) / 0.15)',
-              color: 'hsl(var(--primary))',
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: menuOpen ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              backdropFilter: 'blur(18px)',
+              WebkitBackdropFilter: 'blur(18px)',
+              boxShadow: menuOpen
+                ? '0 4px 16px rgba(0,0,0,0.32)'
+                : '0 2px 10px rgba(0,0,0,0.25)',
+              cursor: 'pointer',
+              padding: 0,
+              flexShrink: 0,
             }}
             aria-label="User menu"
             aria-expanded={menuOpen}
-            aria-haspopup="true"
+            aria-haspopup="menu"
           >
-            {userInitial}
-          </button>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: 'hsl(var(--primary))',
+                color: '#fff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              {userInitial}
+            </span>
+          </motion.button>
         )}
       </header>
 

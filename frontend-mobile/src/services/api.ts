@@ -16,11 +16,14 @@ export const api = axios.create({
   },
 });
 
-// Add admin header to admin requests
+// Attach the session token to every request. The server derives identity
+// from it; no password or spoofable admin header is ever sent.
 api.interceptors.request.use((config) => {
-  if (config.url?.startsWith('/admin/') || config.url?.startsWith('/auth/users')) {
-    const userId = localStorage.getItem('userId') || '';
-    config.headers['X-Admin-User'] = userId;
+  try {
+    const token = localStorage.getItem(SESSION_TOKEN_KEY);
+    if (token) config.headers['Authorization'] = `Bearer ${token}`;
+  } catch {
+    /* private mode — requests go out unauthenticated */
   }
   return config;
 });
@@ -187,25 +190,36 @@ export const fetchQuestionHistory = async (userIdentifier: string): Promise<Reco
 // Studio already signed in. It is absent when the server has no SSO_SECRET
 // configured, so this stays a no-op in that case.
 export const SSO_TOKEN_KEY = 'fpsc-sso-token';
+// Session token: the browser stores THIS (never the password) and sends it
+// as `Authorization: Bearer <token>`. The server derives identity — and the
+// admin flag — from its signature.
+export const SESSION_TOKEN_KEY = 'fpsc-session';
 
 export const authLogin = async (username: string, password: string) => {
   const response = await api.post<{
     user_identifier: string;
     is_new: boolean;
     sso_token?: string | null;
+    session_token?: string | null;
   }>('/auth/login', {
     username,
     password,
   });
   const data = response.data;
-  if (data.sso_token) {
-    try {
-      localStorage.setItem(SSO_TOKEN_KEY, data.sso_token);
-    } catch {
-      /* private mode — the GIS link simply falls back to a plain URL */
-    }
+  try {
+    if (data.session_token) localStorage.setItem(SESSION_TOKEN_KEY, data.session_token);
+    if (data.sso_token) localStorage.setItem(SSO_TOKEN_KEY, data.sso_token);
+  } catch {
+    /* private mode — tokens stay in memory only */
   }
   return data;
+};
+
+// Fetch per-category question counts (small response — use this instead
+// of downloading the whole bank to count categories).
+export const fetchCategoryCounts = async (): Promise<Record<string, number>> => {
+  const response = await api.get('/questions/category-counts/');
+  return response.data;
 };
 
 // Fetch specific questions by their IDs
