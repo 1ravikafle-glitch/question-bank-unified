@@ -6,6 +6,7 @@ import { useSound } from '@/context/SoundContext';
 import { useTheme } from '@/context/ThemeContext';
 import { isAdmin } from '@/config/admin';
 import { ForestryLogo } from '@/components/ForestryLogo';
+import ThemeSegmented from '@/components/ThemeSegmented';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const routeTitles: Record<string, ReactNode> = {
@@ -181,7 +182,7 @@ const Header: React.FC = () => {
               position: 'fixed',
               top: '64px',
               right: '16px',
-              width: 'min(260px, calc(100vw - 28px))',
+              width: 'min(300px, calc(100vw - 28px))',
               borderRadius: '19px',
               padding: '8px',
               zIndex: 99999,
@@ -238,6 +239,22 @@ const Header: React.FC = () => {
                   Forestry PSC
                 </span>
               </span>
+            </div>
+
+            <div style={{ height: 1, background: darkMenu ? 'rgba(255,255,255,0.08)' : 'hsl(var(--border))', margin: '2px 4px 4px' }} />
+
+            {/* Appearance — Light / Dark / System (System follows the device) */}
+            <div
+              style={{
+                padding: '6px 10px 8px',
+                color: darkMenu ? '#fff' : 'hsl(var(--foreground))',
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: darkMenu ? 'rgba(255,255,255,0.55)' : 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
+                Appearance
+              </div>
+              <ThemeSegmented />
             </div>
 
             <div style={{ height: 1, background: darkMenu ? 'rgba(255,255,255,0.08)' : 'hsl(var(--border))', margin: '2px 4px 4px' }} />
@@ -350,12 +367,14 @@ const Header: React.FC = () => {
             animate={menuOpen ? { scale: 0.96 } : { scale: 1 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             style={{
-              width: 44,
               height: 44,
-              borderRadius: '50%',
+              minWidth: 44,
+              borderRadius: 999,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: 8,
+              padding: '0 14px 0 6px',
               background: menuOpen ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.10)',
               backdropFilter: 'blur(18px)',
@@ -364,7 +383,6 @@ const Header: React.FC = () => {
                 ? '0 4px 16px rgba(0,0,0,0.32)'
                 : '0 2px 10px rgba(0,0,0,0.25)',
               cursor: 'pointer',
-              padding: 0,
               flexShrink: 0,
             }}
             aria-label="User menu"
@@ -384,9 +402,23 @@ const Header: React.FC = () => {
                 justifyContent: 'center',
                 fontSize: 13,
                 fontWeight: 700,
+                flexShrink: 0,
               }}
             >
               {userInitial}
+            </span>
+            <span
+              style={{
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: 'hsl(var(--foreground))',
+                whiteSpace: 'nowrap',
+                maxWidth: 120,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {userId}
             </span>
           </motion.button>
         )}

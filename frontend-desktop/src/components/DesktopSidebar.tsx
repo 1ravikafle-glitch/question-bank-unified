@@ -1,5 +1,5 @@
 import { NavLink, Link } from 'react-router-dom';
-import { useContext } from 'react';
+import { useContext, Fragment } from 'react';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { isAdmin } from '@/config/admin';
@@ -23,14 +23,6 @@ const ClockIcon = () => (
 const BookIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-  </svg>
-);
-
-const BarChartIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 20V10" />
-    <path d="M18 20V4" />
-    <path d="M6 20v-4" />
   </svg>
 );
 
@@ -74,7 +66,7 @@ const CheckCircleIcon = () => (
 const GearIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 2 2 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A2 2 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 3 15a2 2 0 0 1-1.51-1H1a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 3.6 8.91a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H8a2 2 0 0 0 1-1.51V1a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a2 2 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a2 2 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
 );
 
@@ -118,6 +110,8 @@ interface NavItemDef {
   end?: boolean;
   icon: React.ReactNode;
   adminOnly?: boolean;
+  /** Opens the sibling GIS app in a new tab; the URL is resolved at render. */
+  external?: boolean;
 }
 
 interface NavSectionDef {
@@ -126,7 +120,8 @@ interface NavSectionDef {
 }
 
 /* Quiet Apple-style groups: no cards, plain labels; only the active
-   destination carries a subtle sliding surface. */
+   destination carries a subtle sliding surface. Nothing sits below
+   Settings — the account lives in Settings and the top-right profile. */
 const navSections: NavSectionDef[] = [
   {
     section: 'Home',
@@ -150,6 +145,12 @@ const navSections: NavSectionDef[] = [
     ],
   },
   {
+    section: 'Apps',
+    items: [
+      { to: '/gis', label: 'GIS Studio', end: false, icon: <GisIcon />, external: true },
+    ],
+  },
+  {
     section: 'Settings',
     items: [
       { to: '/admin', label: 'Admin', end: false, icon: <UploadIcon />, adminOnly: true },
@@ -162,7 +163,7 @@ const navSections: NavSectionDef[] = [
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const navItemVariants: Variants = {
+const navItemVariants = {
   initial: { opacity: 0, x: -8 },
   animate: {
     opacity: 1,
@@ -173,6 +174,91 @@ const navItemVariants: Variants = {
 
 const navContainerVariants = {
   animate: { transition: { staggerChildren: 0.04 } },
+};
+
+/** Hairline between neighbouring rows inside a group. */
+const RowDivider: React.FC = () => (
+  <div aria-hidden="true" style={{ height: 1, background: 'hsl(var(--border) / 0.5)', margin: '0 4px' }} />
+);
+
+const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, onNavigate }) => {
+  if (item.external) {
+    return (
+      <a
+        href={gisHref()}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => {
+          e.preventDefault();
+          onNavigate();
+          const w = window.open(gisHref(), '_blank', 'noopener,noreferrer');
+          if (w) w.opener = null;
+        }}
+        title={`${item.label} — opens in a new tab`}
+        className="relative flex items-center gap-3 rounded-[10px] font-medium transition-all duration-200"
+        style={{
+          fontSize: '0.9375rem',
+          padding: '10px 12px',
+          color: 'hsl(var(--primary))',
+          background: 'hsl(var(--primary) / 0.07)',
+          textDecoration: 'none',
+        }}
+      >
+        <span className="flex-shrink-0" style={{ transform: 'scale(1.1)' }}>
+          {item.icon}
+        </span>
+        <span className="flex-1" style={{ whiteSpace: 'nowrap' }}>
+          {item.label}
+        </span>
+        <GisExternalIcon />
+      </a>
+    );
+  }
+
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      onClick={onNavigate}
+      title={item.label}
+      className={({ isActive }) =>
+        `relative flex items-center gap-3 rounded-[10px] font-medium ${
+          isActive
+            ? 'text-[hsl(var(--primary))]'
+            : 'text-[hsl(var(--foreground) / 0.7)] hover:text-foreground hover:bg-[hsl(var(--muted))]'
+        }`
+      }
+      style={({ isActive }) => ({
+        fontSize: '0.9375rem',
+        fontWeight: isActive ? 700 : 500,
+        padding: '10px 12px',
+        transition:
+          'color 180ms cubic-bezier(.25,.1,.25,1), background-color 180ms cubic-bezier(.25,.1,.25,1), transform 180ms cubic-bezier(.25,.1,.25,1)',
+      })}
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <motion.span
+              layoutId="qsp-nav-active"
+              transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: 10,
+                background: 'hsl(var(--primary) / 0.12)',
+              }}
+              aria-hidden="true"
+            />
+          )}
+          <span className="flex-shrink-0" style={{ position: 'relative', transform: 'scale(1.1)' }}>
+            {item.icon}
+          </span>
+          <span style={{ position: 'relative' }}>{item.label}</span>
+        </>
+      )}
+    </NavLink>
+  );
 };
 
 const DesktopSidebar: React.FC = () => {
@@ -198,14 +284,13 @@ const DesktopSidebar: React.FC = () => {
         }}
       />
 
-      {/* Dark mode override */}
+      {/* Dark mode override + hairline between groups */}
       <style>{`
         .dark .sidebar-material {
           background: hsl(240 10% 8% / 0.82) !important;
         }
-        .desktop-sidebar nav>div+div {
+        .desktop-sidebar .nav-group + .nav-group {
           border-top: 1px solid hsl(var(--border) / 0.55);
-          padding-top: 10px;
         }
       `}</style>
 
@@ -220,202 +305,57 @@ const DesktopSidebar: React.FC = () => {
         </span>
       </Link>
 
-      {/* Navigation — quiet groups; only the active destination gets a surface */}
-      <nav className="flex-1 overflow-y-auto px-3 py-1" style={{ overscrollBehavior: 'contain' }}>
-        {navSections
-          .filter((section) => section.section !== 'Settings')
-          .map((section) => (
-          <div
-            key={section.section}
-            style={{ marginBottom: '12px' }}
-            aria-label={`${section.section} navigation group`}
-          >
-            <p
-              className="px-3"
+      {/* Navigation — groups share the full rail height so nothing is left
+          dangling at the bottom on tall windows. */}
+      <nav className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 pt-1 flex flex-col" style={{ overscrollBehavior: 'contain' }}>
+        {navSections.map((section, si) => {
+          const items = section.items.filter((i) => !i.adminOnly || isAdmin(userId));
+          if (items.length === 0) return null;
+          return (
+            <div
+              key={section.section}
+              className="nav-group"
               style={{
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: 'hsl(var(--foreground) / 0.45)',
-                marginBottom: '4px',
+                flex: '1 1 auto',
+                minHeight: 'fit-content',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                paddingTop: si === 0 ? 0 : 10,
+                marginBottom: si === navSections.length - 1 ? 0 : 6,
               }}
+              aria-label={`${section.section} navigation group`}
             >
-              {section.section}
-            </p>
-            <motion.div
-              variants={prefersReducedMotion() ? undefined : navContainerVariants}
-              initial="initial"
-              animate="animate"
-            >
-              {section.items.map((item) => {
-                if (item.adminOnly && !isAdmin(userId)) return null;
-                return (
-                  <motion.div key={item.to} variants={navItemVariants}>
-                    <NavLink
-                      to={item.to}
-                      end={item.end}
-                      onClick={sfxClick}
-                      title={item.label}
-                      className={({ isActive }) =>
-                        `relative flex items-center gap-3 px-3 py-2 rounded-[10px] font-medium ${
-                          isActive
-                            ? 'text-[hsl(var(--primary))]'
-                            : 'text-[hsl(var(--foreground) / 0.7)] hover:text-foreground hover:bg-[hsl(var(--muted))]'
-                        }`
-                      }
-                      style={({ isActive }) => ({
-                        fontSize: '0.9375rem',
-                        fontWeight: isActive ? 700 : 500,
-                        padding: '10px 12px',
-                        transition:
-                          'color 180ms cubic-bezier(.25,.1,.25,1), background-color 180ms cubic-bezier(.25,.1,.25,1), transform 180ms cubic-bezier(.25,.1,.25,1)',
-                      })}
-                    >
-                      {({ isActive }) => (
-                        <>
-                          {isActive && (
-                            <motion.span
-                              layoutId="qsp-nav-active"
-                              transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
-                                borderRadius: 10,
-                                background: 'hsl(var(--primary) / 0.12)',
-                              }}
-                              aria-hidden="true"
-                            />
-                          )}
-                          <span className="flex-shrink-0" style={{ position: 'relative', transform: 'scale(1.1)' }}>
-                            {item.icon}
-                          </span>
-                          <span style={{ position: 'relative' }}>{item.label}</span>
-                        </>
-                      )}
-                    </NavLink>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          </div>
-        ))}
-
-        {/* Apps — sibling GIS studio: same row language as every nav link */}
-        <div style={{ marginBottom: '12px' }} aria-label="Apps navigation group">
-          <p
-            className="px-3"
-            style={{
-              fontSize: '0.6875rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'hsl(var(--foreground) / 0.45)',
-              marginBottom: '4px',
-            }}
-          >
-            Apps
-          </p>
-          <a
-            href={gisHref()}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              e.preventDefault();
-              sfxClick();
-              const w = window.open(gisHref(), '_blank', 'noopener,noreferrer');
-              if (w) w.opener = null;
-            }}
-            title="GIS Studio — opens in a new tab"
-            className="relative flex items-center gap-3 px-3 py-2 rounded-[10px] font-medium transition-all duration-200"
-            style={{ fontSize: '0.9375rem', textDecoration: 'none', padding: '10px 12px', color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.07)' }}
-          >
-            <span className="flex-shrink-0" style={{ transform: 'scale(1.1)' }}>
-              <GisIcon />
-            </span>
-            <span className="flex-1" style={{ whiteSpace: 'nowrap' }}>GIS Studio</span>
-            <GisExternalIcon />
-          </a>
-        </div>
-
-        {navSections
-          .filter((section) => section.section === 'Settings')
-          .map((section) => (
-          <div
-            key={section.section}
-            style={{ marginBottom: '12px' }}
-            aria-label={`${section.section} navigation group`}
-          >
-            <p
-              className="px-3"
-              style={{
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: 'hsl(var(--foreground) / 0.45)',
-                marginBottom: '4px',
-              }}
-            >
-              {section.section}
-            </p>
-            <motion.div
-              variants={prefersReducedMotion() ? undefined : navContainerVariants}
-              initial="initial"
-              animate="animate"
-            >
-              {section.items.map((item) => {
-                if (item.adminOnly && !isAdmin(userId)) return null;
-                return (
-                  <motion.div key={item.to} variants={navItemVariants}>
-                    <NavLink
-                      to={item.to}
-                      end={item.end}
-                      onClick={sfxClick}
-                      title={item.label}
-                      className={({ isActive }) =>
-                        `relative flex items-center gap-3 px-3 py-2 rounded-[10px] font-medium ${
-                          isActive
-                            ? 'text-[hsl(var(--primary))]'
-                            : 'text-[hsl(var(--foreground) / 0.7)] hover:text-foreground hover:bg-[hsl(var(--muted))]'
-                        }`
-                      }
-                      style={({ isActive }) => ({
-                        fontSize: '0.9375rem',
-                        fontWeight: isActive ? 700 : 500,
-                        padding: '10px 12px',
-                        transition:
-                          'color 180ms cubic-bezier(.25,.1,.25,1), background-color 180ms cubic-bezier(.25,.1,.25,1), transform 180ms cubic-bezier(.25,.1,.25,1)',
-                      })}
-                    >
-                      {({ isActive }) => (
-                        <>
-                          {isActive && (
-                            <motion.span
-                              layoutId="qsp-nav-active"
-                              transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
-                                borderRadius: 10,
-                                background: 'hsl(var(--primary) / 0.12)',
-                              }}
-                              aria-hidden="true"
-                            />
-                          )}
-                          <span className="flex-shrink-0" style={{ position: 'relative', transform: 'scale(1.1)' }}>
-                            {item.icon}
-                          </span>
-                          <span style={{ position: 'relative' }}>{item.label}</span>
-                        </>
-                      )}
-                    </NavLink>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          </div>
-        ))}
+              <p
+                className="px-3"
+                style={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'hsl(var(--foreground) / 0.45)',
+                  marginBottom: '4px',
+                }}
+              >
+                {section.section}
+              </p>
+              <motion.div
+                variants={prefersReducedMotion() ? undefined : navContainerVariants}
+                initial="initial"
+                animate="animate"
+              >
+                {items.map((item, ii) => (
+                  <Fragment key={item.to}>
+                    {ii > 0 && <RowDivider />}
+                    <motion.div variants={prefersReducedMotion() ? undefined : navItemVariants}>
+                      <NavRow item={item} onNavigate={sfxClick} />
+                    </motion.div>
+                  </Fragment>
+                ))}
+              </motion.div>
+            </div>
+          );
+        })}
       </nav>
     </aside>
   );

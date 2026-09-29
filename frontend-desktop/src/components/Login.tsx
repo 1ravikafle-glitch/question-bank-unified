@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { fetchQuestionsCount, fetchCategories, authLogin } from '../services/api';
 import { ForestryLogo } from '@/components/ForestryLogo';
+import ThemeSegmented from '@/components/ThemeSegmented';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
@@ -294,6 +295,24 @@ const Login: React.FC = () => {
         >
           No registration needed — enter any username & password to get started.
         </p>
+
+        {/* Appearance — Light / Dark / System */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+          <div style={{ width: 'min(320px, 100%)' }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                textAlign: 'center',
+                color: 'hsl(var(--muted-foreground))',
+                marginBottom: 6,
+              }}
+            >
+              Appearance
+            </div>
+            <ThemeSegmented />
+          </div>
+        </div>
 
         {/* Live stats */}
         <p
