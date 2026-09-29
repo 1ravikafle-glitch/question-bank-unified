@@ -334,6 +334,14 @@
       '@media(min-width:1024px){div.min-h-screen:has(>header[aria-label="Header"]) #main-content{padding-top:72px!important}}',
       '#qsp-topcover{position:fixed;top:0;left:280px;right:0;height:124px;background:hsl(var(--background));z-index:44;pointer-events:none;display:none}',
       '@media(min-width:1024px){#qsp-topcover.on{display:block}}',
+      // Skip link: screen-reader-only until keyboard-focused (it was
+      // rendering as visible text at the top of every page).
+      '.skip-link{position:absolute!important;left:-9999px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important}',
+      '.skip-link:focus,.skip-link:active{position:fixed!important;left:12px!important;top:12px!important;width:auto!important;height:auto!important;z-index:99999!important;background:hsl(var(--primary))!important;color:#fff!important;padding:10px 16px!important;border-radius:10px!important;font-weight:600!important}',
+      // Scroll regions stay independent: sidebar nav never chains into
+      // the page, and the page never drags the sidebar.
+      '.desktop-sidebar nav{overscroll-behavior:contain!important}',
+      '.desktop-sidebar{overscroll-behavior:none!important}',
       // Sidebar footer groups: same card language as the nav sections.
       '.desktop-sidebar>div[data-qsp-foot]{margin:0 .75rem .75rem!important;background:hsl(var(--muted)/.45)!important;border:1px solid hsl(var(--border)/.6)!important;border-radius:14px!important;padding:.5rem .375rem .625rem!important}',
       '.desktop-sidebar>div[data-qsp-foot] .theme-toggle-btn{border-radius:10px!important}',
