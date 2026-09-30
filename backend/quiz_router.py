@@ -15,6 +15,12 @@ import app_cache
 
 router = APIRouter(prefix="/quiz", tags=["quiz"])
 
+# Lifetime/weekly accuracy only tracks meaningful sessions. Attempts with
+# fewer questions still record (attempt row + wrong-queue update) and can be
+# reviewed, but their per-question rows are skipped so trivia sessions never
+# move the headline stats. Mirrors MIN_QUESTIONS_FOR_HISTORY in the frontend.
+MIN_QUESTIONS_FOR_TRACKING = 5
+
 # Per-user progress: read on every dashboard visit, changed only on submit.
 # Shared cache (memory now, Redis via REDIS_URL) with 10s TTL + invalidation
 # on write, so bursts of reloads don't re-scan the progress table.
@@ -119,14 +125,18 @@ def submit_quiz(
         db.add(quiz_attempt)
         db.flush()
 
-        # 2. Save per-question progress (one row per attempt = full history)
-        for qid, selected in answers.items():
-            is_correct = selected == questions_by_id[qid].correct_answer.strip().lower()
-            db.add(models.UserProgress(
-                user_identifier=username,
-                question_id=qid,
-                is_correct=is_correct,
-            ))
+        # 2. Save per-question progress (one row per attempt = full history).
+        #    Skipped for tiny sessions (< MIN_QUESTIONS_FOR_TRACKING): the
+        #    attempt + wrong queue still record, but headline accuracy only
+        #    ever reflects meaningful quizzes.
+        if total >= MIN_QUESTIONS_FOR_TRACKING:
+            for qid, selected in answers.items():
+                is_correct = selected == questions_by_id[qid].correct_answer.strip().lower()
+                db.add(models.UserProgress(
+                    user_identifier=username,
+                    question_id=qid,
+                    is_correct=is_correct,
+                ))
 
         # 3. Update wrong-question queue atomically
         #    3a. Clear entries the user just got RIGHT

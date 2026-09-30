@@ -1394,7 +1394,7 @@ const QuizTaker: React.FC = () => {
                 fontSize: 14,
                 fontWeight: 600,
                 color: T.accent,
-                background: '#fff',
+                background: T.card,
                 border: `1px solid ${T.accent}`,
                 borderRadius: 10,
                 padding: '9px 16px',
