@@ -121,5 +121,14 @@ export function useSfx() {
     playTone(580, 0.06, 'triangle', 0.014);
   }, [playTone]);
 
-  return { sfxSelect, sfxCorrect, sfxIncorrect, sfxClick, sfxSubmit, sfxTick };
+  /** Exam countdown reminder — bright double chime, impossible to miss */
+  const sfxWarning = useCallback(() => {
+    playSequence([
+      { freq: 880, delay: 0, dur: 0.14, type: 'triangle', vol: 0.05 },
+      { freq: 880, delay: 0.22, dur: 0.14, type: 'triangle', vol: 0.05 },
+      { freq: 1174, delay: 0.44, dur: 0.2, type: 'sine', vol: 0.045 },
+    ]);
+  }, [playSequence]);
+
+  return { sfxSelect, sfxCorrect, sfxIncorrect, sfxClick, sfxSubmit, sfxTick, sfxWarning };
 }

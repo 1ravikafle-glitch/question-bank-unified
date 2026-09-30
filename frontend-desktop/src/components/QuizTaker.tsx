@@ -17,6 +17,7 @@ import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { type Question, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
+import toast from 'react-hot-toast';
 import BookmarkButton from '@/components/BookmarkButton';
 import { useQuizPrefs } from '@/quizPrefs';
 import PracticeSetupBody from '@/components/PracticeSetupBody';
@@ -362,7 +363,7 @@ const QuizTaker: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { userId } = useContext(AuthContext);
-  const { sfxSelect, sfxCorrect, sfxIncorrect, sfxSubmit, sfxClick } = useSfx();
+  const { sfxSelect, sfxCorrect, sfxIncorrect, sfxSubmit, sfxClick, sfxWarning } = useSfx();
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selected, setSelected] = useState<Record<number, string>>({});
@@ -443,6 +444,12 @@ const QuizTaker: React.FC = () => {
   const examConfig = (location.state as { examConfig?: import('@/shared/types').ExamConfig })?.examConfig ?? null;
   const isExamMode = !!examConfig;
   const examTotalSecs = examConfig ? examConfig.minutes * 60 : 0;
+  const warnedRef = useRef(false);
+  const examWarnSecs = (() => {
+    const table: Record<number, number> = { 30: 5 * 60, 50: 7 * 60, 100: 15 * 60 };
+    if (examConfig && table[examConfig.count] != null) return table[examConfig.count];
+    return Math.max(60, Math.round(examTotalSecs * 0.15));
+  })();
   const urlParams = new URLSearchParams(location.search);
   const questionIdFromUrl = urlParams.get('qid');
   const countParam = urlParams.get('count');
@@ -622,7 +629,13 @@ const QuizTaker: React.FC = () => {
       try {
         const answersPayload: Record<number, string> = {};
         questions.forEach((q) => {
-          if (finalSelected[q.id]) answersPayload[q.id] = finalSelected[q.id];
+          if (finalSelected[q.id]) {
+            answersPayload[q.id] = finalSelected[q.id];
+          } else if (isExamMode) {
+            // Exam papers score over the full set; blanks ride as 'skip'
+            // (no penalty, no wrong-queue, no progress row).
+            answersPayload[q.id] = 'skip';
+          }
         });
         const examNegative = examConfig?.negative ?? 0;
         let result;
@@ -802,6 +815,7 @@ const QuizTaker: React.FC = () => {
   // Exam mode: one countdown for the whole paper, auto-submit at zero.
   useEffect(() => {
     if (!isExamMode || loading || questions.length === 0 || submitting) return;
+    warnedRef.current = false;
     setTimeLeft(examTotalSecs);
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = window.setInterval(() => {
@@ -819,6 +833,17 @@ const QuizTaker: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExamMode, loading, questions.length, submitting]);
+  useEffect(() => {
+    if (!isExamMode || warnedRef.current || loading || submitting || questions.length === 0) return;
+    if (timeLeft <= examWarnSecs && timeLeft > 0) {
+      warnedRef.current = true;
+      sfxWarning();
+      try { navigator.vibrate?.([30, 60, 30, 60, 60]); } catch {}
+      const mins = Math.max(1, Math.round(examWarnSecs / 60));
+      toast(`⏰ ${mins} minute${mins === 1 ? '' : 's'} left — wrap up!`, { duration: 4000 });
+      setAnnouncement(`${mins} minutes remaining in the exam.`);
+    }
+  }, [isExamMode, timeLeft, examWarnSecs, loading, submitting, questions.length, sfxWarning]);
   useEffect(() => {
     if (isExamMode) return;
     if (loading || questions.length === 0 || submitting || !currentQuestion) return;

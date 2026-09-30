@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { sortCategories } from '@/utils/categorySort';
+import { useLang } from '@/context/LanguageContext';
 
 /**
  * Shared practice-setup card body (dashboard + quiz setup screen).
@@ -62,6 +63,7 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const { t } = useLang();
 
   // Auto-hide on outside click / Escape.
   useEffect(() => {
@@ -96,7 +98,7 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
           margin: '0 0 0.25rem 0',
         }}
       >
-        Start a Practice Session
+        {t('btn.startPractice')}
       </h2>
       <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0 0 1.25rem 0', lineHeight: 1.5 }}>
         {total.toLocaleString()} questions across {sorted.length} categories

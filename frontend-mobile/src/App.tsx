@@ -31,6 +31,7 @@ import OfflineBanner from './components/OfflineBanner';
 import { AuthContext } from './context/AuthContext';
 import { authLogin } from './services/api';
 import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { SoundProvider } from './context/SoundContext';
 import { isAdmin } from './config/admin';
 
@@ -212,9 +213,11 @@ function App() {
       <ScrollToTop />
       <MotionConfig reducedMotion="user">
       <ThemeProvider>
+      <LanguageProvider>
         <SoundProvider>
           <AppShell />
         </SoundProvider>
+      </LanguageProvider>
       </ThemeProvider>
       </MotionConfig>
     </BrowserRouter>

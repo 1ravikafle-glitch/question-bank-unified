@@ -150,12 +150,7 @@ const MockExam: React.FC = () => {
             <button
               key={n}
               onClick={() => { sfxClick(); setCount(n); }}
-              className="qpill"
-              style={
-                count === n
-                  ? { background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', borderColor: 'hsl(var(--primary))' }
-                  : undefined
-              }
+              className={`qpill${count === n ? ' qpill-selected' : ''}`}
               aria-pressed={count === n}
             >
               {n}
@@ -192,14 +187,7 @@ const MockExam: React.FC = () => {
             <button
               key={o.value}
               onClick={() => { sfxClick(); setNegative(o.value); }}
-              className="qpill"
-              style={
-                negative === o.value
-                  ? o.value > 0
-                    ? { background: 'hsl(0 84% 55%)', color: '#fff', borderColor: 'hsl(0 84% 55%)' }
-                    : { background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', borderColor: 'hsl(var(--primary))' }
-                  : undefined
-              }
+              className={`qpill${negative === o.value ? (o.value > 0 ? ' qpill-selected-danger' : ' qpill-selected') : ''}`}
               aria-pressed={negative === o.value}
             >
               {o.label}

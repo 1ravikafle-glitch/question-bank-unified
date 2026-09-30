@@ -57,6 +57,7 @@ class QuizResult(BaseModel):
     # Echoed scoring detail for mock exams (absent/0 for plain practice).
     raw_score: Optional[int] = None
     negative_marking: float = 0.0
+    skipped_questions: list[int] = []
 
 
 class UserProgressBase(BaseModel):

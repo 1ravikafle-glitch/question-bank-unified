@@ -141,11 +141,18 @@ def submit_quiz(
     score = 0
     correct_answers = {}
     incorrect_questions = []
+    skipped_questions = []
 
     for qid, selected in answers.items():
         q = questions_by_id[qid]
         options = q.options or {}
         resolved = _resolve_answer_key(selected, options)
+        if resolved == "skip":
+            # Left blank (exam mode): counts toward the paper total, but no
+            # penalty, no wrong-queue entry, no progress row.
+            skipped_questions.append(qid)
+            correct_answers[qid] = False
+            continue
         is_correct = resolved == q.correct_answer.strip().lower()
         # Store the resolved key so the frontend view-attempt display works
         answers[qid] = resolved
@@ -182,9 +189,12 @@ def submit_quiz(
         # 2. Save per-question progress (one row per attempt = full history).
         #    Skipped for tiny sessions (< MIN_QUESTIONS_FOR_TRACKING): the
         #    attempt + wrong queue still record, but headline accuracy only
-        #    ever reflects meaningful quizzes.
+        #    ever reflects meaningful quizzes. Skipped (blank) questions are
+        #    never written either.
         if total >= MIN_QUESTIONS_FOR_TRACKING:
             for qid, selected in answers.items():
+                if qid in skipped_questions:
+                    continue
                 is_correct = selected == questions_by_id[qid].correct_answer.strip().lower()
                 db.add(models.UserProgress(
                     user_identifier=username,
@@ -237,6 +247,7 @@ def submit_quiz(
         percentage=percentage,
         correct_answers=correct_answers,
         incorrect_questions=incorrect_questions,
+        skipped_questions=skipped_questions,
         raw_score=raw_score,
         negative_marking=negative,
     )

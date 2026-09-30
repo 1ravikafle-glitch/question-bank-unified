@@ -8,6 +8,7 @@ import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji } from '@/utils/categoryEmoji';
 import { scoreColor, scoreLabel } from '@/utils/scoreColor';
 import PracticeSetupBody from '@/components/PracticeSetupBody';
+import { useLang } from '@/context/LanguageContext';
 import { fetchBookmarkIds } from '../services/api';
 import { motion } from 'framer-motion';
 
@@ -128,6 +129,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
+  const { t } = useLang();
 
   useEffect(() => {
     const loadData = async () => {
@@ -380,7 +382,7 @@ const Dashboard: React.FC = () => {
               category={category}
               onCategory={setCategory}
               onStart={() => startQuiz()}
-              startLabel="Start Practice"
+              startLabel={t('btn.startPractice')}
               ping={sfxClick}
               bookmarkCount={bmIds.length}
               onPracticeBookmarks={() => navigate('/quiz', { state: { bookmarkIds: bmIds } })}

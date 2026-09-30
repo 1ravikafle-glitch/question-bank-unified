@@ -3,6 +3,7 @@ import { useContext, useEffect, useState, Fragment } from 'react';
 import { AuthContext } from '@/context/AuthContext';
 import { fetchBookmarkIds } from '@/services/api';
 import { useSfx } from '@/hooks/useSfx';
+import { useLang } from '@/context/LanguageContext';
 import { isAdmin } from '@/config/admin';
 import { ForestryLogo } from '@/components/ForestryLogo';
 import { motion } from 'framer-motion';
@@ -140,31 +141,31 @@ interface NavSectionDef {
    Settings — the account lives in Settings and the top-right profile. */
 const navSections: NavSectionDef[] = [
   {
-    section: 'Study',
+    section: 'group.study',
     items: [
-      { to: '/', label: 'Home', end: true, icon: <HomeIcon /> },
-      { to: '/quiz', label: 'Practice', end: false, icon: <ClockIcon /> },
-      { to: '/mock', label: 'Mock Exam', end: false, icon: <ExamIcon /> },
-      { to: '/contribute', label: 'Contribute', end: false, icon: <UploadIcon /> },
-      { to: '/questions', label: 'Questions', end: false, icon: <BookIcon /> },
+      { to: '/', label: 'nav.home', end: true, icon: <HomeIcon /> },
+      { to: '/quiz', label: 'nav.practice', end: false, icon: <ClockIcon /> },
+      { to: '/mock', label: 'nav.mock', end: false, icon: <ExamIcon /> },
+      { to: '/contribute', label: 'nav.contribute', end: false, icon: <UploadIcon /> },
+      { to: '/questions', label: 'nav.questions', end: false, icon: <BookIcon /> },
     ],
   },
   {
-    section: 'Review',
+    section: 'group.review',
     items: [
-      { to: '/quiz/practice-wrong', label: 'Wrong Questions', end: false, icon: <RetryIcon /> },
-      { to: '/bookmarks', label: 'Bookmarks', end: false, icon: <BookmarkIcon />, badge: 0 },
-      { to: '/results', label: 'Results', end: false, icon: <CheckCircleIcon /> },
-      { to: '/progress', label: 'Progress', end: false, icon: <TrendingUpIcon /> },
+      { to: '/quiz/practice-wrong', label: 'nav.wrong', end: false, icon: <RetryIcon /> },
+      { to: '/bookmarks', label: 'nav.bookmarks', end: false, icon: <BookmarkIcon />, badge: 0 },
+      { to: '/results', label: 'nav.results', end: false, icon: <CheckCircleIcon /> },
+      { to: '/progress', label: 'nav.progress', end: false, icon: <TrendingUpIcon /> },
     ],
   },
   {
-    section: 'System',
+    section: 'group.system',
     items: [
-      { to: '/gis', label: 'GIS Studio', end: false, icon: <GisIcon />, external: true },
-      { to: '/admin', label: 'Admin', end: false, icon: <UploadIcon />, adminOnly: true },
-      { to: '/about', label: 'About', end: false, icon: <InfoIcon /> },
-      { to: '/settings', label: 'Settings', end: false, icon: <GearIcon /> },
+      { to: '/gis', label: 'nav.gis', end: false, icon: <GisIcon />, external: true },
+      { to: '/admin', label: 'nav.admin', end: false, icon: <UploadIcon />, adminOnly: true },
+      { to: '/about', label: 'nav.about', end: false, icon: <InfoIcon /> },
+      { to: '/settings', label: 'nav.settings', end: false, icon: <GearIcon /> },
     ],
   },
 ];
@@ -191,6 +192,7 @@ const RowDivider: React.FC = () => (
 );
 
 const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, onNavigate }) => {
+  const { t } = useLang();
   if (item.external) {
     return (
       <a
@@ -217,7 +219,7 @@ const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, 
           {item.icon}
         </span>
         <span className="flex-1" style={{ whiteSpace: 'nowrap' }}>
-          {item.label}
+          {t(item.label)}
         </span>
         <GisExternalIcon />
       </a>
@@ -229,7 +231,7 @@ const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, 
       to={item.to}
       end={item.end}
       onClick={onNavigate}
-      title={item.label}
+      title={t(item.label)}
       className={({ isActive }) =>
         `relative flex items-center gap-3 rounded-[10px] font-medium ${
           isActive
@@ -263,7 +265,7 @@ const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, 
           <span className="flex-shrink-0" style={{ position: 'relative', transform: 'scale(1.1)' }}>
             {item.icon}
           </span>
-          <span style={{ position: 'relative' }}>{item.label}</span>
+          <span style={{ position: 'relative' }}>{t(item.label)}</span>
           {item.badge != null && item.badge > 0 && (
             <span
               style={{
@@ -290,6 +292,7 @@ const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, 
 
 const DesktopSidebar: React.FC = () => {
   const { userId } = useContext(AuthContext);
+  const { t } = useLang();
   const { sfxClick } = useSfx();
   const location = useLocation();
   const [bmCount, setBmCount] = useState(0);
@@ -362,7 +365,7 @@ const DesktopSidebar: React.FC = () => {
                 paddingTop: si === 0 ? 0 : 10,
                 marginBottom: si === navSections.length - 1 ? 0 : 6,
               }}
-              aria-label={`${section.section} navigation group`}
+              aria-label={t(section.section)}
             >
               <p
                 className="px-3"
@@ -375,7 +378,7 @@ const DesktopSidebar: React.FC = () => {
                   marginBottom: '4px',
                 }}
               >
-                {section.section}
+                {t(section.section)}
               </p>
               <motion.div
                 variants={prefersReducedMotion() ? undefined : navContainerVariants}
