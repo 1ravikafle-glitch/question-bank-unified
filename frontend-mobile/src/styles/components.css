@@ -784,6 +784,14 @@
   align-items: center;
 }
 
+/* ── Dashboard hero: vivid green in light, deep forest in dark ── */
+.hero-card {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.78));
+}
+.dark .hero-card {
+  background: linear-gradient(135deg, hsl(142 45% 30%), hsl(152 42% 17%));
+}
+
 /* =============================================================
    Navigation
    ============================================================= */
@@ -1827,87 +1835,89 @@
    ============================================================= */
 
 @media (hover: hover) .dark .btn:hover:not(:disabled) {
-  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.08), 0 2px 6px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
 
 /* Hero white button: dim in dark mode so it doesn't glare; no glow */
 .dark .hero-start-btn {
-  background: hsl(0 0% 88%) !important;
+  background: hsl(0 0% 80%) !important;
   box-shadow: none;
+  filter: none;
 }
 .dark .hero-start-btn:hover:not(:disabled) {
-  background: hsl(0 0% 85%) !important;
+  background: hsl(0 0% 76%) !important;
   box-shadow: none;
   filter: none;
 }
 
 /* Primary glow stays green but softer in dark mode */
 .dark .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 6px 24px hsl(var(--primary) / 0.25), 0 2px 8px hsl(var(--primary) / 0.15);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  filter: none;
 }
 
 @media (hover: hover) .dark .card:hover {
-  box-shadow: 0 8px 30px rgba(255, 255, 255, 0.06), 0 2px 8px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 @media (hover: hover) .dark .subject-card:hover {
-  box-shadow: 0 8px 30px rgba(255, 255, 255, 0.06), 0 2px 8px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 @media (hover: hover) .dark .specimen-card:hover {
-  box-shadow: 0 8px 30px rgba(255, 255, 255, 0.06), 0 2px 8px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 @media (hover: hover) .dark .activity-item:hover {
-  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.06), 0 2px 6px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 @media (hover: hover) .dark .stat-tile:hover {
-  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.06), 0 2px 6px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 @media (hover: hover) .dark .answer-option:hover:not(.answer-option-disabled):not(.answer-option-selected):not(.answer-option-correct):not(.answer-option-incorrect) {
-  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.06), 0 2px 6px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 @media (hover: hover) .dark .option-row:hover:not(.is-locked) {
-  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.06), 0 2px 6px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 @media (hover: hover) .dark .question-navigator-button:hover:not(.question-navigator-button-disabled) {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 
 @media (hover: hover) .dark .nav-pill:hover {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 @media (hover: hover) .dark .chip:hover {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 @media (hover: hover) .dark .dropdown-item:hover {
-  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 @media (hover: hover) .dark .pagination-item:hover:not(.pagination-item-active):not(:disabled) {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 @media (hover: hover) .dark .page-arrow-btn:hover:not(:disabled) {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 @media (hover: hover) .dark .desktop-sidebar nav a:hover {
-  box-shadow: 0 2px 12px rgba(255, 255, 255, 0.08), 0 1px 4px rgba(255, 255, 255, 0.05) !important;
+  box-shadow: none !important;
 }
 
 @media (hover: hover) .dark .theme-toggle-btn:hover {
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 
 @media (hover: hover) .dark .category-dropdown-btn:hover {
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 /* ── Compact hero on small phones: smaller banner, quote hidden ── */
@@ -1929,4 +1939,14 @@
   section[aria-label="Welcome hero"] > div[aria-hidden="true"] {
     display: none !important;
   }
+}
+
+/* Tier pills: flat fills in dark, no glow, no brightness pulse */
+.dark .qpill.lvl-10.is-on,
+.dark .qpill.lvl-20.is-on,
+.dark .qpill.lvl-50.is-on,
+.dark .qpill.lvl-100.is-on {
+  box-shadow: none;
+  animation: none;
+  filter: none;
 }

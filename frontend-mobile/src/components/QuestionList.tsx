@@ -260,10 +260,10 @@ const Dashboard: React.FC = () => {
       <motion.section
         whileHover={{ scale: 1.005 }}
         transition={{ duration: 0.2 }}
+        className="hero-card"
         style={{
           borderRadius: 'var(--apple-radius-xl)',
           padding: '1.5rem 2rem',
-          background: 'linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 35%))',
           color: 'white',
           position: 'relative',
           overflow: 'hidden',

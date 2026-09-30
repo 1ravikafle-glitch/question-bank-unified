@@ -1,0 +1,117 @@
+from fastapi import APIRouter, Depends, HTTPException
+from typing import Tuple
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from typing import List
+import models
+import database
+import session
+
+router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
+
+
+class ToggleRequest(BaseModel):
+    user_identifier: str
+    question_id: int
+
+
+def _username(caller: Tuple[None, bool], supplied: str) -> str:
+    return caller[0] or (supplied or "anonymous")
+
+
+@router.get("/{user_identifier}")
+def list_bookmarks(
+    user_identifier: str,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[None, bool] = Depends(session.current_user),
+):
+    """Bookmarked questions, newest first, with total count."""
+    user_identifier = _username(caller, user_identifier)
+    rows = (
+        db.query(models.Bookmark)
+        .filter(models.Bookmark.user_identifier == user_identifier)
+        .order_by(models.Bookmark.created_at.desc())
+        .all()
+    )
+    ids = [r.question_id for r in rows]
+    questions = (
+        db.query(models.Question).filter(models.Question.id.in_(ids)).all()
+        if ids
+        else []
+    )
+    by_id = {q.id: q for q in questions}
+    ordered = [by_id[i] for i in ids if i in by_id]
+    return {"questions": ordered, "count": len(ordered)}
+
+
+@router.get("/ids/{user_identifier}")
+def bookmark_ids(
+    user_identifier: str,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[None, bool] = Depends(session.current_user),
+):
+    """Lightweight id set for marking bookmarked state in lists."""
+    user_identifier = _username(caller, user_identifier)
+    rows = (
+        db.query(models.Bookmark.question_id)
+        .filter(models.Bookmark.user_identifier == user_identifier)
+        .all()
+    )
+    return {"ids": [r[0] for r in rows], "count": len(rows)}
+
+
+@router.post("/toggle")
+def toggle_bookmark(
+    payload: ToggleRequest,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[None, bool] = Depends(session.current_user),
+):
+    user_identifier = _username(caller, payload.user_identifier)
+    existing = (
+        db.query(models.Bookmark)
+        .filter(
+            models.Bookmark.user_identifier == user_identifier,
+            models.Bookmark.question_id == payload.question_id,
+        )
+        .first()
+    )
+    try:
+        if existing:
+            db.delete(existing)
+            bookmarked = False
+        else:
+            # Ignore unknown question ids instead of 500ing.
+            q = (
+                db.query(models.Question.id)
+                .filter(models.Question.id == payload.question_id)
+                .first()
+            )
+            if not q:
+                raise HTTPException(status_code=404, detail="Question not found")
+            db.add(
+                models.Bookmark(
+                    user_identifier=user_identifier,
+                    question_id=payload.question_id,
+                )
+            )
+            bookmarked = True
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to toggle bookmark")
+    count = (
+        db.query(models.Bookmark)
+        .filter(models.Bookmark.user_identifier == user_identifier)
+        .count()
+    )
+    # Bookmarks feed the dashboard badge — bust the user's progress cache
+    # so counts stay fresh (cheap: progress refetches on next visit).
+    try:
+        import app_cache
+
+        app_cache.delete("prog:" + user_identifier)
+    except Exception:
+        pass
+    return {"bookmarked": bookmarked, "count": count}

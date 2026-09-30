@@ -98,3 +98,19 @@ class CategoryMeta(Base):
     category = Column(String(200), primary_key=True)
     emoji = Column(String(16), nullable=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Bookmark(Base):
+    """User-saved questions for later revision."""
+
+    __tablename__ = "bookmarks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_identifier = Column(String(100), nullable=False)
+    question_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_bookmarks_user", "user_identifier"),
+        Index("ix_bookmarks_user_question", "user_identifier", "question_id", unique=True),
+    )
