@@ -1014,7 +1014,7 @@ const QuizTaker: React.FC = () => {
                       border: (!setupBeastMode && setupQuizCount === n) ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
-                      boxShadow: (!setupBeastMode && setupQuizCount === n) ? `0 4px 14px ${T.accentTint}` : '0 1px 3px rgba(0,0,0,0.06)',
+                      boxShadow: (!setupBeastMode && setupQuizCount === n) ? '0 4px 14px rgba(0,0,0,0.18)' : '0 1px 3px rgba(0,0,0,0.06)',
                     }}
                   >
                     {n}
@@ -1024,7 +1024,6 @@ const QuizTaker: React.FC = () => {
                 <style>{`.bfx{position:relative;overflow:hidden}.bfx-armed{animation:bfxGlow 1.6s ease-in-out infinite}@keyframes bfxGlow{0%,100%{box-shadow:0 4px 14px hsl(var(--moss-600)/.4)}50%{box-shadow:0 0 16px 3px rgba(251,146,60,.8),0 4px 16px hsl(var(--moss-600)/.5)}}.bfx-shake{animation:bfxShake .45s ease,bfxGlow 1.6s ease-in-out .45s infinite}@keyframes bfxShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}.bfx-ember{position:absolute;bottom:-3px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle,#fde68a 0%,#f59e0b 55%,rgba(245,158,11,0) 100%);pointer-events:none;animation:bfxRise 1.5s linear infinite}@keyframes bfxRise{0%{transform:translateY(0) scale(1);opacity:0}15%{opacity:1}100%{transform:translateY(-30px) scale(.25);opacity:0}}.bfx-spark{position:absolute;top:50%;left:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:radial-gradient(circle,#fff7ed 0%,#fb923c 60%,rgba(251,146,60,0) 100%);pointer-events:none;animation:bfxBurst .7s ease-out forwards}@keyframes bfxBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.1);opacity:0}}.bfx-dragon{position:absolute;top:1px;left:0;font-size:13px;line-height:1;pointer-events:none;animation:bfxFly 1.9s linear forwards}@keyframes bfxFly{0%{transform:translateX(-30px);opacity:0}8%{opacity:1}92%{opacity:1}100%{transform:translateX(420px);opacity:0}}@media (prefers-reduced-motion:reduce){.bfx-armed,.bfx-shake,.bfx-ember,.bfx-spark,.bfx-dragon{animation:none!important}}`}</style>
                 <button
                   key="beast"
-                  title="Beast Mode — practice ALL questions: full bank or whole category"
                   onClick={() => { try { navigator.vibrate?.(8); } catch {} setSetupBeastMode(true); }}
                   className={'bfx' + (setupBeastMode ? ' bfx-armed bfx-shake' : '')}
                   style={{
@@ -1035,11 +1034,11 @@ const QuizTaker: React.FC = () => {
                     fontWeight: 700,
                     fontFamily: T.font,
                     color: setupBeastMode ? '#fff' : T.textSecondary,
-                    background: setupBeastMode ? T.accent : 'hsl(var(--muted))',
-                    border: setupBeastMode ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
+                    background: setupBeastMode ? 'hsl(0 84% 55%)' : 'hsl(var(--muted))',
+                    border: setupBeastMode ? '1px solid hsl(0 84% 55%)' : `1px solid ${T.border}`,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
-                    boxShadow: setupBeastMode ? `0 4px 14px ${T.accentTint}` : '0 1px 3px rgba(0,0,0,0.06)',
+                    boxShadow: setupBeastMode ? '0 0 20px 2px hsl(0 84% 60% / 0.55), 0 4px 14px hsl(0 84% 60% / 0.4)' : '0 1px 3px rgba(0,0,0,0.06)',
                   }}
                 >
                   {setupBeastMode ? '🔥 BEAST' : '🔥 Beast'}
@@ -1165,7 +1164,7 @@ const QuizTaker: React.FC = () => {
                 background: T.accent,
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: `0 4px 14px ${T.accentTint}`,
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
                 transition: 'all 0.15s ease',
               }}
               onMouseEnter={(e) => (e.currentTarget.style.background = T.accentHover)}

@@ -150,7 +150,6 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
             }}
             aria-label="Beast Mode: practice all questions"
             aria-pressed={beastMode}
-            title="Beast Mode — practice ALL questions: full bank or whole category"
           >
             {beastMode ? '🔥 BEAST' : '🔥 Beast'}
             {beastMode && [6, 20, 32, 44, 56, 68, 80, 90].map((l, i) => (

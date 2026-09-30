@@ -791,6 +791,9 @@
 .dark .hero-card {
   background: linear-gradient(135deg, hsl(142 45% 30%), hsl(152 42% 17%));
 }
+.dark .hero-card > div[aria-hidden="true"] {
+  opacity: 0.35;
+}
 
 /* =============================================================
    Navigation
