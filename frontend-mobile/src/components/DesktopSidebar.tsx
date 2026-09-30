@@ -218,7 +218,7 @@ const DesktopSidebar: React.FC = () => {
       {/* Dark mode override */}
       <style>{`
         .dark .sidebar-material {
-          background: hsl(240 10% 8% / 0.82) !important;
+          background: hsl(150 22% 7% / 0.85) !important;
         }
       `}</style>
 

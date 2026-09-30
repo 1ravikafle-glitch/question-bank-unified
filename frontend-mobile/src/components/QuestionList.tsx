@@ -332,9 +332,6 @@ const Dashboard: React.FC = () => {
               className="btn hero-start-btn"
               whileTap={{ scale: 0.98 }}
               style={{
-                background: 'white',
-                color: 'hsl(var(--primary))',
-                border: 'none',
                 fontWeight: 'var(--font-weight-semibold)',
                 fontSize: '0.875rem',
                 padding: '0.625rem 1.5rem',

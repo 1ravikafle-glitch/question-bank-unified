@@ -156,7 +156,7 @@ const MobileTopBar: React.FC = () => {
               borderRadius: 19,
               padding: 8,
               zIndex: 99999,
-              background: darkMenu ? 'rgba(30,30,32,0.94)' : 'hsl(var(--popover))',
+              background: darkMenu ? 'rgba(15,26,20,0.94)' : 'hsl(var(--popover))',
               border: darkMenu ? '1px solid rgba(255,255,255,0.10)' : '1px solid hsl(var(--border))',
               backdropFilter: 'blur(30px) saturate(130%)',
               WebkitBackdropFilter: 'blur(30px) saturate(130%)',

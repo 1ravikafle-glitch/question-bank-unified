@@ -277,7 +277,7 @@ const DesktopSidebar: React.FC = () => {
       {/* Dark mode override + hairline between groups */}
       <style>{`
         .dark .sidebar-material {
-          background: hsl(240 10% 8% / 0.82) !important;
+          background: hsl(150 22% 7% / 0.85) !important;
         }
         .desktop-sidebar .nav-group + .nav-group {
           border-top: 1px solid hsl(var(--border) / 0.55);

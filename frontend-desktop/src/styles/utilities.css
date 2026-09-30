@@ -955,12 +955,12 @@
 }
 
 /* Dark mode body adjustments */
-.dark body {
+.dark {
   color-scheme: dark;
 }
 
 .dark ::selection {
-  background-color: hsl(140 40% 55% / 0.3);
+  background-color: hsl(142 60% 50% / 0.3);
 }
 
 /* Dark mode scrollbar */
@@ -972,11 +972,11 @@
   background: hsl(var(--canopy-950));
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(154 18% 26%);
+  background: hsl(var(--muted));
   border-radius: 4px;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(154 18% 32%);
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
 /* ============================================================

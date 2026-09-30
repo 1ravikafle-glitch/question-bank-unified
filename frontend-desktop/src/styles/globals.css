@@ -293,7 +293,7 @@ main > div {
 	--nav-glass-blur: blur(28px) saturate(200%);
 }
 .dark {
-	--nav-glass-bg: rgba(20, 28, 22, 0.92);
+	--nav-glass-bg: rgba(15, 24, 19, 0.92);
 	--nav-glass-border: rgba(255, 255, 255, 0.08);
 }
 
