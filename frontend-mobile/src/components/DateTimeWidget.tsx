@@ -101,14 +101,19 @@ const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
   }, []);
 
   const p = nptParts(now);
-  let bsLabel = '';
+  let bsMonthDay = '';
+  let bsYear = '';
   try {
     const bs = new NepaliDate(new Date(p.year, p.month - 1, p.day)).getBS();
-    bsLabel = `${BS_MONTHS[bs.month] ?? ''} ${bs.date}, ${bs.year} B.S.`;
+    bsMonthDay = `${BS_MONTHS[bs.month] ?? ''} ${bs.date}`;
+    bsYear = `${bs.year} B.S.`;
   } catch {
-    bsLabel = '';
+    bsMonthDay = '';
   }
-  const adLabel = `${AD_SHORT[p.month - 1]} ${p.day}, ${p.year} A.D.`;
+  const bsLabel = bsMonthDay ? `${bsMonthDay}, ${bsYear}` : '';
+  const adMonthDay = `${AD_SHORT[p.month - 1]} ${p.day}`;
+  const adYear = `${p.year} A.D.`;
+  const adLabel = `${adMonthDay}, ${adYear}`;
   const h12 = String(p.hour24 % 12 === 0 ? 12 : p.hour24 % 12).padStart(2, '0');
   const suffix = p.hour24 < 12 ? 'A.M.' : 'P.M.';
   // Sun/moon come from the shared day/night signal (viewer location,
@@ -131,7 +136,11 @@ const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
     >
       {!compact && (
         <span style={{ letterSpacing: '0.01em' }}>
-          {bsLabel} <span style={{ opacity: 0.45, margin: '0 2px' }}>||</span> {adLabel}
+          <span style={{ fontWeight: 700, color: 'hsl(var(--foreground))' }}>{bsMonthDay}</span>{' '}
+          <span style={{ opacity: 0.6 }}>{bsYear}</span>
+          <span style={{ opacity: 0.45, margin: '0 4px' }}>||</span>{' '}
+          <span style={{ fontWeight: 700, color: 'hsl(var(--foreground))' }}>{adMonthDay}</span>{' '}
+          <span style={{ opacity: 0.6 }}>{adYear} A.D.</span>
         </span>
       )}
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }} aria-hidden="true">
