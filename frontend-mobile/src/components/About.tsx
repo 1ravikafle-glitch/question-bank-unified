@@ -6,11 +6,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ForestryLogo } from '@/components/ForestryLogo';
 import { motion, type Variants } from 'framer-motion';
 
+// Real profile URLs go here — empty string renders the icon without a link.
+const SOCIAL_URLS: Record<'fb' | 'ig' | 'tk' | 'yt', string> = {
+  fb: '',
+  ig: '',
+  tk: '',
+  yt: '',
+};
 const socialLinks = [
-  { label: 'Facebook', href: '#', icon: 'fb' },
-  { label: 'Instagram', href: '#', icon: 'ig' },
-  { label: 'TikTok', href: '#', icon: 'tk' },
-  { label: 'YouTube', href: '#', icon: 'yt' },
+  { label: 'Facebook', icon: 'fb' },
+  { label: 'Instagram', icon: 'ig' },
+  { label: 'TikTok', icon: 'tk' },
+  { label: 'YouTube', icon: 'yt' },
 ];
 const SocialIconSm: React.FC<{ type: string }> = ({ type }) => {
   const common = { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'currentColor' } as const;
@@ -149,11 +156,30 @@ const About: React.FC = () => {
               <div>
                 <p className="text-[0.7rem] font-bold uppercase tracking-widest mb-2.5" style={{ color: 'hsl(0 0% 100% / 0.95)', fontFamily: 'var(--font-display)', letterSpacing: '0.08em', textShadow: '0 1px 2px hsl(0 0% 0% / 0.2)' }}>Connect</p>
                 <div className="flex items-center gap-1.5 mb-3">
-                  {socialLinks.map((s) => (
-                    <a key={s.label} href={s.href} aria-label={s.label} onClick={(e) => { if (s.href === '#') e.preventDefault(); }} className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-105" style={{ background: 'hsl(0 0% 100% / 0.07)', border: '1px solid hsl(0 0% 100% / 0.1)', color: 'hsl(90 40% 97%)' }}>
-                      <SocialIconSm type={s.icon} />
-                    </a>
-                  ))}
+                  {socialLinks.map((s) => {
+                    const href = SOCIAL_URLS[s.icon as keyof typeof SOCIAL_URLS];
+                    return (
+                      <a
+                        key={s.label}
+                        href={href || undefined}
+                        aria-label={s.label}
+                        aria-disabled={!href || undefined}
+                        onClick={(e) => { if (!href) e.preventDefault(); }}
+                        target={href ? '_blank' : undefined}
+                        rel={href ? 'noopener noreferrer' : undefined}
+                        className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-105"
+                        style={{
+                          background: 'hsl(0 0% 100% / 0.07)',
+                          border: '1px solid hsl(0 0% 100% / 0.1)',
+                          color: 'hsl(90 40% 97%)',
+                          opacity: href ? 1 : 0.45,
+                          cursor: href ? 'pointer' : 'default',
+                        }}
+                      >
+                        <SocialIconSm type={s.icon} />
+                      </a>
+                    );
+                  })}
                 </div>
                 <div className="space-y-1">
                   <a href="mailto:forestrypscpreparation@gmail.com" className="block text-[0.78rem] hover:text-white transition-colors break-all" style={{ color: 'hsl(0 0% 100% / 0.92)', fontFamily: 'var(--font-sans)', fontWeight: 600 }}>forestrypscpreparation@gmail.com</a>
