@@ -194,9 +194,11 @@ export const fetchAttemptDetail = async (attemptId: number) => {
   return response.data;
 };
 
-// Fetch wrong-question queue
-export const fetchWrongQueue = async (userIdentifier: string) => {
-  const response = await api.get(`/quiz/wrong-queue/${encodeURIComponent(userIdentifier)}`);
+// Fetch wrong-question queue (optionally filtered by category)
+export const fetchWrongQueue = async (userIdentifier: string, category?: string) => {
+  const response = await api.get(`/quiz/wrong-queue/${encodeURIComponent(userIdentifier)}`, {
+    params: category ? { category } : {},
+  });
   return response.data;
 };
 
@@ -426,4 +428,14 @@ export const toggleBookmark = async (
     queueBmToggle(questionId);
     return { bookmarked: optimistic.marked, count: optimistic.ids.length };
   }
+};
+
+// Remove all bookmarks for a user (unbookmark-all).
+export const clearBookmarks = async (
+  userIdentifier: string
+): Promise<{ cleared: number }> => {
+  const response = await api.delete(
+    `/bookmarks/user/${encodeURIComponent(userIdentifier)}`
+  );
+  return response.data;
 };

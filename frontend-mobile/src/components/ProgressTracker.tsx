@@ -2,6 +2,7 @@ import { useEffect, useState, useContext, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchUserProgress, fetchWrongQueue } from '../services/api';
 import { toast } from 'react-hot-toast';
+import { scoreColor, scoreLabel } from '@/utils/scoreColor';
 import { AuthContext } from '@/context/AuthContext';
 import { getRandomScoreMessages } from '@/utils/scoreMessages';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
@@ -40,19 +41,9 @@ interface ProgressData {
   recent_attempts: RecentAttempt[];
 }
 
-const percentColor = (pct: number) =>
-  pct >= 90 ? 'hsl(150 60% 38%)'
-  : pct >= 80 ? 'hsl(38 92% 50%)'
-  : pct >= 60 ? 'hsl(24 95% 53%)'
-  : 'hsl(0 84% 60%)';
+const percentColor = (pct: number) => scoreColor(pct);
 
-const performanceLabel = (pct: number) =>
-  pct >= 91 ? 'Fabulous'
-  : pct >= 81 ? 'Excellent'
-  : pct >= 61 ? 'Good'
-  : pct >= 41 ? 'Fair'
-  : pct >= 21 ? 'Satisfactory'
-  : 'Poor';
+const performanceLabel = (pct: number) => scoreLabel(pct);
 
 const catIcon = (name: string) => {
   const n = name.toLowerCase();
@@ -263,12 +254,12 @@ const ProgressTracker: React.FC = () => {
         style={{ padding: '2px', margin: '-2px' }}
       >
             <motion.div variants={staggerItem} className="stat-tile">
-              <span className="stat-tile-value" style={{ color: percentColor(currentAccuracy) }}>
-                {currentAccuracy}%
+              <span className="stat-tile-value" style={{ color: currentAttempted > 0 ? percentColor(currentAccuracy) : 'hsl(var(--muted-foreground))' }}>
+                {currentAttempted > 0 ? `${currentAccuracy}%` : '—'}
               </span>
               <span className="stat-tile-label">Accuracy</span>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: percentColor(currentAccuracy) }}>
-                {performanceLabel(currentAccuracy)}
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
+                {currentAttempted > 0 ? performanceLabel(currentAccuracy) : 'No attempts yet'}
               </span>
             </motion.div>
             <motion.div variants={staggerItem} className="stat-tile">

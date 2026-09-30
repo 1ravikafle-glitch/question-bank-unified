@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import React, { useState, useEffect, Suspense } from 'react';
+import { MotionConfig } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 // Route screens load lazily so first paint only downloads Login + shell.
 // Vendor libs ride in their own long-cached chunks (see vite.config.ts).
@@ -191,11 +192,13 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <MotionConfig reducedMotion="user">
       <ThemeProvider>
         <SoundProvider>
           <AppShell />
         </SoundProvider>
       </ThemeProvider>
+      </MotionConfig>
     </BrowserRouter>
   );
 }

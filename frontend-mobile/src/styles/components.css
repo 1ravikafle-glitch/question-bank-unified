@@ -186,9 +186,10 @@
 
 /* card hover moved to consolidated Hover Shadows section */
 
+/* Focus lives on inputs themselves (.input:focus); a whole-card outline on
+   autofocus is glare, not accessibility — keep cards quiet. */
 .card:focus-within {
-  outline: 2px solid hsl(var(--ring));
-  outline-offset: 2px;
+  outline: none;
 }
 
 .card-primary {
@@ -229,7 +230,7 @@
   line-height: var(--leading-relaxed);
   color: hsl(var(--foreground));
   background-color: hsl(var(--background));
-  border: 1px solid var(--input);
+  border: 1px solid hsl(var(--input));
   border-radius: var(--apple-radius-md);
   min-height: 40px;
   transition: border-color 150ms, box-shadow 150ms;
@@ -277,7 +278,7 @@
   width: 1rem;
   height: 1rem;
   border-radius: var(--apple-radius-sm);
-  border: 1px solid var(--input);
+  border: 1px solid hsl(var(--input));
   background-color: hsl(var(--background));
   cursor: pointer;
   transition: background-color 150ms, border-color 150ms;
@@ -763,6 +764,40 @@
   border: 1.5px solid hsl(var(--border));
 }
 
+
+/* ── Quiz fold-flow: answered cards fold up into their progress dot,
+   which pops — then the next card flows in. No more blink-swap. ── */
+.quiz-qbox.quiz-flow-in {
+  animation: quizFlowIn 0.32s var(--ease-spring);
+}
+@keyframes quizFlowIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.quiz-qbox.is-folding {
+  animation: quizFoldOut 0.26s var(--ease-standard) forwards;
+  transform-origin: top center;
+  pointer-events: none;
+}
+@keyframes quizFoldOut {
+  to { opacity: 0; transform: translateY(-26px) scaleY(0.6) scale(0.98); }
+}
+.dot-pop {
+  animation: dotPop 0.5s var(--ease-spring);
+}
+@keyframes dotPop {
+  0% { transform: scale(0.4); }
+  55% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quiz-qbox.quiz-flow-in,
+  .quiz-qbox.is-folding,
+  .dot-pop {
+    animation: none !important;
+  }
+}
+
 .timer-badge.is-critical {
   border-color: hsl(var(--destructive));
   color: hsl(var(--destructive));
@@ -784,15 +819,21 @@
   align-items: center;
 }
 
-/* ── Dashboard hero: vivid green in light, deep forest in dark ── */
+/* ── Dashboard hero: quiet layered surface, deep forest tint in dark ── */
 .hero-card {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.78));
+  background:
+    radial-gradient(120% 140% at 100% 0%, hsl(var(--primary) / 0.12), transparent 55%),
+    hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 .dark .hero-card {
-  background: linear-gradient(135deg, hsl(142 45% 30%), hsl(152 42% 17%));
+  background:
+    radial-gradient(120% 140% at 100% 0%, hsl(142 45% 30% / 0.22), transparent 55%),
+    hsl(var(--card));
+  border-color: hsl(var(--border));
 }
 .dark .hero-card > div[aria-hidden="true"] {
-  opacity: 0.35;
+  opacity: 0.5;
 }
 
 /* =============================================================
@@ -1843,24 +1884,24 @@
 
 /* Hero button base lives in CSS (never inline) */
 .hero-start-btn {
-  background: white;
-  color: hsl(var(--primary));
-  border: none;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: 1px solid transparent;
 }
-/* Dark mode: translucent dark-glass capsule, mint text — no white at all */
+/* Dark mode: deep green fill, zero glow — matches btn-primary */
 .dark .hero-start-btn {
-  background: hsl(0 0% 100% / 0.10) !important;
-  color: hsl(140 55% 78%) !important;
-  border: 1px solid hsl(0 0% 100% / 0.22) !important;
+  background: hsl(142 50% 36%) !important;
+  color: hsl(0 0% 100%) !important;
+  border: 1px solid transparent !important;
   box-shadow: none;
   filter: none;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .dark .hero-start-btn:hover:not(:disabled) {
-  background: hsl(0 0% 100% / 0.16) !important;
-  color: hsl(140 60% 82%) !important;
-  border-color: hsl(0 0% 100% / 0.30) !important;
+  background: hsl(142 50% 40%) !important;
+  color: hsl(0 0% 100%) !important;
+  border-color: transparent !important;
   box-shadow: none;
   filter: none;
 }

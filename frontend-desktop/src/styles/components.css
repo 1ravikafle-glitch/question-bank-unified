@@ -170,9 +170,10 @@
 
 /* card hover moved to consolidated Hover Shadows section */
 
+/* Focus lives on inputs themselves (.input:focus); a whole-card outline on
+   autofocus is glare, not accessibility — keep cards quiet. */
 .card:focus-within {
-  outline: 2px solid hsl(var(--ring));
-  outline-offset: 2px;
+  outline: none;
 }
 
 .card-primary {
@@ -213,7 +214,7 @@
   line-height: var(--leading-relaxed);
   color: hsl(var(--foreground));
   background-color: hsl(var(--background));
-  border: 1px solid var(--input);
+  border: 1px solid hsl(var(--input));
   border-radius: var(--apple-radius-md);
   min-height: 40px;
   transition: border-color 150ms, box-shadow 150ms;
@@ -261,7 +262,7 @@
   width: 1rem;
   height: 1rem;
   border-radius: var(--apple-radius-sm);
-  border: 1px solid var(--input);
+  border: 1px solid hsl(var(--input));
   background-color: hsl(var(--background));
   cursor: pointer;
   transition: background-color 150ms, border-color 150ms;
@@ -797,15 +798,53 @@
 }
 
 /* ─── Quiz question box (Apple quiet surface; replaces inline styles) ─── */
-/* ── Dashboard hero: vivid green in light, deep forest in dark ── */
+/* ── Quiz fold-flow: answered cards fold up into their progress dot,
+   which pops — then the next card flows in. No more blink-swap. ── */
+.quiz-qbox.quiz-flow-in {
+  animation: quizFlowIn 0.32s var(--ease-spring);
+}
+@keyframes quizFlowIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.quiz-qbox.is-folding {
+  animation: quizFoldOut 0.26s var(--ease-standard) forwards;
+  transform-origin: top center;
+  pointer-events: none;
+}
+@keyframes quizFoldOut {
+  to { opacity: 0; transform: translateY(-26px) scaleY(0.6) scale(0.98); }
+}
+.dot-pop {
+  animation: dotPop 0.5s var(--ease-spring);
+}
+@keyframes dotPop {
+  0% { transform: scale(0.4); }
+  55% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quiz-qbox.quiz-flow-in,
+  .quiz-qbox.is-folding,
+  .dot-pop {
+    animation: none !important;
+  }
+}
+/* ── Dashboard hero: quiet layered surface, deep forest tint in dark ── */
 .hero-card {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.78));
+  background:
+    radial-gradient(120% 140% at 100% 0%, hsl(var(--primary) / 0.12), transparent 55%),
+    hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 .dark .hero-card {
-  background: linear-gradient(135deg, hsl(142 45% 30%), hsl(152 42% 17%));
+  background:
+    radial-gradient(120% 140% at 100% 0%, hsl(142 45% 30% / 0.22), transparent 55%),
+    hsl(var(--card));
+  border-color: hsl(var(--border));
 }
 .dark .hero-card > div[aria-hidden="true"] {
-  opacity: 0.35;
+  opacity: 0.5;
 }
 .quiz-qbox {
   position: relative;
@@ -827,10 +866,6 @@
   pointer-events: none;
   user-select: none;
 }
-.quiz-qbox.is-fading {
-  opacity: 0;
-  transform: translateY(6px);
-}
 .quiz-qbox.is-selected {
   border-color: hsl(var(--primary) / 0.55);
 }
@@ -843,9 +878,6 @@
 @media (prefers-reduced-motion: reduce) {
   .quiz-qbox {
     transition: opacity 150ms ease;
-  }
-  .quiz-qbox.is-fading {
-    transform: none;
   }
 }
 
@@ -2061,26 +2093,26 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
 
-/* Hero white button lives in CSS (never inline) so dark mode can dim it */
+/* Hero button follows the primary action style (hero is now a quiet surface) */
 .hero-start-btn {
-  background: white;
-  color: hsl(var(--primary));
-  border: none;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: 1px solid transparent;
 }
-/* Dark mode: translucent dark-glass capsule, mint text — no white at all */
+/* Dark mode: deep green fill, zero glow — matches btn-primary */
 .dark .hero-start-btn {
-  background: hsl(0 0% 100% / 0.10);
-  color: hsl(140 55% 78%);
-  border: 1px solid hsl(0 0% 100% / 0.22);
+  background: hsl(142 50% 36%);
+  color: hsl(0 0% 100%);
+  border: 1px solid transparent;
   box-shadow: none;
   filter: none;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .dark .hero-start-btn:hover:not(:disabled) {
-  background: hsl(0 0% 100% / 0.16);
-  color: hsl(140 60% 82%);
-  border-color: hsl(0 0% 100% / 0.30);
+  background: hsl(142 50% 40%);
+  color: hsl(0 0% 100%);
+  border-color: transparent;
   box-shadow: none;
   filter: none;
 }

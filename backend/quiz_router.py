@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Tuple
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -394,6 +394,7 @@ def get_attempt_detail(attempt_id: int, db: Session = Depends(database.get_db)):
 @router.get("/wrong-queue/{user_identifier}")
 def get_wrong_queue(
     user_identifier: str,
+    category: Optional[str] = Query(default=None),
     db: Session = Depends(database.get_db),
     caller: Tuple[None, bool] = Depends(session.current_user),
 ):
@@ -407,7 +408,10 @@ def get_wrong_queue(
     if not question_ids:
         return {"questions": [], "count": 0}
 
-    questions = db.query(models.Question).filter(models.Question.id.in_(question_ids)).all()
+    q = db.query(models.Question).filter(models.Question.id.in_(question_ids))
+    if category:
+        q = q.filter(models.Question.category == category)
+    questions = q.all()
     id_to_q = {q.id: q for q in questions}
     ordered = [id_to_q[qid] for qid in question_ids if qid in id_to_q]
 

@@ -27,6 +27,8 @@ export interface PracticeSetupBodyProps {
   ping: () => void;
   lead?: ReactNode;
   trail?: ReactNode;
+  bookmarkCount?: number;
+  onPracticeBookmarks?: () => void;
 }
 
 const labelStyle: React.CSSProperties = {
@@ -55,6 +57,8 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
   ping,
   lead,
   trail,
+  bookmarkCount,
+  onPracticeBookmarks,
 }) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -295,6 +299,35 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
       >
         {startLabel}
       </motion.button>
+
+      {(bookmarkCount || 0) > 0 && onPracticeBookmarks && (
+        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border))' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
+            <span aria-hidden="true" style={{ fontSize: '1rem' }}>🔖</span>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'hsl(var(--foreground))' }}>
+              {bookmarkCount} saved question{(bookmarkCount || 0) === 1 ? '' : 's'}
+            </span>
+          </div>
+          <motion.button
+            onClick={() => { ping(); onPracticeBookmarks(); }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              width: '100%',
+              padding: '0.625rem',
+              borderRadius: 'var(--apple-radius-md)',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              color: 'hsl(38 92% 40%)',
+              background: 'hsl(38 92% 50% / 0.12)',
+              border: '1px solid hsl(38 92% 50% / 0.35)',
+              cursor: 'pointer',
+            }}
+          >
+            Practice bookmarks →
+          </motion.button>
+        </div>
+      )}
 
       {trail}
     </>

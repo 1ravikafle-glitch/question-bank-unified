@@ -8,6 +8,7 @@ import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji } from '@/utils/categoryEmoji';
 import { scoreColor, scoreLabel } from '@/utils/scoreColor';
 import PracticeSetupBody from '@/components/PracticeSetupBody';
+import { fetchBookmarkIds } from '../services/api';
 import { motion } from 'framer-motion';
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -119,6 +120,7 @@ const Dashboard: React.FC = () => {
   const [questionCounts, setQuestionCounts] = useState<Map<string, number>>(new Map());
   const [recentAttempts, setRecentAttempts] = useState<{ id: number; score: number; total_questions: number; percentage: number; completed_at: string }[]>([]);
   const [wrongCount, setWrongCount] = useState(0);
+  const [bmIds, setBmIds] = useState<number[]>([]);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [quote] = useState(() => quotes[Math.floor(Math.random() * quotes.length)]);
@@ -159,6 +161,10 @@ const Dashboard: React.FC = () => {
         if (wrongQueueResp) {
           setWrongCount(wrongQueueResp.count || wrongQueueResp.questions?.length || 0);
         }
+
+        fetchBookmarkIds(userId || 'anonymous')
+          .then((r) => setBmIds(r.ids))
+          .catch(() => {});
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
       } finally {
@@ -258,14 +264,13 @@ const Dashboard: React.FC = () => {
         style={{
           borderRadius: 'var(--apple-radius-xl)',
           padding: '1.5rem 2rem',
-          color: 'hsl(var(--primary-foreground))',
           position: 'relative',
           overflow: 'hidden',
           marginBottom: '1.25rem',
         }}
         aria-label="Welcome hero"
       >
-        {/* Decorative gradient overlay */}
+        {/* Decorative tint overlay (token-driven, subtle in both modes) */}
         <div
           aria-hidden="true"
           style={{
@@ -275,7 +280,7 @@ const Dashboard: React.FC = () => {
             width: '24rem',
             height: '24rem',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,0.1), transparent 70%)',
+            background: 'radial-gradient(circle, hsl(var(--primary) / 0.08), transparent 70%)',
             pointerEvents: 'none',
           }}
         />
@@ -288,7 +293,7 @@ const Dashboard: React.FC = () => {
             width: '16rem',
             height: '16rem',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,0.06), transparent 70%)',
+            background: 'radial-gradient(circle, hsl(var(--primary) / 0.05), transparent 70%)',
             pointerEvents: 'none',
           }}
         />
@@ -303,7 +308,6 @@ const Dashboard: React.FC = () => {
                   fontWeight: 'var(--font-weight-semibold)',
                   margin: 0,
                   lineHeight: 1.3,
-                  color: 'white',
                 }}
               >
                 Welcome back{userId ? `, ${userId}` : ''}
@@ -314,7 +318,7 @@ const Dashboard: React.FC = () => {
                   opacity: 0.9,
                   marginTop: '0.25rem',
                   marginBottom: 0,
-                  color: 'white',
+                  color: 'hsl(var(--muted-foreground))',
                 }}
               >
                 {timeOfDayGreeting()} — continue your Forestry PSC preparation.
@@ -378,6 +382,8 @@ const Dashboard: React.FC = () => {
               onStart={() => startQuiz()}
               startLabel="Start Practice"
               ping={sfxClick}
+              bookmarkCount={bmIds.length}
+              onPracticeBookmarks={() => navigate('/quiz', { state: { bookmarkIds: bmIds } })}
             />
           </motion.section>
 
@@ -424,13 +430,13 @@ const Dashboard: React.FC = () => {
                 <span className="stat-tile-label">Accuracy</span>
                 <span
                   className="stat-tile-value"
-                  style={{ color: accuracy !== null ? perfColor(accuracy) : undefined }}
+                  style={{ color: accuracy !== null && attempted > 0 ? perfColor(accuracy) : 'hsl(var(--muted-foreground))' }}
                 >
-                  {accuracy !== null ? `${accuracy.toFixed(1)}%` : '—'}
+                  {accuracy !== null && attempted > 0 ? `${accuracy.toFixed(1)}%` : '—'}
                 </span>
                 {accuracy !== null && (
                   <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
-                    {perfLabel(accuracy)}
+                    {attempted > 0 ? perfLabel(accuracy) : 'No attempts yet'}
                   </span>
                 )}
               </motion.div>

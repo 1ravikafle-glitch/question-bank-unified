@@ -234,7 +234,7 @@ const Settings: React.FC = () => {
               ...row,
               border: 'none',
               cursor: 'pointer',
-              color: '#ff453a',
+              color: 'hsl(var(--destructive))',
               fontSize: 15,
               fontWeight: 600,
               justifyContent: 'center',

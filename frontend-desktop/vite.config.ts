@@ -53,7 +53,18 @@ export default defineConfig({
       '/auth': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
       '/admin': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
       '/quiz': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
-      '/questions': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
+      '/questions': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+        // Dev-only: the SPA route /questions collides with the backend API
+        // prefix. Browser navigations (Accept: text/html) must serve the app;
+        // only data requests (fetch/XHR) proxy to the backend.
+        bypass(req) {
+          const accept = req.headers.accept || '';
+          if (accept.includes('text/html')) return '/index.html';
+        },
+      },
     },
   },
 

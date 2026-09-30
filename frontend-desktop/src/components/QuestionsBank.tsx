@@ -93,6 +93,9 @@ const QuestionsBank: React.FC = () => {
   // Master/detail selection (desktop split pane). Defaults to the first
   // visible question; resets when the page or filter changes.
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // M-key target: the card under the mouse (or keyboard focus). Scoped —
+  // M never fires for a question you are not pointing at.
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [rawAnswerHistory, setRawAnswerHistory] = useState<Record<number, boolean[]>>(() => {
     try {
       const stored = localStorage.getItem('qbank-raw-history');
@@ -249,6 +252,9 @@ const QuestionsBank: React.FC = () => {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); handleNextPage(); }
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); handlePrevPage(); }
+      else if (e.key === 'm' || e.key === 'M') {
+        if (hoveredId != null) { e.preventDefault(); handleBmToggle(hoveredId); }
+      }
       else if ((e.key === ' ' || e.key === 'Enter') && viewMode === 'raw') {
         for (const q of pageQuestions) {
           if (!rawLocked[q.id] && rawSelections[q.id]) { e.preventDefault(); handleRawSubmit(q.id, q.correct_answer); break; }
@@ -257,7 +263,7 @@ const QuestionsBank: React.FC = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleNextPage, handlePrevPage, viewMode, pageQuestions, rawSelections, rawLocked]);
+  }, [handleNextPage, handlePrevPage, viewMode, pageQuestions, rawSelections, rawLocked, hoveredId, handleBmToggle]);
 
   const touchStartX = useRef(0);
   const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
@@ -539,6 +545,18 @@ const QuestionsBank: React.FC = () => {
                 initial={prefersReducedMotion() ? undefined : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, delay: idx * 0.02 }}
+                onMouseEnter={(e) => {
+                  setHoveredId(q.id);
+                  e.currentTarget.style.boxShadow = '0 4px 16px hsl(var(--foreground) / 0.06)';
+                  e.currentTarget.style.borderColor = 'hsl(var(--primary) / 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  setHoveredId((h) => (h === q.id ? null : h));
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = 'hsl(var(--border))';
+                }}
+                onFocus={() => setHoveredId(q.id)}
+                onBlur={() => setHoveredId((h) => (h === q.id ? null : h))}
                 style={{
                   background: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
@@ -549,14 +567,6 @@ const QuestionsBank: React.FC = () => {
                   // the big scroll-smoothness win on low-end phones.
                   contentVisibility: 'auto',
                   containIntrinsicSize: 'auto 320px',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = '0 4px 16px hsl(var(--foreground) / 0.06)';
-                  e.currentTarget.style.borderColor = 'hsl(var(--primary) / 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.borderColor = 'hsl(var(--border))';
                 }}
               >
                 {/* Card header: index + category + difficulty + performance */}
@@ -915,7 +925,7 @@ const QuestionsBank: React.FC = () => {
       {filtered.length > 0 && isRawMode && (
         <div style={{ textAlign: 'center', paddingBottom: '16px' }}>
           <p style={{ fontSize: '0.625rem', color: 'hsl(var(--muted-foreground) / 0.5)' }}>
-            ← → arrows: pages · Swipe: pages · Space/Enter: check answer
+            ← → arrows: pages · Swipe: pages · Space/Enter: check answer · M: bookmark
           </p>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useState, useEffect, lazy, Suspense } from 'react';
+import { MotionConfig } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 
 // Route-level code splitting: each screen ships in its own chunk and loads
@@ -205,11 +206,13 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <MotionConfig reducedMotion="user">
       <ThemeProvider>
         <SoundProvider>
           <AppShell />
         </SoundProvider>
       </ThemeProvider>
+      </MotionConfig>
     </BrowserRouter>
   );
 }

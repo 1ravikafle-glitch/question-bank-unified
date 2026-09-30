@@ -14,7 +14,7 @@ const BookmarkButton: React.FC<BookmarkButtonProps> = ({ marked, onToggle, label
       e.stopPropagation();
       onToggle();
     }}
-    whileTap={{ scale: 0.85 }}
+    whileTap={{ scale: 0.8 }}
     aria-pressed={marked}
     aria-label={label || (marked ? 'Remove bookmark' : 'Bookmark this question')}
     title={marked ? 'Bookmarked' : 'Bookmark'}
@@ -41,7 +41,20 @@ const BookmarkButton: React.FC<BookmarkButtonProps> = ({ marked, onToggle, label
       if (!marked) e.currentTarget.style.background = 'transparent';
     }}
   >
-    <span aria-hidden="true">{marked ? '🔖' : '📑'}</span>
+    <motion.span
+      key={marked ? 'on' : 'off'}
+      aria-hidden="true"
+      initial={{ scale: 0.4, rotate: -25, opacity: 0.5 }}
+      animate={{ scale: 1, rotate: 0, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 550, damping: 17 }}
+      style={{
+        display: 'inline-flex',
+        opacity: marked ? 1 : 0.45,
+        filter: marked ? 'none' : 'grayscale(1)',
+      }}
+    >
+      🔖
+    </motion.span>
   </motion.button>
 );
 

@@ -21,26 +21,10 @@ import { useDismiss } from '@/hooks/useDismiss';
 import BookmarkButton from '@/components/BookmarkButton';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// ---------------------------------------------------------------------------
-// Design tokens — exact T from your reference (Apple quiet neutrals)
-// ---------------------------------------------------------------------------
-const T = {
-  page: 'hsl(var(--background))',
-  card: 'hsl(var(--card))',
-  border: 'hsl(var(--border))',
-  textPrimary: 'hsl(var(--foreground))',
-  textSecondary: 'hsl(var(--muted-foreground))',
-  textTertiary: 'hsl(var(--muted-foreground) / 0.65)',
-  accent: 'hsl(var(--primary))',
-  accentHover: 'hsl(var(--primary) / 0.88)',
-  accentTint: 'hsl(var(--accent))',
-  success: 'hsl(var(--success))',
-  successTint: 'hsl(var(--success) / 0.10)',
-  danger: 'hsl(var(--destructive))',
-  dangerTint: 'hsl(var(--destructive) / 0.08)',
-  font:
-    'var(--font-apple, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif)',
-};
+// Design tokens — single source in shared/appleQuizTokens.ts
+// (widened: option render assigns different tokens to the same locals)
+import { T as QuizTokens } from '@/shared/appleQuizTokens';
+const T: Record<string, string> = QuizTokens;
 
 function TimerRing({ seconds, total }: { seconds: number; total: number }) {
   const pct = Math.max(0, Math.min(1, seconds / total));
@@ -117,7 +101,7 @@ function QuestionBox({
   selected,
   revealed,
   onChoose,
-  fading,
+  folding,
 }: {
   role: 'active' | 'next';
   question: any;
@@ -126,7 +110,7 @@ function QuestionBox({
   selected: string | null;
   revealed: boolean;
   onChoose: (k: string) => void;
-  fading: boolean;
+  folding: boolean;
 }) {
   const locked = role === 'next';
   const showResult = role === 'active' && revealed;
@@ -139,6 +123,7 @@ function QuestionBox({
 
   return (
     <div
+      className={!locked ? 'quiz-qbox quiz-flow-in' + (folding ? ' is-folding' : '') : undefined}
       style={{
         position: 'relative',
         background: T.card,
@@ -153,8 +138,8 @@ function QuestionBox({
         display: 'flex',
         flexDirection: 'column',
         filter: locked ? 'blur(3.5px)' : 'none',
-        opacity: fading ? 0 : locked ? 0.55 : 1,
-        transform: fading ? 'translateY(6px)' : 'translateY(0)',
+        opacity: locked ? 0.55 : 1,
+        transform: 'translateY(0)',
         pointerEvents: locked ? 'none' : 'auto',
         userSelect: locked ? 'none' as const : 'auto' as const,
         transition: 'filter 0.35s ease, opacity 0.28s ease, transform 0.28s ease',
@@ -401,7 +386,8 @@ const QuizTaker: React.FC = () => {
   const timerRef = useRef<number | null>(null);
 
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [fading, setFading] = useState(false);
+  const [folding, setFolding] = useState(false);
+  const [popDot, setPopDot] = useState<number | null>(null);
 
   // Setup screen state
   const [showSetup, setShowSetup] = useState(false);
@@ -440,6 +426,12 @@ const QuizTaker: React.FC = () => {
   const [setupWrongCount, setSetupWrongCount] = useState(0);
   const [setupQuizCount, setSetupQuizCount] = useState(10);
   const [setupBeastMode, setSetupBeastMode] = useState(false);
+  const [setupBmIds, setSetupBmIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!showSetup || !userId) return;
+    fetchBookmarkIds(userId).then((r) => setSetupBmIds(r.ids)).catch(() => {});
+  }, [showSetup, userId]);
   const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
   const [setupCategory, setSetupCategory] = useState('');
   const [showSetupCategoryDropdown, setShowSetupCategoryDropdown] = useState(false);
@@ -684,6 +676,26 @@ const QuizTaker: React.FC = () => {
     navigate('/quiz/practice-wrong', { state: { source: 'queue' } });
   }, [navigate]);
 
+  const startBookmarksQuiz = useCallback(async () => {
+    if (setupBmIds.length === 0) return;
+    setShowSetup(false);
+    setResumeInfo(null);
+    try { localStorage.removeItem(QUIZ_STORAGE_KEY); } catch {}
+    setLoading(true);
+    try {
+      const questionsData = await fetchQuestionsByIds(setupBmIds);
+      setQuestions(shuffleArray(questionsData));
+      setSelected({});
+      setCurrentIndex(0);
+      setAnnouncement(`Bookmark review started with ${questionsData.length} questions.`);
+    } catch (err) {
+      console.error('Error fetching bookmarked questions:', err);
+      setAnnouncement('Failed to load bookmarked questions.');
+    } finally {
+      setLoading(false);
+    }
+  }, [setupBmIds]);
+
   const goToNextOrSubmit = useCallback(() => {
     setCurrentIndex((i) => {
       if (i < questions.length - 1) return i + 1;
@@ -779,22 +791,32 @@ const QuizTaker: React.FC = () => {
     [currentQuestion, isLocked, sfxSelect],
   );
 
+  // Fold-flow navigation: the outgoing card folds up into its progress
+  // dot (which pops green/red), then the next card flows in fresh.
+  const goTo = useCallback((next: number, answeredIdx: number | null) => {
+    setFolding(true);
+    if (answeredIdx !== null) {
+      setPopDot(answeredIdx);
+      setTimeout(() => setPopDot(null), 550);
+    }
+    setTimeout(() => {
+      setCurrentIndex(next);
+      setFolding(false);
+      // New question starts at the top — otherwise the page keeps the
+      // previous scroll offset and the user lands mid-question.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 260);
+  }, []);
+
   const handleNext = useCallback(() => {
     try { navigator.vibrate?.(8); } catch {}
     if (currentIndex < questions.length - 1) {
-      setFading(true);
-      setTimeout(() => {
-        setCurrentIndex((i) => i + 1);
-        setFading(false);
-        // New question starts at the top — otherwise the page keeps the
-        // previous scroll offset and the user lands mid-question.
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 220);
+      goTo(currentIndex + 1, isLocked ? currentIndex : null);
       sfxClick();
     } else {
       submitQuizRequest(selected);
     }
-  }, [currentIndex, questions.length, submitQuizRequest, selected, sfxClick]);
+  }, [currentIndex, questions.length, submitQuizRequest, selected, sfxClick, goTo, isLocked]);
   // NOTE: no scrollIntoView on the current dot — it scrolls the whole page
   // (block:'nearest' walks up to the document) and yanks the user back to
   // the dot row mid-read. The desktop rail scrolls manually instead.
@@ -818,13 +840,9 @@ const QuizTaker: React.FC = () => {
     if (currentIndex > 0) {
       try { navigator.vibrate?.(8); } catch {}
       sfxClick();
-      setFading(true);
-      setTimeout(() => {
-        setCurrentIndex((i) => i - 1);
-        setFading(false);
-      }, 220);
+      goTo(currentIndex - 1, null);
     }
-  }, [currentIndex, sfxClick]);
+  }, [currentIndex, sfxClick, goTo]);
 
   const handleExitRequest = () => setShowExitConfirm(true);
   const confirmExit = () => {
@@ -870,6 +888,13 @@ const QuizTaker: React.FC = () => {
       const tag = (e.target as HTMLElement).tagName;
       const isTypingField = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
       if (isTypingField) return;
+
+      // M: bookmark (mark) the current question
+      if ((e.key === 'm' || e.key === 'M') && currentQuestion && !showExitConfirm) {
+        e.preventDefault();
+        handleBmToggle(currentQuestion.id);
+        return;
+      }
 
       // A–D: select option on active question
       if (!isLocked && !showExitConfirm && !finished) {
@@ -1207,6 +1232,36 @@ const QuizTaker: React.FC = () => {
               Start Quiz
             </button>
 
+            {/* Saved bookmarks */}
+            {setupBmIds.length > 0 && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 16 }} aria-hidden="true">🔖</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: T.font, color: T.textPrimary }}>
+                    {setupBmIds.length} saved question{setupBmIds.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { try { navigator.vibrate?.(10); } catch {} startBookmarksQuiz(); }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 0',
+                    borderRadius: 14,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    fontFamily: T.font,
+                    color: 'hsl(38 92% 40%)',
+                    background: 'hsl(38 92% 50% / 0.12)',
+                    border: '1px solid hsl(38 92% 50% / 0.35)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Practice bookmarks →
+                </button>
+              </div>
+            )}
+
             {/* Wrong questions queue */}
             {setupWrongCount > 0 && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
@@ -1353,7 +1408,9 @@ const QuizTaker: React.FC = () => {
         {/* Header row — Practice quiz + controls */}
         <div className="quiz-hero-row lg:mb-5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 13, color: T.textSecondary, fontWeight: 500, fontFamily: T.font }}>Practice quiz</div>
+            <div style={{ fontSize: 13, color: bookmarkIds.length > 0 ? 'hsl(38 92% 45%)' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
+              {bookmarkIds.length > 0 ? `🔖 Bookmark review · ${questions.length}` : 'Practice quiz'}
+            </div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', fontFamily: T.font, color: T.textPrimary }}>Forestry PSC</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1497,7 +1554,7 @@ const QuizTaker: React.FC = () => {
             return (
               <div
                 key={questions[i]?.id ?? i}
-                className="quiz-dot"
+                className={'quiz-dot' + (popDot === i ? ' dot-pop' : '')}
                 style={{
                   background: bg,
                   border: `1.5px solid ${border}`,
@@ -1512,6 +1569,7 @@ const QuizTaker: React.FC = () => {
         {/* Question grid — single column on mobile, 2-col on desktop */}
         <div className="quiz-grid-2col" style={{ display: 'grid', gap: 20 }}>
           <QuestionBox
+            key={currentQuestion?.id ?? currentIndex}
             role="active"
             question={activeBoxQ}
             index={currentIndex}
@@ -1519,7 +1577,7 @@ const QuizTaker: React.FC = () => {
             selected={activeSelected}
             revealed={isLocked}
             onChoose={handleSelect}
-            fading={fading}
+            folding={folding}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
           {nextQ && (
@@ -1532,7 +1590,7 @@ const QuizTaker: React.FC = () => {
                 selected={null}
                 revealed={false}
                 onChoose={() => {}}
-                fading={fading}
+                folding={false}
               />
             </div>
           )}
