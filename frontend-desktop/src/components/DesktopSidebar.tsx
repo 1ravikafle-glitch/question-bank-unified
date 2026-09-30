@@ -1,6 +1,7 @@
-import { NavLink, Link } from 'react-router-dom';
-import { useContext, Fragment } from 'react';
+import { NavLink, Link, useLocation } from 'react-router-dom';
+import { useContext, useEffect, useState, Fragment } from 'react';
 import { AuthContext } from '@/context/AuthContext';
+import { fetchBookmarkIds } from '@/services/api';
 import { useSfx } from '@/hooks/useSfx';
 import { isAdmin } from '@/config/admin';
 import { ForestryLogo } from '@/components/ForestryLogo';
@@ -53,6 +54,12 @@ const RetryIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
     <path d="M3 3v5h5" />
+  </svg>
+);
+
+const BookmarkIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
   </svg>
 );
 
@@ -110,6 +117,7 @@ interface NavItemDef {
   end?: boolean;
   icon: React.ReactNode;
   adminOnly?: boolean;
+  badge?: number;
   /** Opens the sibling GIS app in a new tab; the URL is resolved at render. */
   external?: boolean;
 }
@@ -135,6 +143,7 @@ const navSections: NavSectionDef[] = [
     section: 'Review',
     items: [
       { to: '/quiz/practice-wrong', label: 'Wrong Questions', end: false, icon: <RetryIcon /> },
+      { to: '/bookmarks', label: 'Bookmarks', end: false, icon: <BookmarkIcon />, badge: 0 },
       { to: '/results', label: 'Results', end: false, icon: <CheckCircleIcon /> },
       { to: '/progress', label: 'Progress', end: false, icon: <TrendingUpIcon /> },
     ],
@@ -245,6 +254,24 @@ const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, 
             {item.icon}
           </span>
           <span style={{ position: 'relative' }}>{item.label}</span>
+          {item.badge != null && item.badge > 0 && (
+            <span
+              style={{
+                position: 'relative',
+                marginLeft: 'auto',
+                fontSize: '0.6875rem',
+                fontWeight: 700,
+                fontFamily: 'var(--font-mono)',
+                color: 'hsl(var(--primary))',
+                background: 'hsl(var(--primary) / 0.12)',
+                borderRadius: 999,
+                padding: '1px 8px',
+                flexShrink: 0,
+              }}
+            >
+              {item.badge > 99 ? '99+' : item.badge}
+            </span>
+          )}
         </>
       )}
     </NavLink>
@@ -254,6 +281,17 @@ const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, 
 const DesktopSidebar: React.FC = () => {
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
+  const location = useLocation();
+  const [bmCount, setBmCount] = useState(0);
+
+  // Live bookmark count badge (refreshes on navigation + login change).
+  useEffect(() => {
+    if (!userId) {
+      setBmCount(0);
+      return;
+    }
+    fetchBookmarkIds(userId).then((r) => setBmCount(r.count)).catch(() => {});
+  }, [userId, location.pathname]);
   return (
     <aside
       role="navigation"
@@ -338,7 +376,10 @@ const DesktopSidebar: React.FC = () => {
                   <Fragment key={item.to}>
                     {ii > 0 && <div className="nav-row-divider" aria-hidden="true" />}
                     <motion.div variants={prefersReducedMotion() ? undefined : navItemVariants}>
-                      <NavRow item={item} onNavigate={sfxClick} />
+                      <NavRow
+                        item={item.to === '/bookmarks' ? { ...item, badge: bmCount } : item}
+                        onNavigate={sfxClick}
+                      />
                     </motion.div>
                   </Fragment>
                 ))}

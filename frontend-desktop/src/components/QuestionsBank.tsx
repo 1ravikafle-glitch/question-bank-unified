@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory } from '../services/api';
+import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory, fetchBookmarkIds, toggleBookmark } from '../services/api';
 import { type Question } from '@/shared/types';
 import { toast } from 'react-hot-toast';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
+import BookmarkButton from '@/components/BookmarkButton';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const PAGE_SIZE = 30;
@@ -99,6 +100,27 @@ const QuestionsBank: React.FC = () => {
     } catch { return {}; }
   });
   const [questionHistory, setQuestionHistory] = useState<Record<number, boolean[]>>({});
+  const [bmIds, setBmIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!userId) return;
+    fetchBookmarkIds(userId).then((r) => setBmIds(new Set(r.ids))).catch(() => {});
+  }, [userId]);
+
+  const handleBmToggle = useCallback(
+    async (qid: number) => {
+      if (!userId) return;
+      const res = await toggleBookmark(userId, qid).catch(() => null);
+      if (!res) return;
+      setBmIds((prev) => {
+        const next = new Set(prev);
+        if (res.bookmarked) next.add(qid);
+        else next.delete(qid);
+        return next;
+      });
+    },
+    [userId]
+  );
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
   const shuffledOptionsCache = useRef<Record<number, string[]>>({});
@@ -578,8 +600,11 @@ const QuestionsBank: React.FC = () => {
                       {q.difficulty}
                     </span>
                   )}
+                  <span style={{ marginLeft: 'auto', display: 'inline-flex' }}>
+                    <BookmarkButton marked={bmIds.has(q.id)} onToggle={() => handleBmToggle(q.id)} />
+                  </span>
                   {perfIndex.length > 0 && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginLeft: 'auto' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                       {perfIndex.map((correct, idx2) => (
                         <span
                           key={idx2}

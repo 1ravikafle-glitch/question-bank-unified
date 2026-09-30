@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { submitQuiz, fetchQuestions, fetchQuestionsCount, clearWrongQueue } from '@/services/api';
+import { submitQuiz, fetchQuestions, fetchQuestionsCount, clearWrongQueue, flushBookmarkOutbox } from '@/services/api';
 import { isOnline, pendingCount, syncOutbox, packInfo, ensurePack } from '@/utils/offline';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -15,6 +15,11 @@ const OfflineBanner: React.FC = () => {
     let alive = true;
     const trySync = async () => {
       if (!isOnline()) return;
+      try {
+        const uid = localStorage.getItem('userId') || '';
+        if (uid) await flushBookmarkOutbox(uid).catch(() => {});
+      } catch {}
+      refresh();
       const n = await pendingCount();
       if (n === 0) return;
       try {

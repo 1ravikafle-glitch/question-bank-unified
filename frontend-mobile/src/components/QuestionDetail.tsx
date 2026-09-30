@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchQuestionById } from '../services/api';
+import { fetchQuestionById, fetchBookmarkIds, toggleBookmark } from '../services/api';
+import { AuthContext } from '@/context/AuthContext';
+import BookmarkButton from '@/components/BookmarkButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
@@ -18,6 +20,19 @@ const pageVariants: Variants = {
 const QuestionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [question, setQuestion] = useState<Question | null>(null);
+  const [bookmarked, setBookmarked] = useState(false);
+  const { userId } = useContext(AuthContext);
+
+  useEffect(() => {
+    if (!userId || !question) return;
+    fetchBookmarkIds(userId).then((r) => setBookmarked(r.ids.includes(question.id))).catch(() => {});
+  }, [userId, question]);
+
+  const handleBmToggle = useCallback(async () => {
+    if (!userId || !question) return;
+    const res = await toggleBookmark(userId, question.id).catch(() => null);
+    if (res) setBookmarked(res.bookmarked);
+  }, [userId, question]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -82,9 +97,12 @@ const QuestionDetail: React.FC = () => {
     >
       <div className="flex justify-between items-center mb-4">
         <span className="question-index-badge">#{question.question_number}</span>
-        <Button onClick={() => navigate(-1)} variant="ghost" size="sm">
-          ← Back
-        </Button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <BookmarkButton marked={bookmarked} onToggle={handleBmToggle} />
+          <Button onClick={() => navigate(-1)} variant="ghost" size="sm">
+            ← Back
+          </Button>
+        </div>
       </div>
 
       <Card className="card-elevated">

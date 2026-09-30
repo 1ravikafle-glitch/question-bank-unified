@@ -9,6 +9,8 @@ import {
   clearWrongQueue,
   fetchQuestionsCount,
   fetchCategories,
+  fetchBookmarkIds,
+  toggleBookmark,
 } from '../services/api';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
@@ -16,6 +18,7 @@ import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { useDismiss } from '@/hooks/useDismiss';
+import BookmarkButton from '@/components/BookmarkButton';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ---------------------------------------------------------------------------
@@ -402,6 +405,34 @@ const QuizTaker: React.FC = () => {
 
   // Setup screen state
   const [showSetup, setShowSetup] = useState(false);
+  const [bmIds, setBmIds] = useState<Set<number>>(new Set());
+  const bmKeyRef = useRef<string>('');
+
+  // Bookmark state for the active set (loaded once per quiz).
+  useEffect(() => {
+    if (!userId || showSetup || questions.length === 0) return;
+    const key = `${questions.length}/${questions[0].id}`;
+    if (bmKeyRef.current === key) return;
+    bmKeyRef.current = key;
+    fetchBookmarkIds(userId)
+      .then((r) => setBmIds(new Set(r.ids)))
+      .catch(() => {});
+  }, [userId, showSetup, questions]);
+
+  const handleBmToggle = useCallback(
+    async (qid: number) => {
+      if (!userId) return;
+      const res = await toggleBookmark(userId, qid).catch(() => null);
+      if (!res) return;
+      setBmIds((prev) => {
+        const next = new Set(prev);
+        if (res.bookmarked) next.add(qid);
+        else next.delete(qid);
+        return next;
+      });
+    },
+    [userId]
+  );
   const [setupCategories, setSetupCategories] = useState<string[]>([]);
   const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
   useEffect(() => { fetchCategoryEmoji().then(setEmojiMeta).catch(() => {}); }, []);
@@ -419,6 +450,7 @@ const QuizTaker: React.FC = () => {
 
   const isPracticeWrongMode = location.pathname === '/quiz/practice-wrong';
   const wrongQuestionIds = (location.state as { wrongQuestionIds?: number[] })?.wrongQuestionIds ?? EMPTY_ARRAY;
+  const bookmarkIds = (location.state as { bookmarkIds?: number[] })?.bookmarkIds ?? EMPTY_ARRAY;
   const source = (location.state as { source?: string })?.source || '';
   const urlParams = new URLSearchParams(location.search);
   const questionIdFromUrl = urlParams.get('qid');
@@ -493,7 +525,9 @@ const QuizTaker: React.FC = () => {
           }
         }
         let questionsData: Question[];
-        if (isPracticeWrongMode && wrongQuestionIds.length > 0) {
+        if (bookmarkIds.length > 0) {
+          questionsData = await fetchQuestionsByIds(bookmarkIds);
+        } else if (isPracticeWrongMode && wrongQuestionIds.length > 0) {
           questionsData = await fetchQuestionsByIds(wrongQuestionIds);
         } else if (isPracticeWrongMode && source === 'queue') {
           const queue = await fetchWrongQueue(userId || 'anonymous');
@@ -1358,6 +1392,12 @@ const QuizTaker: React.FC = () => {
               {currentIndex + 1}/{questions.length}
             </div>
             <TimerRing seconds={timeLeft} total={SECONDS_PER_QUESTION} />
+            {currentQuestion && (
+              <BookmarkButton
+                marked={bmIds.has(currentQuestion.id)}
+                onToggle={() => handleBmToggle(currentQuestion.id)}
+              />
+            )}
             <button
               onClick={handleExitRequest}
               aria-label="Exit quiz"

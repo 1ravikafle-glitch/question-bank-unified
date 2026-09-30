@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 // Vendor libs ride in their own long-cached chunks (see vite.config.ts).
 const QuestionList = React.lazy(() => import('./components/QuestionList'));
 const QuestionsBank = React.lazy(() => import('./components/QuestionsBank'));
+const Bookmarks = React.lazy(() => import('./components/Bookmarks'));
 const QuestionDetail = React.lazy(() => import('./components/QuestionDetail'));
 const QuizTaker = React.lazy(() => import('./components/QuizTaker'));
 const ResultsScreen = React.lazy(() => import('./components/ResultsScreen'));
@@ -153,6 +154,7 @@ function AppShell() {
               <Route path="/login" element={<Login />} />
               <Route path="/" element={userId ? <QuestionList /> : <Navigate to="/login" replace />} />
               <Route path="/questions" element={userId ? <QuestionsBank /> : <Navigate to="/login" replace />} />
+              <Route path="/bookmarks" element={userId ? <Bookmarks /> : <Navigate to="/login" replace />} />
               <Route path="/question/:id" element={userId ? <QuestionDetail /> : <Navigate to="/login" replace />} />
               <Route path="/quiz" element={userId ? <QuizTaker /> : <Navigate to="/login" replace />} />
               <Route path="/quiz/practice-wrong" element={userId ? <QuizTaker /> : <Navigate to="/login" replace />} />

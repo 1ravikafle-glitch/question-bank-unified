@@ -276,3 +276,127 @@ export const deleteAdminUser = async (username: string) => {
   const response = await api.delete(`/auth/users/${encodeURIComponent(username)}`);
   return response.data;
 };
+
+// ── Bookmarks (offline-ready) ────────────────────────────────────
+// Outbox holds qids toggled while offline, replayed in order on reconnect
+// (toggle-twice collapses to zero — order makes it exact).
+const BM_OUTBOX_KEY = 'fpsc-bm-outbox';
+const BM_LOCAL_KEY = 'fpsc-bm-local';
+
+function readNumList(key: string): number[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(v) ? v.filter((n) => typeof n === 'number') : [];
+  } catch {
+    return [];
+  }
+}
+
+function flipLocal(qid: number): { ids: number[]; marked: boolean } {
+  const set = new Set(readNumList(BM_LOCAL_KEY));
+  const marked = !set.has(qid);
+  if (marked) set.add(qid);
+  else set.delete(qid);
+  try {
+    localStorage.setItem(BM_LOCAL_KEY, JSON.stringify([...set]));
+  } catch {}
+  return { ids: [...set], marked };
+}
+
+export const flushBookmarkOutbox = async (userIdentifier: string): Promise<number> => {
+  const outbox = readNumList(BM_OUTBOX_KEY);
+  if (outbox.length === 0) return 0;
+  let synced = 0;
+  for (const qid of outbox) {
+    await api.post('/bookmarks/toggle', { user_identifier: userIdentifier, question_id: qid });
+    synced++;
+  }
+  try {
+    localStorage.setItem(BM_OUTBOX_KEY, '[]');
+  } catch {}
+  // Reconcile local truth with the server after replay.
+  try {
+    const fresh = await api.get(`/bookmarks/ids/${encodeURIComponent(userIdentifier)}`);
+    try {
+      localStorage.setItem(BM_LOCAL_KEY, JSON.stringify(fresh.data.ids || []));
+    } catch {}
+  } catch {}
+  return synced;
+};
+
+function queueBmToggle(qid: number) {
+  try {
+    const box = readNumList(BM_OUTBOX_KEY);
+    box.push(qid);
+    localStorage.setItem(BM_OUTBOX_KEY, JSON.stringify(box));
+  } catch {}
+}
+
+export const fetchBookmarkIds = async (
+  userIdentifier: string
+): Promise<{ ids: number[]; count: number }> => {
+  try {
+    await flushBookmarkOutbox(userIdentifier).catch(() => {});
+    const response = await api.get(`/bookmarks/ids/${encodeURIComponent(userIdentifier)}`);
+    const ids: number[] = response.data.ids || [];
+    try {
+      localStorage.setItem(BM_LOCAL_KEY, JSON.stringify(ids));
+    } catch {}
+    return { ids, count: response.data.count ?? ids.length };
+  } catch (e) {
+    if (!isNetworkError(e)) throw e;
+    // Offline: last-known set with pending toggles applied.
+    const set = new Set(readNumList(BM_LOCAL_KEY));
+    readNumList(BM_OUTBOX_KEY).forEach((id) => {
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
+    });
+    const ids = [...set];
+    return { ids, count: ids.length };
+  }
+};
+
+export const fetchBookmarks = async (
+  userIdentifier: string
+): Promise<{ questions: Question[]; count: number }> => {
+  try {
+    const response = await api.get(`/bookmarks/${encodeURIComponent(userIdentifier)}`);
+    return response.data;
+  } catch (e) {
+    if (!isNetworkError(e)) throw e;
+    // Offline: resolve ids against the downloaded pack.
+    const { getBank } = await import('@/utils/offline');
+    const bank = await getBank();
+    const { ids } = await fetchBookmarkIds(userIdentifier).catch(() => ({ ids: [] as number[] }));
+    const wanted = new Set(ids);
+    const questions = (bank || []).filter((q: Question) => wanted.has(q.id));
+    return { questions, count: questions.length };
+  }
+};
+
+export const toggleBookmark = async (
+  userIdentifier: string,
+  questionId: number
+): Promise<{ bookmarked: boolean; count: number }> => {
+  const optimistic = flipLocal(questionId);
+  try {
+    const response = await api.post('/bookmarks/toggle', {
+      user_identifier: userIdentifier,
+      question_id: questionId,
+    });
+    // Drop superseded outbox entries for this question.
+    try {
+      const box = readNumList(BM_OUTBOX_KEY).filter((id) => id !== questionId);
+      localStorage.setItem(BM_OUTBOX_KEY, JSON.stringify(box));
+    } catch {}
+    return response.data;
+  } catch (e) {
+    if (!isNetworkError(e)) {
+      // Revert the optimistic flip on real errors.
+      flipLocal(questionId);
+      throw e;
+    }
+    queueBmToggle(questionId);
+    return { bookmarked: optimistic.marked, count: optimistic.ids.length };
+  }
+};
