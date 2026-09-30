@@ -31,6 +31,12 @@ function ScrollToTop() {
     } catch {
       window.scrollTo(0, 0);
     }
+    // Belt and suspenders: some browsers keep scroll on documentElement/body
+    // when overflow-x is constrained.
+    try {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    } catch {}
   }, [pathname]);
   return null;
 }
@@ -121,13 +127,13 @@ function AppShell() {
         >
           <div
             className={
-              isLogin ? '' : showLayout ? (isQuiz ? '' : 'pt-1 pb-8') : 'py-2'
+              isLogin ? '' : showLayout ? (isQuiz ? '' : 'pb-8') : 'py-2'
             }
             style={
               showLayout
                 ? isQuiz
                   ? undefined
-                  : { paddingLeft: '5%', paddingRight: '5%' }
+                  : { paddingLeft: '5%', paddingRight: '5%', paddingTop: '60px' }
                 : { paddingLeft: '5%', paddingRight: '5%' }
             }
           >

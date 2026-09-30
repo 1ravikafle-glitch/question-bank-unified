@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { fetchUserProgress, fetchWrongQueue } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { AuthContext } from '@/context/AuthContext';
-import { getRandomScoreMessages } from '@/utils/scoreMessages';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CategoryStat {
@@ -90,7 +89,7 @@ const ProgressTracker: React.FC = () => {
   const { userId } = useContext(AuthContext);
   const [data, setData] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'weekly' | 'lifetime'>('weekly');
+  const [view, setView] = useState<'weekly' | 'lifetime'>('lifetime');
   const [wrongQueueCount, setWrongQueueCount] = useState(0);
 
   useEffect(() => {
@@ -119,7 +118,6 @@ const ProgressTracker: React.FC = () => {
   const currentCorrect = data ? (view === 'weekly' ? data.weekly_correct : data.lifetime_correct) : 0;
   const currentAccuracy = data ? (view === 'weekly' ? data.weekly_accuracy : data.lifetime_accuracy) : 0;
 
-  const scoreMessages = useMemo(() => getRandomScoreMessages(currentAccuracy, 3), [currentAccuracy]);
   const currentCategories = data ? (view === 'weekly' ? data.weekly_categories : data.lifetime_categories) : [];
   const recentAttempts = useMemo(() => {
     const arr = data?.recent_attempts || [];
@@ -135,11 +133,6 @@ const ProgressTracker: React.FC = () => {
     [currentCategories]
   );
   const weakestCategory = sortedCategories[0];
-
-  const trendData = useMemo(() =>
-    recentAttempts.slice(0, 15).reverse(),
-    [recentAttempts]
-  );
 
   const groupedSessions = useMemo(() => {
     const groups: Record<string, RecentAttempt[]> = {};
@@ -250,8 +243,8 @@ const ProgressTracker: React.FC = () => {
         </motion.p>
       </AnimatePresence>
 
-      {/* ── Two-column layout: Stats left, Category breakdown right ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-visible" style={{ padding: '2px', margin: '-2px' }}
+      {/* ── Single column: stats → categories → recent ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
       >
         {/* Left column: Overview Stats */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
@@ -280,8 +273,8 @@ const ProgressTracker: React.FC = () => {
               <span className="stat-tile-label">Correct</span>
             </motion.div>
             <motion.div variants={staggerItem} className="stat-tile">
-              <span className="stat-tile-value">{data.total_questions.toLocaleString()}</span>
-              <span className="stat-tile-label">Total</span>
+              <span className="stat-tile-value" style={{ color: 'hsl(0 84% 60%)' }}>{currentAttempted - currentCorrect}</span>
+              <span className="stat-tile-label">Wrong</span>
             </motion.div>
           </motion.div>
 
@@ -309,69 +302,14 @@ const ProgressTracker: React.FC = () => {
             </div>
           )}
 
-          {/* Weekly progress bar visualization */}
-          {trendData.length > 0 && (
-            <div className="card" style={{ padding: '0.6rem 0.75rem' }}>
-              <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
-                {view === 'weekly' ? 'This Week' : 'Lifetime'} — Session Accuracy
-              </p>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '5rem' }}>
-                {trendData.map((a, i) => (
-                  <motion.div
-                    key={i}
-                    initial={prefersReducedMotion() ? { height: `${Math.max(4, a.percentage)}%` } : { height: 4 }}
-                    animate={{ height: `${Math.max(4, a.percentage)}%` }}
-                    transition={{ duration: 0.5, delay: i * 0.03, ease: [0.25, 0.1, 0.25, 1] }}
-                    style={{
-                      flex: 1,
-                      background: percentColor(a.percentage),
-                      borderRadius: '3px 3px 0 0',
-                      opacity: 0.85,
-                      minWidth: '4px',
-                    }}
-                    title={`${a.score}/${a.total_questions} (${a.percentage}%)`}
-                  />
-                ))}
-              </div>
-              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.5rem', textAlign: 'center' }}>
-                {trendData.length} sessions · {currentAccuracy}% average
-              </p>
-            </div>
-          )}
-
-          {/* Score messages — motivational, lower priority */}
-          {scoreMessages.length > 0 && (
-            <motion.div
-              variants={prefersReducedMotion() ? undefined : staggerContainer}
-              initial="initial"
-              animate="animate"
-              style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}
-            >
-              {scoreMessages.map((msg, i) => (
-                <motion.span
-                  key={i}
-                  variants={staggerItem}
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    padding: '4px 10px',
-                    borderRadius: 'var(--apple-radius-full)',
-                    background: 'hsl(var(--muted))',
-                    color: 'hsl(var(--muted-foreground))',
-                  }}
-                >
-                  {msg}
-                </motion.span>
-              ))}
-            </motion.div>
-          )}
+          {/* Session chart + motivational chips removed: hierarchy over charts */}
         </div>
 
-        {/* Right column: Category breakdown as horizontal bar chart */}
+        {/* Category performance */}
         <div>
           <div className="card" style={{ padding: '0.75rem' }}>
             <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.6rem' }}>
-              Category Breakdown
+              Category performance
             </p>
             {sortedCategories.length === 0 ? (
               <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
@@ -418,11 +356,11 @@ const ProgressTracker: React.FC = () => {
         </div>
       </div>
 
-      {/* Session Activity */}
+      {/* Recent activity */}
       {recentAttempts.length > 0 && (
         <div className="card" style={{ padding: '0.75rem' }}>
           <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
-            Session Activity
+            Recent activity
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
             {Object.entries(groupedSessions).map(([date, sessions]) => (
@@ -462,62 +400,49 @@ const ProgressTracker: React.FC = () => {
         </div>
       )}
 
-      {/* Quick Practice */}
-      <motion.div
-        variants={prefersReducedMotion() ? undefined : staggerContainer}
-        initial="initial"
-        animate="animate"
-        className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 overflow-visible"
-        style={{ padding: '2px', margin: '-2px' }}
-      >
-        <motion.div variants={staggerItem} className="card" style={{ padding: '0.9rem' }}>
-          <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
-            Quick Practice
-          </p>
-          <div className="space-y-2">
-            <motion.button onClick={() => navigate('/quiz')} className="btn btn-primary" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', justifyContent: 'flex-start' }}>
-              Start New Quiz →
-            </motion.button>
-            {weakestCategory && (
+      {/* What to practice next */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--primary))', marginBottom: '0.75rem' }}>
+          🎯 What to practice next
+        </p>
+        {weakestCategory ? (
+          <>
+            <p style={{ fontSize: '1rem', fontWeight: 700, color: 'hsl(var(--foreground))', margin: '0 0 0.25rem 0' }}>
+              {weakestCategory.category}
+            </p>
+            <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0 0 1rem 0' }}>
+              {weakestCategory.accuracy}% accuracy · {weakestCategory.correct}/{weakestCategory.attempted} correct
+              {wrongQueueCount > 0 && ` · ${wrongQueueCount} in your review queue`}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <motion.button
                 onClick={() => navigate(`/quiz?category=${encodeURIComponent(weakestCategory.category)}`)}
-                className="btn btn-outline"
+                className="btn btn-primary"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
-                style={{ width: '100%', justifyContent: 'flex-start' }}
+                style={{ flex: 1, minWidth: '180px' }}
               >
-                Practice Weak Areas →
+                Practice {weakestCategory.category} →
               </motion.button>
-            )}
-          </div>
-          {wrongQueueCount > 0 && (
-            <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: 'var(--apple-radius-lg)', background: 'hsl(var(--destructive) / 0.06)' }}>
-              <p style={{ fontSize: '0.9375rem', fontWeight: 500, color: 'hsl(var(--destructive))' }}>
-                {wrongQueueCount} question{wrongQueueCount !== 1 ? 's' : ''} available for re-practice
-              </p>
-              <motion.button
-                onClick={() => navigate('/quiz/practice-wrong', { state: { source: 'queue' } })}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: '0.5rem', color: 'hsl(var(--primary))', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-              >
-                Practice Mistakes →
-              </motion.button>
+              {wrongQueueCount > 0 && (
+                <motion.button
+                  onClick={() => navigate('/quiz/practice-wrong', { state: { source: 'queue' } })}
+                  className="btn btn-outline"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{ flex: 1, minWidth: '180px' }}
+                >
+                  Review {wrongQueueCount} Mistake{wrongQueueCount !== 1 ? 's' : ''} →
+                </motion.button>
+              )}
             </div>
-          )}
-        </motion.div>
-        <motion.div variants={staggerItem} className="card" style={{ padding: '0.9rem' }}>
-          <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.6rem' }}>
-            Progress Overview
+          </>
+        ) : (
+          <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+            Complete a quiz to get a personalized recommendation.
           </p>
-          <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
-            You've answered {currentAttempted} questions{view === 'weekly' ? ' this week' : ''}.
-          </p>
-          <motion.button onClick={() => navigate('/results')} className="btn btn-outline" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', justifyContent: 'flex-start' }}>
-            View Results →
-          </motion.button>
-        </motion.div>
-      </motion.div>
+        )}
+      </div>
     </motion.div>
   );
 };

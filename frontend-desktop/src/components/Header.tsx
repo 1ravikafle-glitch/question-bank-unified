@@ -331,9 +331,10 @@ const Header: React.FC = () => {
   return (
     <>
       <header
-        className="hidden lg:flex sticky top-0 z-40 items-center justify-between border-b"
+        className="hidden lg:flex fixed top-0 z-40 items-center justify-between border-b"
         style={{
-          marginLeft: '280px',
+          left: '280px',
+          right: 0,
           height: '56px',
           padding: '0 5%',
           background: 'hsl(var(--background) / 0.82)',

@@ -89,6 +89,9 @@ const QuestionsBank: React.FC = () => {
   });
   const [rawSelections, setRawSelections] = useState<Record<number, string>>({});
   const [rawLocked, setRawLocked] = useState<Record<number, boolean>>({});
+  // Master/detail selection (desktop split pane). Defaults to the first
+  // visible question; resets when the page or filter changes.
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [rawAnswerHistory, setRawAnswerHistory] = useState<Record<number, boolean[]>>(() => {
     try {
       const stored = localStorage.getItem('qbank-raw-history');
@@ -194,6 +197,16 @@ const QuestionsBank: React.FC = () => {
   const pageQuestions = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const hasPrev = page > 0;
   const hasNext = page < totalPages - 1;
+
+  // Keep the detail pane on a visible question: select the first row when
+  // the page changes or the current selection leaves the visible set.
+  const selectedQuestion = pageQuestions.find((q) => q.id === selectedId) || pageQuestions[0] || null;
+  useEffect(() => {
+    if (pageQuestions.length > 0 && !pageQuestions.some((q) => q.id === selectedId)) {
+      setSelectedId(pageQuestions[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, searchDebounced, selectedCategory, shuffledQuestions]);
 
   const handleNextPage = useCallback(() => { if (hasNext) { setPage((p) => p + 1); sfxClick(); } }, [hasNext, sfxClick]);
   const handlePrevPage = useCallback(() => { if (hasPrev) { setPage((p) => Math.max(0, p - 1)); sfxClick(); } }, [hasPrev, sfxClick]);

@@ -4,7 +4,7 @@ import { type QuizResult } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue } from '../services/api';
 import { toast } from 'react-hot-toast';
-import { getRandomScoreMessages, getRandomScoreMessage } from '@/utils/scoreMessages';
+import { getRandomScoreMessage } from '@/utils/scoreMessages';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface AttemptAnalysis {
@@ -39,15 +39,6 @@ const prefersReducedMotion = () =>
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] } },
-};
-
-const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.05 } },
-};
-
-const staggerItem = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
 const ResultsScreen: React.FC = () => {
@@ -101,16 +92,6 @@ const ResultsScreen: React.FC = () => {
     }
   }, [highlightAttemptId, loadingHistory, pastAttempts]);
 
-  const stats = useMemo(() => {
-    const all = pastAttempts;
-    const total = all.length;
-    const totalCorrect = all.reduce((sum, a) => sum + a.score, 0);
-    const totalQuestions = all.reduce((sum, a) => sum + a.total_questions, 0);
-    const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
-    const avgWrong = total > 0 ? Math.round(all.reduce((sum, a) => sum + (a.total_questions - a.score), 0) / total) : 0;
-    return { total, accuracy, avgWrong };
-  }, [pastAttempts]);
-
   const toggleAttemptDetail = useCallback(async (attempt: RecentAttempt) => {
     if (!attempt.id) return;
     if (expandedAttemptId === attempt.id) {
@@ -132,7 +113,62 @@ const ResultsScreen: React.FC = () => {
   }, [expandedAttemptId]);
 
   const latestAttempt = pastAttempts[0];
-  const latestScoreMsgs = useMemo(() => latestAttempt ? getRandomScoreMessages(latestAttempt.percentage, 3) : [], [latestAttempt?.id]);
+  const heroAttempt = quizResult
+    ? {
+        score: quizResult.score,
+        total_questions: quizResult.total_questions,
+        percentage: quizResult.percentage,
+        incorrect_questions: (quizResult as any).incorrect_questions || [],
+        offline: (quizResult as any).offline || false,
+      }
+    : latestAttempt
+      ? {
+          score: latestAttempt.score,
+          total_questions: latestAttempt.total_questions,
+          percentage: latestAttempt.percentage,
+          incorrect_questions: latestAttempt.incorrect_questions || [],
+          offline: false,
+        }
+      : null;
+  const heroMessage = useMemo(
+    () => (heroAttempt ? getRandomScoreMessage(heroAttempt.percentage) : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [heroAttempt?.percentage]
+  );
+
+  // Count-up 0 → N for the hero percentage (once per hero). Skipped when
+  // the user prefers reduced motion.
+  const [displayPct, setDisplayPct] = useState(0);
+  const [ringReady, setRingReady] = useState(false);
+  useEffect(() => {
+    if (!heroAttempt) return;
+    const target = Math.round(heroAttempt.percentage);
+    if (prefersReducedMotion()) {
+      setDisplayPct(target);
+      setRingReady(true);
+      return;
+    }
+    setDisplayPct(0);
+    setRingReady(false);
+    let raf = 0;
+    const start = performance.now();
+    const dur = 700;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplayPct(Math.round(target * eased));
+      if (p < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        setRingReady(true);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    // Start the ring sweep immediately; the count catches up.
+    setRingReady(true);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroAttempt?.score, heroAttempt?.total_questions]);
 
   return (
     <motion.div
@@ -141,212 +177,127 @@ const ResultsScreen: React.FC = () => {
       animate="animate"
       style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}
     >
-      {/* Just-finished result (incl. offline-scored, queued for sync) */}
-      {quizResult && (
+      {/* ── Hero: Practice Complete ──────────────────────────── */}
+      {heroAttempt && (
         <div
           className="card"
           style={{
-            padding: '1rem 1.2rem',
-            border: '1px solid hsl(var(--primary) / 0.4)',
-            background: 'hsl(var(--primary) / 0.07)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.9rem',
-          }}
-          role="status"
-        >
-          <span style={{ fontSize: '1.75rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
-            {quizResult.percentage}%
-          </span>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: '0.875rem', fontWeight: 600, margin: 0 }}>
-              You scored {quizResult.score} / {quizResult.total_questions}
-            </p>
-            {(quizResult as any).offline && (
-              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '2px 0 0' }}>
-                Offline result — saved on this device, will sync automatically when you reconnect.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-      {/* ═══════════════════════════════════════════
-           STAT TILES
-          ═══════════════════════════════════════════ */}
-      {latestAttempt && (
-        <div
-          className="card"
-          style={{
-            padding: '1.5rem 1.2rem',
+            padding: '2rem 1.5rem 1.5rem',
             textAlign: 'center',
             border: '1px solid hsl(var(--border))',
             overflow: 'visible',
             position: 'relative',
           }}
         >
-          {/* Label */}
-          <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.25rem' }}>
-            Latest Attempt
-          </p>
-          <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
-            {latestAttempt.completed_at
-              ? new Date(latestAttempt.completed_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-              : '—'}
+          <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
+            Practice Complete
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center sm:gap-6 gap-4 flex-wrap mb-4">
-            {/* Score circle */}
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="120" height="120" viewBox="0 0 140 140" aria-hidden="true">
-                <circle cx="70" cy="70" r="62" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
-                <circle
-                  cx="70" cy="70" r="62" fill="none"
-                  stroke={percentColor(latestAttempt.percentage)}
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * 62}`}
-                  strokeDashoffset={`${2 * Math.PI * 62 * (1 - latestAttempt.percentage / 100)}`}
-                  transform="rotate(-90 70 70)"
-                  style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
-                />
-              </svg>
-              <div style={{ position: 'absolute', textAlign: 'center' }}>
-                <p
-                  style={{
-                    fontSize: '1.75rem',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    lineHeight: 1,
-                    color: percentColor(latestAttempt.percentage),
-                  }}
-                  aria-label={`Score: ${latestAttempt.percentage} percent`}
-                >
-                  {latestAttempt.percentage}%
-                </p>
-                <p style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
-                  {latestAttempt.score} / {latestAttempt.total_questions}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2.5 flex-1 sm:min-w-56 sm:max-w-88 text-left">
-              {/* Correct / Wrong badges */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '3px 10px' }}>
-                  ✓ {latestAttempt.score} Correct
-                </span>
-                <span className="badge badge-destructive" style={{ fontSize: '0.75rem', padding: '3px 10px' }}>
-                  ✕ {latestAttempt.total_questions - latestAttempt.score} Wrong
-                </span>
-              </div>
-
-              {/* Score messages */}
-              {latestScoreMsgs.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                  {latestScoreMsgs.map((msg, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 500,
-                        padding: '2px 8px',
-                        borderRadius: 'var(--apple-radius-full)',
-                        background: 'hsl(var(--muted) / 0.5)',
-                        color: 'hsl(var(--muted-foreground))',
-                      }}
-                    >
-                      {msg.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim()}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <motion.button
-                onClick={() => latestAttempt && toggleAttemptDetail(latestAttempt)}
-                className="btn btn-outline"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                style={{ width: '100%' }}
+          {/* Score ring with once-only sweep */}
+          <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginBottom: '0.75rem' }}>
+            <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
+              <circle cx="70" cy="70" r="62" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
+              <circle
+                cx="70" cy="70" r="62" fill="none"
+                stroke={percentColor(heroAttempt.percentage)}
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 62}`}
+                strokeDashoffset={ringReady ? `${2 * Math.PI * 62 * (1 - heroAttempt.percentage / 100)}` : `${2 * Math.PI * 62}`}
+                transform="rotate(-90 70 70)"
+                style={{ transition: prefersReducedMotion() ? undefined : 'stroke-dashoffset 0.9s cubic-bezier(.22,1,.36,1)' }}
+              />
+            </svg>
+            <div style={{ position: 'absolute', textAlign: 'center' }}>
+              <p
+                style={{
+                  fontSize: '2rem',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  color: percentColor(heroAttempt.percentage),
+                }}
+                aria-label={`Score: ${Math.round(heroAttempt.percentage)} percent`}
               >
-                Review Attempt →
-              </motion.button>
+                {displayPct}%
+              </p>
+              <p style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>
+                {heroAttempt.score} / {heroAttempt.total_questions}
+              </p>
             </div>
+          </div>
+
+          <p style={{ fontSize: '1rem', fontWeight: 600, color: 'hsl(var(--foreground))', margin: '0 0 1.25rem 0' }}>
+            {heroMessage}
+          </p>
+          {heroAttempt.offline && (
+            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '-0.75rem 0 1rem' }}>
+              Offline result — saved on this device, will sync automatically when you reconnect.
+            </p>
+          )}
+
+          <div style={{ height: 1, background: 'hsl(var(--border))', margin: '0 0 1.25rem' }} />
+
+          {/* Correct | Wrong | Accuracy */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <div>
+              <p style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'hsl(150 60% 38%)', margin: 0, lineHeight: 1.2 }}>
+                {heroAttempt.score}
+              </p>
+              <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
+                Correct
+              </p>
+            </div>
+            <div>
+              <p style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'hsl(0 84% 60%)', margin: 0, lineHeight: 1.2 }}>
+                {heroAttempt.total_questions - heroAttempt.score}
+              </p>
+              <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
+                Wrong
+              </p>
+            </div>
+            <div>
+              <p style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: percentColor(heroAttempt.percentage), margin: 0, lineHeight: 1.2 }}>
+                {Math.round(heroAttempt.percentage)}%
+              </p>
+              <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
+                Accuracy
+              </p>
+            </div>
+          </div>
+
+          {/* Paired actions */}
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <motion.button
+              onClick={() => {
+                const ids = heroAttempt.incorrect_questions;
+                if (ids && ids.length > 0) {
+                  navigate('/quiz/practice-wrong', { state: { wrongQuestionIds: ids, source: 'result' } });
+                } else {
+                  navigate('/quiz/practice-wrong', { state: { source: 'queue' } });
+                }
+              }}
+              className="btn btn-outline"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              style={{ flex: 1, minWidth: '180px' }}
+              disabled={(heroAttempt.incorrect_questions?.length || 0) === 0 && wrongQueueCount === 0}
+            >
+              Review Wrong Questions
+            </motion.button>
+            <motion.button
+              onClick={() => navigate('/quiz')}
+              className="btn btn-primary"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              style={{ flex: 1, minWidth: '180px' }}
+            >
+              Practice Again
+            </motion.button>
           </div>
         </div>
       )}
-
-<motion.div
-        variants={prefersReducedMotion() ? undefined : staggerContainer}
-        initial="initial"
-        animate="animate"
-        className="grid grid-cols-3 max-sm:grid-cols-3 gap-3 overflow-visible" style={{ padding: '2px', margin: '-2px' }}
-      >
-        <motion.div variants={staggerItem} className="stat-tile" style={{ textAlign: 'center', padding: '1.25rem 1rem', position: 'relative' }} whileHover={{ scale: 1.02, zIndex: 1 }} whileTap={{ scale: 0.98 }}>
-          <span className="stat-tile-value">{stats.total}</span>
-          <span className="stat-tile-label">Total Attempts</span>
-        </motion.div>
-        <motion.div variants={staggerItem} className="stat-tile" style={{ textAlign: 'center', padding: '1.25rem 1rem', position: 'relative' }} whileHover={{ scale: 1.02, zIndex: 1 }} whileTap={{ scale: 0.98 }}>
-          <span className="stat-tile-value" style={{ color: percentColor(stats.accuracy) }}>{stats.accuracy}%</span>
-          <span className="stat-tile-label">Overall Accuracy</span>
-        </motion.div>
-        <motion.div variants={staggerItem} className="stat-tile" style={{ textAlign: 'center', padding: '1.25rem 1rem', position: 'relative' }} whileHover={{ scale: 1.02, zIndex: 1 }} whileTap={{ scale: 0.98 }}>
-          <span className="stat-tile-value">{stats.avgWrong}</span>
-          <span className="stat-tile-label">Avg. Wrong / Quiz</span>
-        </motion.div>
-      </motion.div>
-
-
-
-      {/* ═══════════════════════════════════════════
-          QUICK ACTIONS
-         ═══════════════════════════════════════════ */}
-      <motion.div
-        variants={prefersReducedMotion() ? undefined : staggerContainer}
-        initial="initial"
-        animate="animate"
-        className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
-      >
-        <motion.div variants={staggerItem} className="card" style={{ padding: '0.75rem' }}>
-          <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.45rem' }}>
-            Need More Practice
-          </p>
-          {wrongQueueCount > 0 ? (
-            <>
-              <p style={{ fontSize: '0.875rem', color: 'hsl(var(--foreground))', marginBottom: '0.25rem' }}>
-                <span style={{ fontWeight: 700, color: 'hsl(var(--destructive))' }}>{wrongQueueCount}</span> questions answered incorrectly
-              </p>
-              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
-                These questions are waiting in your re-practice queue.
-              </p>
-              <motion.button onClick={() => navigate('/quiz/practice-wrong', { state: { source: 'queue' } })} className="btn btn-primary btn-sm" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                Practice Wrong Questions →
-              </motion.button>
-            </>
-          ) : (
-            <>
-              <p style={{ fontSize: '0.875rem', color: 'hsl(var(--foreground))', marginBottom: '0.25rem' }}>All caught up!</p>
-              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>No wrong questions in your queue.</p>
-            </>
-          )}
-        </motion.div>
-        <motion.div variants={staggerItem} className="card" style={{ padding: '0.75rem' }}>
-          <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.45rem' }}>
-            Quick Actions
-          </p>
-          <div className="space-y-2">
-            <motion.button onClick={() => navigate('/quiz')} className="btn btn-primary btn-sm" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', justifyContent: 'flex-start' }}>
-              + Start New Quiz
-            </motion.button>
-            <motion.button onClick={() => navigate('/progress')} className="btn btn-outline btn-sm" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', justifyContent: 'flex-start' }}>
-              View Progress →
-            </motion.button>
-          </div>
-        </motion.div>
-      </motion.div>
-
-      {/* ═══════════════════════════════════════════
-           PAST ATTEMPTS
-         ═══════════════════════════════════════════ */}
+      {/* ── Past Attempts (kept: Recent Activity deep-links here) ── */}
       <div className="card" style={{ padding: '0.75rem' }}>
         <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.6rem' }}>
           Past Attempts

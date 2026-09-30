@@ -61,6 +61,7 @@ const AdminUpload: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [userProgress, setUserProgress] = useState<any>(null);
   const [userProgressLoading, setUserProgressLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'questions' | 'categories' | 'users'>('questions');
 
   const emptyOptions = { a: '', b: '', c: '', d: '' };
 
@@ -337,16 +338,42 @@ const AdminUpload: React.FC = () => {
           <span className="stat-tile-label">Categories</span>
         </div>
         <div className="stat-tile">
-          <span className="stat-tile-value" style={{ color: 'hsl(var(--primary))' }}>{totalManagePages}</span>
-          <span className="stat-tile-label">Pages</span>
+          <span className="stat-tile-value" style={{ color: 'hsl(var(--primary))' }}>{adminUsers.length}</span>
+          <span className="stat-tile-label">Users</span>
         </div>
       </div>
 
-      {/* Two-column layout: Upload left, Category Management right */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', overflow: 'visible', padding: '2px', margin: '-2px' }}>
+      {/* Tabs: Questions | Categories | Users */}
+      <div role="tablist" aria-label="Admin sections" style={{ display: 'flex', gap: '0.5rem', background: 'hsl(var(--muted))', borderRadius: 'var(--apple-radius-lg)', padding: '4px' }}>
+        {(['questions', 'categories', 'users'] as const).map((t) => (
+          <button
+            key={t}
+            role="tab"
+            aria-selected={activeTab === t}
+            onClick={() => setActiveTab(t)}
+            style={{
+              flex: 1,
+              padding: '0.5rem 0',
+              borderRadius: 'var(--apple-radius-md)',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.8125rem',
+              fontWeight: activeTab === t ? 700 : 500,
+              color: activeTab === t ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+              background: activeTab === t ? 'hsl(var(--card))' : 'transparent',
+              boxShadow: activeTab === t ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+              textTransform: 'capitalize',
+              transition: 'all 180ms cubic-bezier(.25,.1,.25,1)',
+            }}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
 
-        {/* Left column: Import */}
-        <div className="space-y-4">
+      {/* Questions tab: Import */}
+      {activeTab === 'questions' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div className="card" style={{ padding: '0.9rem' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'hsl(var(--foreground))', marginBottom: '0.25rem' }}>Import Question Bank</h2>
             <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem' }}>Upload DOCX question sets to add questions.</p>
@@ -483,9 +510,11 @@ Answer key:
             </div>
           )}
         </div>
+      )}
 
-
-          {/* User Management — fills left empty space */}
+      {/* Users tab */}
+      {activeTab === 'users' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div className="card" style={{ padding: '0.75rem' }}>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'hsl(var(--foreground))', marginBottom: '0.25rem' }}>User Management</h2>
             <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>View registered users and their progress.</p>
@@ -561,10 +590,11 @@ Answer key:
             )}
           </div>
         </div>
+      )}
 
-        {/* Right column: Category Management */}
-        <div>
-          {/* Category Management */}
+      {/* Categories tab */}
+      {activeTab === 'categories' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div className="card" style={{ padding: '0.75rem' }}>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'hsl(var(--foreground))', marginBottom: '0.25rem' }}>Category Management</h2>
             <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>Rename or delete categories across the bank.</p>
@@ -620,8 +650,10 @@ Answer key:
             )}
           </div>
         </div>
+      )}
 
-      {/* Question Management */}
+      {/* Questions tab: Browse + Edit */}
+      {activeTab === 'questions' && (
       <div>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 700, color: 'hsl(var(--foreground))', marginBottom: '0.25rem' }}>Question Management</h2>
         <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>Review and correct imported questions.</p>
@@ -740,6 +772,7 @@ Answer key:
           </div>
         )}
       </div>
+      )}
     </motion.div>
   );
 };

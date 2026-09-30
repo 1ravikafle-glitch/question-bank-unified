@@ -1527,6 +1527,11 @@ const QuizTaker: React.FC = () => {
             >
               <span style={{ fontSize: 13, fontWeight: 700, color: T.success, fontFamily: T.font }}>
                 Correct : {activeCorrectKey} — {activeBoxQ.options.find((o: any) => o.key === activeCorrectKey)?.text || activeOptionsMap[activeCorrectKey] || ''}
+                {isPracticeWrongMode && (
+                  <span style={{ display: 'block', fontSize: 11, fontWeight: 500, color: T.success, opacity: 0.85, marginTop: 2 }}>
+                    ✓ Removed from your review queue
+                  </span>
+                )}
               </span>
               <button
                 onClick={handleNext}

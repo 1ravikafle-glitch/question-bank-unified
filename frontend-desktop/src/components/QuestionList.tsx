@@ -50,6 +50,13 @@ function relativeDate(iso: string) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' }).toUpperCase();
 }
 
+function timeOfDayGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 /* ── Category icons ─────────────────────────────────────────────── */
 const catIcons: Record<string, string> = {
   'Biodiversity': '🌿',
@@ -312,14 +319,13 @@ const Dashboard: React.FC = () => {
               <p
                 style={{
                   fontSize: '0.8125rem',
-                  fontStyle: 'italic',
                   opacity: 0.9,
                   marginTop: '0.25rem',
                   marginBottom: 0,
                   color: 'white',
                 }}
               >
-                {quote}
+                {timeOfDayGreeting()} — continue your Forestry PSC preparation.
               </p>
             </div>
             <motion.button
@@ -343,50 +349,6 @@ const Dashboard: React.FC = () => {
               Start Practice
             </motion.button>
           </div>
-        </div>
-      </motion.section>
-
-      {/* ── Stats Row (visible above the grid on all sizes) ── */}
-      <motion.section
-        className="stats-row"
-        aria-label="Quiz statistics"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        style={{ marginBottom: '1rem' }}
-      >
-        <div className="stats-row-grid">
-          <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Total questions: ${total.toLocaleString()}`}>
-            <span className="stat-tile-label">Total Questions</span>
-            <span className="stat-tile-value">{total.toLocaleString()}</span>
-          </motion.div>
-          <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Categories: ${categories.length}`}>
-            <span className="stat-tile-label">Categories</span>
-            <span className="stat-tile-value">{categories.length}</span>
-          </motion.div>
-          <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Questions attempted: ${attempted.toLocaleString()}`}>
-            <span className="stat-tile-label">Attempted</span>
-            <span className="stat-tile-value">{attempted.toLocaleString()}</span>
-          </motion.div>
-          <motion.div
-            className="stat-tile"
-            variants={itemVariants}
-            role="figure"
-            aria-label={`Accuracy: ${accuracy !== null ? `${accuracy.toFixed(1)}%` : 'N/A'}`}
-          >
-            <span className="stat-tile-label">Accuracy</span>
-            <span
-              className="stat-tile-value"
-              style={{ color: accuracy !== null ? perfColor(accuracy) : undefined }}
-            >
-              {accuracy !== null ? `${accuracy.toFixed(1)}%` : '—'}
-            </span>
-            {accuracy !== null && (
-              <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
-                {perfLabel(accuracy)}
-              </span>
-            )}
-          </motion.div>
         </div>
       </motion.section>
 
@@ -651,34 +613,109 @@ const Dashboard: React.FC = () => {
               whileTap={{ scale: 0.97 }}
               style={{ width: '100%', padding: '0.625rem' }}
             >
-              Start Quiz
+              Start Practice
             </motion.button>
-
-            {/* Wrong questions queue */}
-            {wrongCount > 0 && (
-              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border))' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.875rem' }} aria-hidden="true">🔁</span>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 'var(--font-weight-semibold)', color: 'hsl(var(--foreground))' }}>
-                      {wrongCount} wrong to review
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                    ~{wrongCount * 2} min
-                  </span>
-                </div>
-                <motion.button
-                  onClick={() => { sfxClick(); navigate('/quiz/practice-wrong', { state: { source: 'queue' } }); }}
-                  className="btn btn-outline"
-                  whileTap={{ scale: 0.98 }}
-                  style={{ width: '100%', fontSize: '0.8125rem' }}
-                >
-                  Practice Wrong Questions
-                </motion.button>
-              </div>
-            )}
           </motion.section>
+
+          {/* ── Your progress (below Practice) ─────────────────── */}
+          <motion.section
+            className="stats-row"
+            aria-label="Your progress"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            style={{
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: 'var(--apple-radius-lg)',
+              padding: '1.25rem',
+            }}
+          >
+            <h2
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '1.125rem',
+                fontWeight: 'var(--font-weight-semibold)',
+                color: 'hsl(var(--foreground))',
+                margin: '0 0 1rem 0',
+              }}
+            >
+              Your progress
+            </h2>
+            <div className="stats-row-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+              <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Total questions: ${total.toLocaleString()}`}>
+                <span className="stat-tile-label">Questions</span>
+                <span className="stat-tile-value">{total.toLocaleString()}</span>
+              </motion.div>
+              <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Questions attempted: ${attempted.toLocaleString()}`}>
+                <span className="stat-tile-label">Attempted</span>
+                <span className="stat-tile-value">{attempted.toLocaleString()}</span>
+              </motion.div>
+              <motion.div
+                className="stat-tile"
+                variants={itemVariants}
+                role="figure"
+                aria-label={`Accuracy: ${accuracy !== null ? `${accuracy.toFixed(1)}%` : 'N/A'}`}
+              >
+                <span className="stat-tile-label">Accuracy</span>
+                <span
+                  className="stat-tile-value"
+                  style={{ color: accuracy !== null ? perfColor(accuracy) : undefined }}
+                >
+                  {accuracy !== null ? `${accuracy.toFixed(1)}%` : '—'}
+                </span>
+                {accuracy !== null && (
+                  <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
+                    {perfLabel(accuracy)}
+                  </span>
+                )}
+              </motion.div>
+            </div>
+          </motion.section>
+
+          {/* ── Review strip ───────────────────────────────────── */}
+          {wrongCount > 0 && (
+            <motion.section
+              variants={itemVariants}
+              aria-label="Review wrong questions"
+              style={{
+                background: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: 'var(--apple-radius-lg)',
+                padding: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '1.125rem',
+                    fontWeight: 'var(--font-weight-semibold)',
+                    color: 'hsl(var(--foreground))',
+                    margin: '0 0 0.25rem 0',
+                  }}
+                >
+                  Review
+                </h2>
+                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+                  {wrongCount} {wrongCount === 1 ? 'question needs' : 'questions need'} another look
+                </p>
+              </div>
+              <motion.button
+                onClick={() => { sfxClick(); navigate('/quiz/practice-wrong', { state: { source: 'queue' } }); }}
+                className="btn btn-outline"
+                whileTap={{ scale: 0.98 }}
+                style={{ fontSize: '0.8125rem', flexShrink: 0 }}
+              >
+                Review Wrong Questions →
+              </motion.button>
+            </motion.section>
+          )}
 
           {/* ── Quick Actions ─────────────────────────────────── */}
           <motion.section
