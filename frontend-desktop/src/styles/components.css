@@ -2051,6 +2051,22 @@
   box-shadow: 0 4px 20px rgba(255, 255, 255, 0.08), 0 2px 6px rgba(255, 255, 255, 0.05);
 }
 
+/* Hero white button: dim in dark mode so it doesn't glare; no glow */
+.dark .hero-start-btn {
+  background: hsl(0 0% 88%);
+  box-shadow: none;
+}
+.dark .hero-start-btn:hover:not(:disabled) {
+  background: hsl(0 0% 85%);
+  box-shadow: none;
+  filter: none;
+}
+
+/* Primary glow stays green but softer in dark mode */
+.dark .btn-primary:hover:not(:disabled) {
+  box-shadow: 0 6px 24px hsl(var(--primary) / 0.25), 0 2px 8px hsl(var(--primary) / 0.15);
+}
+
 .dark .card:hover {
   box-shadow: 0 8px 30px rgba(255, 255, 255, 0.06), 0 2px 8px rgba(255, 255, 255, 0.04);
 }

@@ -322,7 +322,7 @@ const Dashboard: React.FC = () => {
             </div>
             <motion.button
               onClick={() => { sfxClick(); startQuiz(); }}
-              className="btn"
+              className="btn hero-start-btn"
               whileTap={{ scale: 0.98 }}
               style={{
                 background: 'white',

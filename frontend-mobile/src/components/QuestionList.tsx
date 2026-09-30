@@ -329,11 +329,11 @@ const Dashboard: React.FC = () => {
             </div>
             <motion.button
               onClick={() => { sfxClick(); startQuiz(); }}
-              className="btn"
+              className="btn hero-start-btn"
               whileTap={{ scale: 0.98 }}
               style={{
                 background: 'white',
-                color: 'hsl(142 71% 45%)',
+                color: 'hsl(var(--primary))',
                 border: 'none',
                 fontWeight: 'var(--font-weight-semibold)',
                 fontSize: '0.875rem',
