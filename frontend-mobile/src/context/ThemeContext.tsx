@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useDayNight } from '@/hooks/useDayNight';
 
-export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'auto';
 
 interface ThemeContextValue {
   mode: ThemeMode;
@@ -27,9 +28,12 @@ function getSystemPreference(): 'light' | 'dark' {
 function getStoredMode(): ThemeMode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
+    if (stored === 'light' || stored === 'dark' || stored === 'auto') return stored;
+    // One-time migration: the old 'system' (follow device) becomes 'auto'
+    // (follow sunrise/sunset).
+    if (stored === 'system') return 'auto';
   } catch {}
-  return 'system';
+  return 'auto';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -44,8 +48,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => mql.removeEventListener('change', handler);
   }, []);
 
-  // Resolve the actual theme
-  const resolved = mode === 'system' ? systemPreference : mode;
+  // Resolve the actual theme. Auto follows real sunrise/sunset at the
+  // viewer's location; until that resolves, mirror the device so first
+  // paint is never on the wrong side.
+  const { isDay } = useDayNight();
+  const resolved = mode === 'auto' ? (isDay ? 'light' : 'dark') : mode;
 
   // Apply `.dark` class to <html>
   useEffect(() => {

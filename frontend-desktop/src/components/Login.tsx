@@ -4,6 +4,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { fetchQuestionsCount, fetchCategories, authLogin } from '../services/api';
 import { ForestryLogo } from '@/components/ForestryLogo';
 import ThemeSegmented from '@/components/ThemeSegmented';
+import { useLang } from '@/context/LanguageContext';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
@@ -12,6 +13,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { t, num } = useLang();
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { setUserId, setSessionToken } = useContext(AuthContext);
@@ -113,7 +115,7 @@ const Login: React.FC = () => {
               color: 'hsl(var(--foreground))',
             }}
           >
-            Forestry PSC
+            {t('login.title')}
           </span>
         </div>
 
@@ -125,7 +127,7 @@ const Login: React.FC = () => {
             marginBottom: '28px',
           }}
         >
-          Prepare with confidence
+          {t('login.subtitle')}
         </p>
 
         {/* Form */}
@@ -142,7 +144,7 @@ const Login: React.FC = () => {
                   marginBottom: '6px',
                 }}
               >
-                Username
+                {t('login.username')}
               </label>
               <input
                 id="login-username"
@@ -172,14 +174,14 @@ const Login: React.FC = () => {
                   marginBottom: '6px',
                 }}
               >
-                Password
+                {t('login.password')}
               </label>
               <div style={{ position: 'relative' }}>
                 <input
                   id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   className="input"
-                  placeholder="Your password"
+                  placeholder={t('login.password')}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -243,7 +245,7 @@ const Login: React.FC = () => {
               type="submit"
               className="btn btn-primary"
               disabled={loading || !username.trim() || !password.trim()}
-              aria-label={loading ? 'Signing in' : 'Sign in'}
+              aria-label={loading ? t('login.signing') : t('login.signin')}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               style={{
@@ -274,10 +276,10 @@ const Login: React.FC = () => {
                   >
                     <path d="M21 12a9 9 0 11-6.219-8.56" />
                   </svg>
-                  Signing in…
+                  {t('login.signing')}
                 </span>
               ) : (
-                'Sign in'
+                t('login.signin')
               )}
             </motion.button>
           </div>
@@ -293,7 +295,7 @@ const Login: React.FC = () => {
             lineHeight: 1.5,
           }}
         >
-          No registration needed — enter any username & password to get started.
+          {t('login.hint')}
         </p>
 
         {/* Appearance — Light / Dark / System */}
@@ -308,7 +310,7 @@ const Login: React.FC = () => {
                 marginBottom: 6,
               }}
             >
-              Appearance
+              {t('login.appearance')}
             </div>
             <ThemeSegmented />
           </div>

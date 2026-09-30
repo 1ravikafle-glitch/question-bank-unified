@@ -4,9 +4,11 @@ import { createPortal } from 'react-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { useSound } from '@/context/SoundContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useLang } from '@/context/LanguageContext';
 import { isAdmin } from '@/config/admin';
 import { ForestryLogo } from '@/components/ForestryLogo';
 import ThemeSegmented from '@/components/ThemeSegmented';
+import DateTimeWidget from '@/components/DateTimeWidget';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const routeTitles: Record<string, ReactNode> = {
@@ -97,6 +99,7 @@ const Header: React.FC = () => {
   const { userId, logout } = useContext(AuthContext);
   const { enabled: sfxEnabled, toggle: toggleSfx } = useSound();
   const { resolved: themeResolved } = useTheme();
+  const { lang, setLang, t } = useLang();
   const darkMenu = themeResolved === 'dark';
   const navigate = useNavigate();
   const location = useLocation();
@@ -311,6 +314,47 @@ const Header: React.FC = () => {
               </button>
             </div>
 
+            {/* Language — EN / NE switch */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                minHeight: 44,
+                padding: '6px 10px',
+                borderRadius: 12,
+                color: darkMenu ? '#fff' : 'hsl(var(--foreground))',
+                fontSize: '0.9375rem',
+                fontWeight: 500,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <span aria-hidden="true" style={{ fontSize: 15, opacity: 0.75 }}>🌐</span>
+              <span style={{ flex: 1 }}>{t('language')}</span>
+              <div style={{ display: 'flex', background: darkMenu ? 'rgba(255,255,255,0.10)' : 'hsl(var(--muted))', borderRadius: 999, padding: 2, gap: 2 }} role="group" aria-label={t('language')}>
+                {(['en', 'ne'] as const).map((l) => (
+                  <button
+                    key={l}
+                    onClick={(e) => { e.stopPropagation(); setLang(l); }}
+                    aria-pressed={lang === l}
+                    style={{
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      color: lang === l ? (darkMenu ? '#fff' : 'hsl(var(--foreground))') : (darkMenu ? 'rgba(255,255,255,0.55)' : 'hsl(var(--muted-foreground))'),
+                      background: lang === l ? (darkMenu ? 'rgba(255,255,255,0.16)' : 'hsl(var(--card))') : 'transparent',
+                      boxShadow: lang === l ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+                    }}
+                  >
+                    {l === 'en' ? 'EN' : 'ने'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {isAdmin(userId) && (
               <DropdownItem onClick={handleAdmin} color={darkMenu ? '#fff' : 'hsl(var(--foreground))'} hoverBg={darkMenu ? undefined : 'hsl(var(--muted))'} pressBg={darkMenu ? undefined : 'hsl(var(--muted))'}>
                 <span aria-hidden="true" style={{ fontSize: 15, opacity: 0.75 }}>⚙</span>
@@ -358,6 +402,14 @@ const Header: React.FC = () => {
             {pageTitle}
           </motion.h1>
         </AnimatePresence>
+
+        <div
+          aria-hidden="false"
+          style={{ position: 'fixed', top: 28, left: '50%', transform: 'translate(-50%, -50%)', zIndex: 45 }}
+          className="hide-tablet"
+        >
+          <DateTimeWidget />
+        </div>
 
         {userId && (
           <motion.button

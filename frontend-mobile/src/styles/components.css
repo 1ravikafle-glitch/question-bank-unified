@@ -395,6 +395,11 @@
   background-color: hsl(0 72% 44%);
   color: hsl(0 0% 100%);
 }
+/* Dark: Nepal clock keeps state via opacity + fill only — drop-shadow halos
+   bleed on near-black headers, so flatten lit icons here (light keeps glow) */
+.dark [role="timer"] svg {
+  filter: none !important;
+}
 .badge-accent {
   background-color: hsl(var(--accent));
   color: hsl(var(--accent-foreground));
@@ -2061,8 +2066,9 @@
 }
 .qpill.lvl-10:hover { border-color: hsl(142 60% 45% / 0.5); }
 .qpill.lvl-20:hover { border-color: hsl(160 65% 38% / 0.55); }
+.qpill.lvl-30:hover { border-color: hsl(150 60% 40% / 0.5); }
 .qpill.lvl-50:hover { border-color: hsl(38 92% 50% / 0.6); }
-.qpill.lvl-100:hover { border-color: hsl(24 95% 53% / 0.65); }
+.qpill.lvl-100:hover { border-color: hsl(0 84% 55% / 0.65); }
 /* 10 — calm small: soft green, no animation */
 .qpill.lvl-10.is-on {
   color: #fff;
@@ -2086,12 +2092,19 @@
   box-shadow: 0 4px 16px hsl(38 95% 50% / 0.45);
   animation: lvlPulse 1.8s ease-in-out infinite;
 }
-/* 100 — hot: ember orange, strong pulse */
+/* 30 — calm: soft sage, no animation (mock paper starter) */
+.qpill.lvl-30.is-on {
+  color: #fff;
+  background: hsl(150 60% 38%);
+  border-color: hsl(150 60% 38%);
+  box-shadow: 0 3px 10px hsl(150 60% 38% / 0.3);
+}
+/* 100 — max: red, strong pulse */
 .qpill.lvl-100.is-on {
   color: #fff;
-  background: hsl(22 92% 50%);
-  border-color: hsl(22 92% 50%);
-  box-shadow: 0 0 18px 2px hsl(22 92% 55% / 0.5), 0 4px 14px hsl(22 92% 50% / 0.4);
+  background: hsl(0 84% 55%);
+  border-color: hsl(0 84% 55%);
+  box-shadow: 0 0 18px 2px hsl(0 84% 60% / 0.5), 0 4px 14px hsl(0 84% 60% / 0.4);
   animation: lvlPulse 1.4s ease-in-out infinite;
 }
 @keyframes lvlBreathe {
@@ -2118,11 +2131,15 @@
   background: hsl(162 55% 30%);
   border-color: hsl(162 55% 30%);
 }
+.dark .qpill.lvl-30.is-on {
+  background: hsl(150 55% 30%);
+  border-color: hsl(150 55% 30%);
+}
 .dark .qpill.lvl-50.is-on {
   background: hsl(38 85% 44%);
   border-color: hsl(38 85% 44%);
 }
 .dark .qpill.lvl-100.is-on {
-  background: hsl(22 85% 44%);
-  border-color: hsl(22 85% 44%);
+  background: hsl(0 80% 46%);
+  border-color: hsl(0 80% 46%);
 }

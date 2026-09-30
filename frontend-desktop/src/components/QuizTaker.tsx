@@ -17,6 +17,7 @@ import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { type Question, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
+import { useLang } from '@/context/LanguageContext';
 import toast from 'react-hot-toast';
 import BookmarkButton from '@/components/BookmarkButton';
 import { useQuizPrefs } from '@/quizPrefs';
@@ -364,6 +365,7 @@ const QuizTaker: React.FC = () => {
   const location = useLocation();
   const { userId } = useContext(AuthContext);
   const { sfxSelect, sfxCorrect, sfxIncorrect, sfxSubmit, sfxClick, sfxWarning } = useSfx();
+  const { t } = useLang();
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selected, setSelected] = useState<Record<number, string>>({});
@@ -1206,7 +1208,7 @@ const QuizTaker: React.FC = () => {
               category={setupCategory}
               onCategory={setSetupCategory}
               onStart={startQuizFromSetup}
-              startLabel="Start Quiz"
+              startLabel={t('btn.startQuiz')}
               ping={() => { try { navigator.vibrate?.(8); } catch {} }}
               bookmarkCount={setupBmIds.length}
               onPracticeBookmarks={startBookmarksQuiz}

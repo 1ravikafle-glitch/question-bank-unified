@@ -4,6 +4,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { sortCategories } from '@/utils/categorySort';
 import { motion } from 'framer-motion';
+import { useLang } from '@/context/LanguageContext';
 
 const API = '';
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -24,6 +25,7 @@ interface FileResult {
 const Contribute: React.FC = () => {
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
+  const { t } = useLang();
   const [categories, setCategories] = useState<string[]>([]);
   const [category, setCategory] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -118,7 +120,7 @@ const Contribute: React.FC = () => {
     >
       <div>
         <h1 style={{ fontFamily: 'var(--font-display)', color: 'hsl(var(--foreground))', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
-          Contribute papers
+          {t('nav.contribute')}
         </h1>
         <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0', lineHeight: 1.55 }}>
           Upload a PDF or DOCX question paper. Preview what was found, then import —

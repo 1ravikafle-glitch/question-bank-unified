@@ -1,16 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { tr, type Lang } from '@/shared/strings';
+import { tr, num as numFmt, type Lang } from '@/shared/strings';
+export type { Lang };
 
 interface LanguageContextValue {
   lang: Lang;
   setLang: (l: Lang) => void;
   t: (key: string) => string;
+  num: (value: number | string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue>({
   lang: 'en',
   setLang: () => {},
   t: (k) => tr('en', k),
+  num: (v) => numFmt('en', v),
 });
 
 const KEY = 'fpsc-lang';
@@ -37,7 +40,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [lang]);
   const t = useCallback((key: string) => tr(lang, key), [lang]);
-  return <LanguageContext.Provider value={{ lang, setLang, t }}>{children}</LanguageContext.Provider>;
+  const num = useCallback((value: number | string) => numFmt(lang, value), [lang]);
+  return <LanguageContext.Provider value={{ lang, setLang, t, num }}>{children}</LanguageContext.Provider>;
 }
 
 export const useLang = () => useContext(LanguageContext);

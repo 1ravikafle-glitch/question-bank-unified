@@ -6,6 +6,7 @@ import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { motion } from 'framer-motion';
+import { useLang } from '@/context/LanguageContext';
 import BookmarkButton from './BookmarkButton';
 
 /* Saved questions: revise list + practice-them-all entry point. */
@@ -13,6 +14,7 @@ const Bookmarks: React.FC = () => {
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
+  const { t } = useLang();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [catFilter, setCatFilter] = useState('');
@@ -95,7 +97,7 @@ const Bookmarks: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', color: 'hsl(var(--foreground))', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
-            Bookmarks
+            {t('nav.bookmarks')}
           </h1>
           <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
             {questions.length === 0

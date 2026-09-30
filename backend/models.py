@@ -105,6 +105,15 @@ class CategoryMeta(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
+class Quote(Base):
+    """Motivational line shown on the dashboard (random pick)."""
+
+    __tablename__ = "quotes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    text = Column(Text, nullable=False, unique=True)
+
+
 class Bookmark(Base):
     """User-saved questions for later revision."""
 

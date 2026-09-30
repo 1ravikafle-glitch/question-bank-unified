@@ -6,6 +6,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { sortCategories } from '@/utils/categorySort';
 import { motion } from 'framer-motion';
+import { useLang } from '@/context/LanguageContext';
 
 /* Exam hall: fixed paper, total countdown, Loksewa-style negative marking. */
 
@@ -38,6 +39,7 @@ const MockExam: React.FC = () => {
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
+  const { t } = useLang();
   const [categories, setCategories] = useState<string[]>([]);
   const [total, setTotal] = useState(0);
   const [category, setCategory] = useState('');
@@ -74,7 +76,7 @@ const MockExam: React.FC = () => {
     >
       <div>
         <h1 style={{ fontFamily: 'var(--font-display)', color: 'hsl(var(--foreground))', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
-          Mock Exam
+          {t('nav.mock')}
         </h1>
         <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
           {total.toLocaleString()} questions in the bank · one clock for the whole paper.
@@ -146,16 +148,19 @@ const MockExam: React.FC = () => {
           Questions
         </label>
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          {[30, 50, 100].map((n) => (
-            <button
-              key={n}
-              onClick={() => { sfxClick(); setCount(n); }}
-              className={`qpill${count === n ? ' qpill-selected' : ''}`}
-              aria-pressed={count === n}
-            >
-              {n}
-            </button>
-          ))}
+          {[30, 50, 100].map((n) => {
+            const on = count === n;
+            return (
+              <button
+                key={n}
+                onClick={() => { sfxClick(); setCount(n); }}
+                className={`qpill lvl-${n}${on ? ' is-on' : ''}`}
+                aria-pressed={on}
+              >
+                {n}
+              </button>
+            );
+          })}
         </div>
 
                 <div

@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { AuthContext } from '@/context/AuthContext';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
+import { useLang } from '@/context/LanguageContext';
 import { useSound } from '@/context/SoundContext';
 import { gisHref } from '@/components/DesktopSidebar';
 
@@ -24,19 +25,19 @@ function useReducedMotion() {
 }
 
 const navItems = [
-  { to: '/', label: 'Home', end: true, icon: (
+  { to: '/', label: 'nav.home', end: true, icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
   )},
-  { to: '/quiz', label: 'Practice', end: false, icon: (
+  { to: '/quiz', label: 'nav.practice', end: false, icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
   )},
-  { to: '/questions', label: 'Questions', end: false, icon: (
+  { to: '/questions', label: 'nav.questions', end: false, icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
   )},
-  { to: '/results', label: 'Results', end: false, icon: (
+  { to: '/results', label: 'nav.results', end: false, icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
   )},
-  { to: '/progress', label: 'Progress', end: false, icon: (
+  { to: '/progress', label: 'nav.progress', end: false, icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
   )},
 ];
@@ -45,6 +46,7 @@ const MobileBottomNav: React.FC = () => {
   const navigate = useNavigate();
   const { logout } = useContext(AuthContext);
   const { mode, setMode } = useTheme();
+  const { lang, setLang, t } = useLang();
   const { enabled: sfxEnabled, toggle: toggleSfx } = useSound();
   const [showSheet, setShowSheet] = useState(false);
   const reducedMotion = useReducedMotion();
@@ -216,6 +218,22 @@ const MobileBottomNav: React.FC = () => {
                 </span>
               </button>
 
+              {/* Language */}
+              <button
+                onClick={() => { haptic(8); setLang(lang === 'ne' ? 'en' : 'ne'); }}
+                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-medium transition-all active:scale-[0.97]"
+                style={{ color: 'hsl(var(--foreground))' }}
+              >
+                <span className="text-xl w-8 text-center">🌐</span>
+                <span className="flex-1 text-left">{t('language')}</span>
+                <span
+                  className="text-sm px-2.5 py-1 rounded-full"
+                  style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))', fontSize: '0.8125rem' }}
+                >
+                  {lang === 'ne' ? 'नेपाली' : 'English'}
+                </span>
+              </button>
+
               {/* Sound toggle */}
               <button
                 onClick={() => { haptic(8); toggleSfx(); }}
@@ -284,7 +302,7 @@ const MobileBottomNav: React.FC = () => {
                 }}
               >
                 <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">📝</span>
-                <span className="flex-1 text-left">Mock Exam</span>
+                <span className="flex-1 text-left">{t('nav.mock')}</span>
                 <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
               </button>
             </div>
@@ -300,7 +318,7 @@ const MobileBottomNav: React.FC = () => {
                 }}
               >
                 <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">📤</span>
-                <span className="flex-1 text-left">Contribute</span>
+                <span className="flex-1 text-left">{t('nav.contribute')}</span>
                 <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
               </button>
             </div>
@@ -317,7 +335,7 @@ const MobileBottomNav: React.FC = () => {
                 }}
               >
                 <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">🔖</span>
-                <span className="flex-1 text-left">Bookmarks</span>
+                <span className="flex-1 text-left">{t('nav.bookmarks')}</span>
                 <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
               </button>
             </div>
@@ -384,7 +402,7 @@ const MobileBottomNav: React.FC = () => {
                 >
                   {item.icon}
                 </span>
-                <span style={{ fontSize: '9px', fontWeight: 600, marginTop: 2, letterSpacing: '0.02em' }}>{item.label}</span>
+                <span style={{ fontSize: '9px', fontWeight: 600, marginTop: 2, letterSpacing: '0.02em' }}>{t(item.label)}</span>
                 {/* Active indicator pill */}
                 <span
                   style={{
@@ -421,7 +439,7 @@ const MobileBottomNav: React.FC = () => {
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
           </span>
-          <span style={{ fontSize: '9px', fontWeight: 600, marginTop: 2, letterSpacing: '0.02em' }}>More</span>
+          <span style={{ fontSize: '9px', fontWeight: 600, marginTop: 2, letterSpacing: '0.02em' }}>{t('nav.more')}</span>
         </button>
       </nav>
     </>

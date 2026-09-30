@@ -62,6 +62,27 @@ DEFAULT_CATEGORY_EMOJI = {
 router = APIRouter(prefix="/questions", tags=["questions"])
 
 
+@router.get("/quote/random")
+def get_random_quote(db: Session = Depends(database.get_db)):
+    """One random motivational line for the dashboard greeting slot."""
+    from sqlalchemy import func as _func
+    import models as _m
+
+    # Seed once from the bundled bank when empty.
+    try:
+        if db.query(_m.Quote).count() == 0:
+            from seed_quotes import QUOTES
+
+            db.add_all([_m.Quote(text=q) for q in QUOTES])
+            db.commit()
+    except Exception:
+        db.rollback()
+    row = db.query(_m.Quote).order_by(_func.random()).first()
+    if row is None:
+        return {"text": ""}
+    return {"text": row.text}
+
+
 @router.get("/category-meta")
 def get_category_meta(db: Session = Depends(database.get_db)):
     """Public: emoji per category (defaults merged with admin overrides)."""

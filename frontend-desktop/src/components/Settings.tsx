@@ -5,6 +5,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useSound } from '@/context/SoundContext';
 import { useSfx } from '@/hooks/useSfx';
+import { useLang, type Lang } from '@/context/LanguageContext';
 import { useQuizPrefs } from '@/quizPrefs';
 import { staggerParent, sectionRise, useReducedMotion } from '@/motion';
 
@@ -150,6 +151,8 @@ const Settings: React.FC = () => {
         </div>
       </motion.section>
 
+      {/* Language */}
+      <LanguageSection />
       {/* Sound */}
       <motion.section variants={reduced ? undefined : sectionRise} style={{ marginBottom: 16 }} aria-label="Sound">
         <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
@@ -250,3 +253,41 @@ const Settings: React.FC = () => {
 };
 
 export default Settings;
+
+function LanguageSection() {
+  const { lang, setLang, t } = useLang();
+  const { sfxClick } = useSfx();
+  const opts: { value: Lang; label: string }[] = [
+    { value: 'en', label: 'English' },
+    { value: 'ne', label: 'नेपाली' },
+  ];
+  return (
+    <div style={{ marginBottom: 16 }} aria-label={t('language')}>
+      <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
+        {t('language')}
+      </h2>
+      <div style={{ display: 'flex', background: 'hsl(var(--muted))', borderRadius: 12, padding: 3, gap: 2 }}>
+        {opts.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => { sfxClick(); setLang(o.value); }}
+            aria-pressed={lang === o.value}
+            style={{
+              flex: 1, padding: '8px 4px', borderRadius: 9, border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: lang === o.value ? 700 : 500,
+              color: lang === o.value ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+              background: lang === o.value ? 'hsl(var(--card))' : 'transparent',
+              boxShadow: lang === o.value ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+            }}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <p style={{ fontSize: 12.5, color: 'hsl(var(--muted-foreground))', margin: '6px 4px 0' }}>
+        {t('language.hint')}
+      </p>
+    </div>
+  );
+}

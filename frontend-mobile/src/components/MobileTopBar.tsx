@@ -3,6 +3,7 @@ import { useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { AuthContext } from '@/context/AuthContext';
+import DateTimeWidget from '@/components/DateTimeWidget';
 import { useTheme } from '@/context/ThemeContext';
 
 const prefersReducedMotion = () =>
@@ -83,6 +84,10 @@ const MobileTopBar: React.FC = () => {
         >
           {title}
         </h1>
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+          <DateTimeWidget compact />
+        </div>
+
         {userId && (
           <motion.button
             ref={triggerRef}
