@@ -214,9 +214,13 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
                 zIndex: 20,
                 maxHeight: '14rem',
                 overflowY: 'auto',
+                // Scrolling the list must not drag the page behind it.
+                overscrollBehavior: 'contain',
               }}
               role="listbox"
               aria-label="Select a category"
+              onWheel={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
             >
               {['All Categories', ...sorted].map((cat) => {
                 const selected = cat === active;

@@ -1,16 +1,18 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Toaster } from 'react-hot-toast';
-import QuestionList from './components/QuestionList';
-import QuestionsBank from './components/QuestionsBank';
-import QuestionDetail from './components/QuestionDetail';
-import QuizTaker from './components/QuizTaker';
-import ResultsScreen from './components/ResultsScreen';
-import ProgressTracker from './components/ProgressTracker';
-import AdminUpload from './components/AdminUpload';
-import Settings from './components/Settings';
-import Login from './components/Login';
-import About from './components/About';
+// Route screens load lazily so first paint only downloads Login + shell.
+// Vendor libs ride in their own long-cached chunks (see vite.config.ts).
+const QuestionList = React.lazy(() => import('./components/QuestionList'));
+const QuestionsBank = React.lazy(() => import('./components/QuestionsBank'));
+const QuestionDetail = React.lazy(() => import('./components/QuestionDetail'));
+const QuizTaker = React.lazy(() => import('./components/QuizTaker'));
+const ResultsScreen = React.lazy(() => import('./components/ResultsScreen'));
+const ProgressTracker = React.lazy(() => import('./components/ProgressTracker'));
+const AdminUpload = React.lazy(() => import('./components/AdminUpload'));
+const Settings = React.lazy(() => import('./components/Settings'));
+const Login = React.lazy(() => import('./components/Login'));
+const About = React.lazy(() => import('./components/About'));
 import Header from './components/Header';
 import DesktopSidebar from './components/DesktopSidebar';
 import MobileBottomNav from './components/MobileBottomNav';
@@ -139,6 +141,14 @@ function AppShell() {
             }
           >
             <ErrorBoundary key={location.pathname}>
+            <Suspense
+              fallback={
+                <div className="card" style={{ padding: '3rem 2rem', textAlign: 'center', maxWidth: 560, margin: '3rem auto' }}>
+                  <div className="skeleton" style={{ height: '1.25rem', width: '12rem', margin: '0 auto 1rem' }} />
+                  <div className="skeleton" style={{ height: '0.875rem', width: '18rem', maxWidth: '100%', margin: '0 auto' }} />
+                </div>
+              }
+            >
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={userId ? <QuestionList /> : <Navigate to="/login" replace />} />
@@ -153,6 +163,7 @@ function AppShell() {
               <Route path="/about" element={<About />} />
               <Route path="*" element={userId ? <Navigate to="/" replace /> : <Navigate to="/login" replace />} />
             </Routes>
+            </Suspense>
             </ErrorBoundary>
           </div>
         </main>

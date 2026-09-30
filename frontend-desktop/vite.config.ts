@@ -13,6 +13,39 @@ export default defineConfig({
     },
   },
 
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Vendor split: big third-party blobs get their own long-cached
+        // chunks; route screens stay separate via React.lazy in App.tsx.
+        // First paint downloads index + vendor in parallel instead of one
+        // 576KB file, and vendor rarely re-downloads between releases.
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          motion: ['framer-motion'],
+          data: ['axios', 'react-hot-toast'],
+          ui: [
+            '@radix-ui/react-checkbox',
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-hover-card',
+            '@radix-ui/react-icons',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-radio-group',
+            '@radix-ui/react-select',
+            '@radix-ui/react-slot',
+            '@radix-ui/react-switch',
+            '@radix-ui/react-tooltip',
+            'class-variance-authority',
+            'clsx',
+            'lucide-react',
+          ],
+        },
+      },
+    },
+  },
+
   server: {
     port: 5173,
     strictPort: true,

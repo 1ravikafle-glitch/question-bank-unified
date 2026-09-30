@@ -1445,6 +1445,7 @@
 
 .scroll-area {
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--muted)) transparent;
 }
