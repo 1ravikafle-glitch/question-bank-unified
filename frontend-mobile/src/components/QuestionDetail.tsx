@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchQuestionById, fetchBookmarkIds, toggleBookmark } from '../services/api';
+import { fetchQuestionById, fetchBookmarkIds, toggleBookmark, fetchNotes, saveNote } from '../services/api';
 import { AuthContext } from '@/context/AuthContext';
 import BookmarkButton from '@/components/BookmarkButton';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,28 @@ const QuestionDetail: React.FC = () => {
     if (res) setBookmarked(res.bookmarked);
   }, [userId, question]);
   const [loading, setLoading] = useState(true);
+  const [note, setNote] = useState('');
+  const [noteSaved, setNoteSaved] = useState<boolean | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!userId || !question) return;
+    fetchNotes(userId)
+      .then((r) => {
+        setNote(r.notes[question.id] || '');
+        setNoteSaved(r.notes[question.id] ? true : null);
+      })
+      .catch(() => {});
+  }, [userId, question]);
+
+  const handleSaveNote = useCallback(async () => {
+    if (!userId || !question || savingNote) return;
+    setSavingNote(true);
+    const res = await saveNote(userId, question.id, note).catch(() => null);
+    setSavingNote(false);
+    if (res) setNoteSaved(res.saved ? true : null);
+  }, [userId, question, note, savingNote]);
 
   useEffect(() => {
     const loadQuestion = async () => {
@@ -145,6 +166,49 @@ const QuestionDetail: React.FC = () => {
                 Practice this question →
               </Button>
             </motion.div>
+          </div>
+
+          {(question as any).explanation && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '0.875rem 1rem',
+                borderRadius: 'var(--apple-radius-md)',
+                background: 'hsl(var(--primary) / 0.07)',
+                border: '1px solid hsl(var(--primary) / 0.2)',
+              }}
+            >
+              <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--primary))', margin: '0 0 0.375rem' }}>
+                Explanation
+              </p>
+              <p style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'hsl(var(--foreground))', margin: 0 }}>
+                {(question as any).explanation}
+              </p>
+            </div>
+          )}
+
+          <div style={{ marginTop: '1rem' }}>
+            <label
+              htmlFor="question-note"
+              style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}
+            >
+              My note {noteSaved === true && <span style={{ color: 'hsl(var(--primary))' }}>· saved ✓</span>}
+            </label>
+            <textarea
+              id="question-note"
+              className="input"
+              value={note}
+              onChange={(e) => {
+                setNote(e.target.value);
+                setNoteSaved(null);
+              }}
+              placeholder="Why is this the answer? Write it in your own words…"
+              rows={3}
+              style={{ resize: 'vertical', marginBottom: '0.5rem' }}
+            />
+            <Button onClick={handleSaveNote} variant="outline" size="sm" disabled={savingNote}>
+              {savingNote ? 'Saving…' : note.trim() ? 'Save note' : 'Clear note'}
+            </Button>
           </div>
         </CardContent>
       </Card>

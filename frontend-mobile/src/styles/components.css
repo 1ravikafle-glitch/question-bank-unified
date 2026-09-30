@@ -384,6 +384,17 @@
   background-color: hsl(var(--info));
   color: hsl(var(--info-foreground));
 }
+/* Dark: solid deep-green fill keeps white badge text at 5.5:1
+   (vivid 50% fill drops to ~2.1 and must not be used with white text) */
+.dark .badge-success {
+  background-color: hsl(142 55% 30%);
+  color: hsl(0 0% 100%);
+}
+/* Dark: deepened red fill keeps white badge text above 4.5:1 */
+.dark .badge-destructive {
+  background-color: hsl(0 72% 44%);
+  color: hsl(0 0% 100%);
+}
 .badge-accent {
   background-color: hsl(var(--accent));
   color: hsl(var(--accent-foreground));

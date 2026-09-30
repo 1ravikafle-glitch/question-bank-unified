@@ -119,6 +119,7 @@ function QuestionBox({
   const showResult = role === 'active' && revealed;
   // Normalize question shape: supports both {q, options:[{key,text}], correct} and our {question_text, options:Record, correct_answer}
   const qText = question.q ?? question.question_text ?? '';
+  const qExplanation = (question.explanation || '').toString().trim();
   const qOptions: { key: string; text: string }[] = Array.isArray(question.options)
     ? question.options
     : Object.entries((question.options as Record<string, string>) || {}).map(([k, v]) => ({ key: k.toUpperCase(), text: String(v) }));
@@ -278,6 +279,25 @@ function QuestionBox({
           );
         })}
       </div>
+
+      {showResult && qExplanation && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: '10px 14px',
+            borderRadius: 10,
+            background: 'hsl(var(--primary) / 0.07)',
+            border: '1px solid hsl(var(--primary) / 0.2)',
+            fontSize: 13.5,
+            lineHeight: 1.55,
+            color: T.textPrimary,
+            fontFamily: T.font,
+          }}
+        >
+          <span style={{ fontWeight: 700, color: T.accent }}>Why: </span>
+          {qExplanation}
+        </div>
+      )}
 
       {locked && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -981,6 +1001,7 @@ const QuizTaker: React.FC = () => {
       options: data.items.map(([k, v]) => ({ key: k, text: String(v) })),
       correct: data.correctKey,
       _rawId: q.id,
+      explanation: (q as any).explanation || '',
     };
   };
 

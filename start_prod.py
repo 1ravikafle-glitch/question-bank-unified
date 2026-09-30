@@ -195,6 +195,8 @@ import questions_router
 import auth_router
 import admin_router
 import bookmarks_router
+import notes_router
+import uploads_router
 import seo_pages
 
 SEO_ENABLED = seo_pages.IS_LOKSEWA  # Loksewa mirror only; PSC service unchanged
@@ -216,6 +218,8 @@ app.include_router(questions_router.router)
 app.include_router(auth_router.router)
 app.include_router(admin_router.router)
 app.include_router(bookmarks_router.router)
+app.include_router(notes_router.router)
+app.include_router(uploads_router.router)
 
 # ── Health check (verifies DB connectivity) ────────────────────────────────────
 @app.get("/api/health")

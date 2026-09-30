@@ -10,6 +10,7 @@ class QuestionBase(BaseModel):
     correct_answer: str
     category: Optional[str] = None
     difficulty: Optional[str] = None
+    explanation: Optional[str] = None
 
 
 class QuestionCreate(QuestionBase):
@@ -23,6 +24,7 @@ class QuestionUpdate(BaseModel):
     correct_answer: Optional[str] = None
     category: Optional[str] = None
     difficulty: Optional[str] = None
+    explanation: Optional[str] = None
 
 
 class Question(QuestionBase):

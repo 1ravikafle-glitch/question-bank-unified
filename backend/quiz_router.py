@@ -17,25 +17,39 @@ router = APIRouter(prefix="/quiz", tags=["quiz"])
 
 
 def _ensure_attempt_extra_columns():
-    """ADD COLUMN migration for quiz_attempts (idempotent, both engines)."""
+    """ADD COLUMN migrations for pre-existing DBs (idempotent, both engines).
+
+    Fresh DBs get everything via create_all; this only patches tables that
+    already exist without the newer columns. Each table is handled
+    independently so a missing table never aborts the rest.
+    """
     try:
         from sqlalchemy import inspect, text as _text
 
         insp = inspect(database.engine)
-        cols = {c["name"] for c in insp.get_columns("quiz_attempts")}
+        jobs = [
+            ("quiz_attempts", "raw_score", "INTEGER"),
+            (
+                "quiz_attempts",
+                "negative_marking",
+                "FLOAT" if database.is_postgres else "REAL",
+            ),
+            ("questions", "explanation", "TEXT"),
+            ("questions", "source", "TEXT"),
+        ]
         stmts = []
-        if "raw_score" not in cols:
-            stmts.append("ALTER TABLE quiz_attempts ADD COLUMN raw_score INTEGER")
-        if "negative_marking" not in cols:
-            if database.is_postgres:
-                stmts.append("ALTER TABLE quiz_attempts ADD COLUMN negative_marking FLOAT")
-            else:
-                stmts.append("ALTER TABLE quiz_attempts ADD COLUMN negative_marking REAL")
+        for table, col, ddl in jobs:
+            try:
+                cols = {c["name"] for c in insp.get_columns(table)}
+            except Exception:
+                continue  # table doesn't exist yet — create_all covers it
+            if col not in cols:
+                stmts.append((table, f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
         if stmts:
             with database.engine.begin() as conn:
-                for st in stmts:
+                for table, st in stmts:
                     conn.execute(_text(st))
-            print(f"[QUIZ] migrated quiz_attempts (+{len(stmts)} cols)", file=sys.stderr)
+                    print(f"[QUIZ] migrated {table} (+1 col)", file=sys.stderr)
     except Exception as e:
         print(f"[QUIZ] column migration skipped: {e}", file=sys.stderr)
 

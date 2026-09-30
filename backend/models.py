@@ -31,6 +31,8 @@ class Question(Base):
     correct_answer = Column(String(1), nullable=False)
     category = Column(String(100), nullable=True)
     difficulty = Column(String(20), nullable=True)
+    explanation = Column(Text, nullable=True)
+    source = Column(String(60), nullable=True, default="bank")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -116,4 +118,21 @@ class Bookmark(Base):
     __table_args__ = (
         Index("ix_bookmarks_user", "user_identifier"),
         Index("ix_bookmarks_user_question", "user_identifier", "question_id", unique=True),
+    )
+
+
+class QuestionNote(Base):
+    """Personal user note attached to a question (one per user+question)."""
+
+    __tablename__ = "question_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_identifier = Column(String(100), nullable=False)
+    question_id = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False, default="")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_notes_user", "user_identifier"),
+        Index("ix_notes_user_question", "user_identifier", "question_id", unique=True),
     )

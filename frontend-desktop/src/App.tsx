@@ -10,6 +10,7 @@ const Bookmarks = React.lazy(() => import('./components/Bookmarks'));
 const QuestionDetail = React.lazy(() => import('./components/QuestionDetail'));
 const QuizTaker = React.lazy(() => import('./components/QuizTaker'));
 const MockExam = React.lazy(() => import('./components/MockExam'));
+const Contribute = React.lazy(() => import('./components/Contribute'));
 const ResultsScreen = React.lazy(() => import('./components/ResultsScreen'));
 const ProgressTracker = React.lazy(() => import('./components/ProgressTracker'));
 const AdminUpload = React.lazy(() => import('./components/AdminUpload'));
@@ -160,6 +161,7 @@ function AppShell() {
               <Route path="/question/:id" element={userId ? <QuestionDetail /> : <Navigate to="/login" replace />} />
               <Route path="/quiz" element={userId ? <QuizTaker /> : <Navigate to="/login" replace />} />
               <Route path="/mock" element={userId ? <MockExam /> : <Navigate to="/login" replace />} />
+              <Route path="/contribute" element={userId ? <Contribute /> : <Navigate to="/login" replace />} />
               <Route path="/quiz/practice-wrong" element={userId ? <QuizTaker /> : <Navigate to="/login" replace />} />
               <Route path="/results" element={userId ? <ResultsScreen /> : <Navigate to="/login" replace />} />
               <Route path="/progress" element={userId ? <ProgressTracker /> : <Navigate to="/login" replace />} />

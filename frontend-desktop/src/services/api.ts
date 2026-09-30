@@ -416,3 +416,24 @@ export const clearBookmarks = async (
   );
   return response.data;
 };
+
+// ── Personal notes ─────────────────────────────────────────────
+export const fetchNotes = async (
+  userIdentifier: string
+): Promise<{ notes: Record<number, string>; count: number }> => {
+  const response = await api.get(`/notes/${encodeURIComponent(userIdentifier)}`);
+  return response.data;
+};
+
+export const saveNote = async (
+  userIdentifier: string,
+  questionId: number,
+  text: string
+): Promise<{ saved: boolean; cleared: boolean }> => {
+  const response = await api.put('/notes', {
+    user_identifier: userIdentifier,
+    question_id: questionId,
+    text,
+  });
+  return response.data;
+};

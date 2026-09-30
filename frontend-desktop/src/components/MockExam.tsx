@@ -17,10 +17,16 @@ interface Preset {
   blurb: string;
 }
 
+// Exam-hall pace per paper (mock exams only — practice keeps its own rhythm):
+// 30 Qs -> 25 min, 50 Qs -> 45 min, 100 Qs -> 90 min.
+const EXAM_MINUTES: Record<number, number> = { 30: 25, 50: 45, 100: 90 };
+export const examMinutesFor = (count: number) =>
+  EXAM_MINUTES[count] ?? Math.max(1, Math.ceil(count * 0.9));
+
 const PRESETS: Preset[] = [
-  { title: 'Full Mock', count: 100, minutes: 120, negative: 0.2, blurb: 'The real thing — full paper, real pressure.' },
-  { title: 'Mini Mock', count: 50, minutes: 60, negative: 0.2, blurb: 'Half paper for a focused session.' },
-  { title: 'Sprint', count: 25, minutes: 30, negative: 0, blurb: 'Fast and clean — no penalty.' },
+  { title: 'Full Mock', count: 100, minutes: examMinutesFor(100), negative: 0.2, blurb: 'The real thing — full paper, real pressure.' },
+  { title: 'Mini Mock', count: 50, minutes: examMinutesFor(50), negative: 0.2, blurb: 'Half paper for a focused session.' },
+  { title: 'Sprint', count: 30, minutes: examMinutesFor(30), negative: 0, blurb: 'Fast and clean — no penalty.' },
 ];
 
 const NEG_OPTIONS = [
@@ -36,7 +42,8 @@ const MockExam: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [category, setCategory] = useState('');
   const [count, setCount] = useState(50);
-  const [minutes, setMinutes] = useState(60);
+  // Fixed exam-hall table — the paper length always decides the clock.
+  const minutes = examMinutesFor(count);
   const [negative, setNegative] = useState(0.2);
 
   useEffect(() => {
@@ -139,7 +146,7 @@ const MockExam: React.FC = () => {
           Questions
         </label>
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          {[25, 50, 100].map((n) => (
+          {[30, 50, 100].map((n) => (
             <button
               key={n}
               onClick={() => { sfxClick(); setCount(n); }}
@@ -156,25 +163,25 @@ const MockExam: React.FC = () => {
           ))}
         </div>
 
-        <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>
-          Time
-        </label>
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          {[30, 60, 120].map((m) => (
-            <button
-              key={m}
-              onClick={() => { sfxClick(); setMinutes(m); }}
-              className="qpill"
-              style={
-                minutes === m
-                  ? { background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', borderColor: 'hsl(var(--primary))' }
-                  : undefined
-              }
-              aria-pressed={minutes === m}
-            >
-              {m} min
-            </button>
-          ))}
+                <div
+          role="status"
+          aria-label="Fixed exam time"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--apple-radius-md)',
+            background: 'hsl(var(--muted))',
+            marginBottom: '1rem',
+          }}
+        >
+          <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))' }}>
+            Time · fixed
+          </span>
+          <span style={{ fontSize: '0.9375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'hsl(var(--foreground))' }}>
+            {minutes} min
+          </span>
         </div>
 
         <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>

@@ -145,6 +145,7 @@ const navSections: NavSectionDef[] = [
       { to: '/', label: 'Home', end: true, icon: <HomeIcon /> },
       { to: '/quiz', label: 'Practice', end: false, icon: <ClockIcon /> },
       { to: '/mock', label: 'Mock Exam', end: false, icon: <ExamIcon /> },
+      { to: '/contribute', label: 'Contribute', end: false, icon: <UploadIcon /> },
       { to: '/questions', label: 'Questions', end: false, icon: <BookIcon /> },
     ],
   },

@@ -300,7 +300,7 @@ def update_question(question_id: int, payload: dict, db: Session = Depends(datab
     if question is None:
         raise HTTPException(status_code=404, detail="Question not found")
 
-    allowed_fields = {"question_number", "question_text", "options", "correct_answer", "category", "difficulty"}
+    allowed_fields = {"question_number", "question_text", "options", "correct_answer", "category", "difficulty", "explanation"}
     updates = {k: v for k, v in payload.items() if k in allowed_fields}
 
     if "correct_answer" in updates and updates["correct_answer"]:

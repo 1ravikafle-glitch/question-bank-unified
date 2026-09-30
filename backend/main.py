@@ -10,6 +10,8 @@ import quiz_router
 import admin_router
 import auth_router
 import bookmarks_router
+import notes_router
+import uploads_router
 
 # Create database tables
 models.Base.metadata.create_all(bind=database.engine)
@@ -36,6 +38,8 @@ app.include_router(quiz_router.router)
 app.include_router(admin_router.router)
 app.include_router(auth_router.router)
 app.include_router(bookmarks_router.router)
+app.include_router(notes_router.router)
+app.include_router(uploads_router.router)
 
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
