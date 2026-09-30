@@ -437,6 +437,7 @@ const QuizTaker: React.FC = () => {
   }, [showSetup, userId]);
   const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
   const [setupCategory, setSetupCategory] = useState('');
+  const [wrongCategory, setWrongCategory] = useState('');
   const [showSetupCategoryDropdown, setShowSetupCategoryDropdown] = useState(false);
   const setupCategoryDismissRef = useDismiss<HTMLDivElement>(
     showSetupCategoryDropdown,
@@ -534,7 +535,8 @@ const QuizTaker: React.FC = () => {
         } else if (isPracticeWrongMode && wrongQuestionIds.length > 0) {
           questionsData = await fetchQuestionsByIds(wrongQuestionIds);
         } else if (isPracticeWrongMode && source === 'queue') {
-          const queue = await fetchWrongQueue(userId || 'anonymous');
+          const wc = (location.state as { wrongCategory?: string })?.wrongCategory;
+          const queue = await fetchWrongQueue(userId || 'anonymous', wc || undefined);
           questionsData = queue.questions || [];
         } else if (questionIdFromUrl) {
           const specificQuestion = await fetchQuestionById(parseInt(questionIdFromUrl));
@@ -690,8 +692,8 @@ const QuizTaker: React.FC = () => {
 
   const startWrongFromSetup = useCallback(() => {
     setShowSetup(false);
-    navigate('/quiz/practice-wrong', { state: { source: 'queue' } });
-  }, [navigate]);
+    navigate('/quiz/practice-wrong', { state: { source: 'queue', wrongCategory: wrongCategory || undefined } });
+  }, [navigate, wrongCategory]);
 
   const startBookmarksQuiz = useCallback(async () => {
     if (setupBmIds.length === 0) return;
@@ -1315,6 +1317,27 @@ const QuizTaker: React.FC = () => {
                     ~{setupWrongCount * 2} min
                   </span>
                 </div>
+                <select
+                  value={wrongCategory}
+                  onChange={(e) => setWrongCategory(e.target.value)}
+                  aria-label="Review wrong questions in a category"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 12,
+                    fontSize: 13,
+                    fontFamily: T.font,
+                    color: T.textPrimary,
+                    background: T.card,
+                    border: `1px solid ${T.border}`,
+                    marginBottom: 10,
+                  }}
+                >
+                  <option value="">All wrong ({setupWrongCount})</option>
+                  {sortCategories(setupCategories).map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
                 <button
                   onClick={() => { try { navigator.vibrate?.(10); } catch {} startWrongFromSetup(); }}
                   style={{

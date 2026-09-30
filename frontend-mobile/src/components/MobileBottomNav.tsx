@@ -273,6 +273,22 @@ const MobileBottomNav: React.FC = () => {
               </a>
             </div>
 
+            {/* Mock Exam */}
+            <div className="p-3" style={{ paddingBottom: 0 }}>
+              <button
+                onClick={() => { haptic(8); setShowSheet(false); navigate('/mock'); }}
+                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
+                style={{
+                  color: 'hsl(var(--foreground))',
+                  background: 'hsl(var(--muted))',
+                }}
+              >
+                <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">📝</span>
+                <span className="flex-1 text-left">Mock Exam</span>
+                <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
+              </button>
+            </div>
+
             {/* Bookmarks */}
             <div className="p-3">
               <button

@@ -162,6 +162,11 @@ const ResultsScreen: React.FC = () => {
             <p style={{ fontSize: '0.875rem', fontWeight: 600, margin: 0 }}>
               You scored {quizResult.score} / {quizResult.total_questions}
             </p>
+            {(quizResult as any).negative_marking > 0 && (
+              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '2px 0 0', fontFamily: 'var(--font-mono)' }}>
+                {(quizResult as any).raw_score ?? quizResult.score} correct − penalty ({(quizResult as any).negative_marking}/wrong)
+              </p>
+            )}
             {(quizResult as any).offline && (
               <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '2px 0 0' }}>
                 Offline result — saved on this device, will sync automatically when you reconnect.

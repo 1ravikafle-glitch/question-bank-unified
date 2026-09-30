@@ -2009,15 +2009,74 @@
   }
 }
 
-/* Tier pills: deep flat fills in dark, no glow, no brightness pulse */
-.dark .qpill.lvl-10.is-on,
-.dark .qpill.lvl-20.is-on,
-.dark .qpill.lvl-50.is-on,
-.dark .qpill.lvl-100.is-on {
-  box-shadow: none;
-  animation: none;
-  filter: none;
+/* ── Question-count tiers: 10 calm → 100 hot → BEAST max ── */
+.qpill {
+  flex: 1;
+  padding: 0.5rem 0;
+  border-radius: var(--apple-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-semibold);
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.06);
+  cursor: pointer;
+  transition: background-color var(--dur-instant) var(--ease-standard),
+    border-color var(--dur-instant) var(--ease-standard),
+    box-shadow var(--dur-standard) var(--ease-standard),
+    color var(--dur-instant) var(--ease-standard);
 }
+.qpill.lvl-10:hover { border-color: hsl(142 60% 45% / 0.5); }
+.qpill.lvl-20:hover { border-color: hsl(160 65% 38% / 0.55); }
+.qpill.lvl-50:hover { border-color: hsl(38 92% 50% / 0.6); }
+.qpill.lvl-100:hover { border-color: hsl(24 95% 53% / 0.65); }
+/* 10 — calm small: soft green, no animation */
+.qpill.lvl-10.is-on {
+  color: #fff;
+  background: hsl(142 55% 42%);
+  border-color: hsl(142 55% 42%);
+  box-shadow: 0 3px 10px hsl(142 55% 42% / 0.3);
+}
+/* 20 — steady: teal-green with a slow breathe */
+.qpill.lvl-20.is-on {
+  color: #fff;
+  background: hsl(162 62% 36%);
+  border-color: hsl(162 62% 36%);
+  box-shadow: 0 4px 14px hsl(162 62% 36% / 0.4);
+  animation: lvlBreathe 2.4s ease-in-out infinite;
+}
+/* 50 — warm: amber with a confident pulse */
+.qpill.lvl-50.is-on {
+  color: hsl(32 100% 14%);
+  background: hsl(38 95% 52%);
+  border-color: hsl(38 95% 52%);
+  box-shadow: 0 4px 16px hsl(38 95% 50% / 0.45);
+  animation: lvlPulse 1.8s ease-in-out infinite;
+}
+/* 100 — hot: ember orange, strong pulse */
+.qpill.lvl-100.is-on {
+  color: #fff;
+  background: hsl(22 92% 50%);
+  border-color: hsl(22 92% 50%);
+  box-shadow: 0 0 18px 2px hsl(22 92% 55% / 0.5), 0 4px 14px hsl(22 92% 50% / 0.4);
+  animation: lvlPulse 1.4s ease-in-out infinite;
+}
+@keyframes lvlBreathe {
+  0%, 100% { box-shadow: 0 4px 12px hsl(162 62% 36% / 0.3); }
+  50% { box-shadow: 0 4px 20px hsl(162 62% 36% / 0.55); }
+}
+@keyframes lvlPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qpill.lvl-20.is-on,
+  .qpill.lvl-50.is-on,
+  .qpill.lvl-100.is-on {
+    animation: none !important;
+  }
+}
+
 .dark .qpill.lvl-10.is-on {
   background: hsl(142 55% 34%);
   border-color: hsl(142 55% 34%);

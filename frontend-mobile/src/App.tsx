@@ -9,6 +9,7 @@ import { Toaster } from 'react-hot-toast';
 const QuestionList = lazy(() => import('./components/QuestionList'));
 const QuestionsBank = lazy(() => import('./components/QuestionsBank'));
 const Bookmarks = lazy(() => import('./components/Bookmarks'));
+const MockExam = lazy(() => import('./components/MockExam'));
 const QuestionDetail = lazy(() => import('./components/QuestionDetail'));
 const QuizTaker = lazy(() => import('./components/QuizTaker'));
 const ResultsScreen = lazy(() => import('./components/ResultsScreen'));
@@ -158,6 +159,7 @@ function AppShell() {
               <Route path="/" element={userId ? <QuestionList /> : <Navigate to="/login" replace />} />
               <Route path="/questions" element={userId ? <QuestionsBank /> : <Navigate to="/login" replace />} />
               <Route path="/bookmarks" element={userId ? <Bookmarks /> : <Navigate to="/login" replace />} />
+              <Route path="/mock" element={userId ? <MockExam /> : <Navigate to="/login" replace />} />
               <Route path="/question/:id" element={userId ? <QuestionDetail /> : <Navigate to="/login" replace />} />
               <Route path="/quiz" element={userId ? <QuizTaker /> : <Navigate to="/login" replace />} />
               <Route path="/quiz/practice-wrong" element={userId ? <QuizTaker /> : <Navigate to="/login" replace />} />
