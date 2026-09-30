@@ -408,6 +408,13 @@ const QuizTaker: React.FC = () => {
   const [setupTotal, setSetupTotal] = useState(0);
   const [setupWrongCount, setSetupWrongCount] = useState(0);
   const [setupQuizCount, setSetupQuizCount] = useState(10);
+  const [setupBmIds, setSetupBmIds] = useState<number[]>([]);
+
+  // Bookmark source for the setup card (refreshed whenever setup shows).
+  useEffect(() => {
+    if (!showSetup || !userId) return;
+    fetchBookmarkIds(userId).then((r) => setSetupBmIds(r.ids)).catch(() => {});
+  }, [showSetup, userId]);
   const [setupBeastMode, setSetupBeastMode] = useState(false);
   const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
   const [quizPrefs] = useQuizPrefs();
@@ -667,6 +674,26 @@ const QuizTaker: React.FC = () => {
     navigate('/quiz/practice-wrong', { state: { source: 'queue' } });
   }, [navigate]);
 
+  const startBookmarksQuiz = useCallback(async () => {
+    if (setupBmIds.length === 0) return;
+    setShowSetup(false);
+    setResumeInfo(null);
+    try { localStorage.removeItem(QUIZ_STORAGE_KEY); } catch {}
+    setLoading(true);
+    try {
+      const questionsData = await fetchQuestionsByIds(setupBmIds);
+      setQuestions(shuffleArray(questionsData));
+      setSelected({});
+      setCurrentIndex(0);
+      setAnnouncement(`Bookmark review started with ${questionsData.length} questions.`);
+    } catch (err) {
+      console.error('Error fetching bookmarked questions:', err);
+      setAnnouncement('Failed to load bookmarked questions.');
+    } finally {
+      setLoading(false);
+    }
+  }, [setupBmIds]);
+
   const goToNextOrSubmit = useCallback(() => {
     setCurrentIndex((i) => {
       if (i < questions.length - 1) return i + 1;
@@ -870,6 +897,13 @@ const QuizTaker: React.FC = () => {
         return;
       }
 
+      // M: bookmark (mark) the current question
+      if ((e.key === 'm' || e.key === 'M') && currentQuestion) {
+        e.preventDefault();
+        handleBmToggle(currentQuestion.id);
+        return;
+      }
+
       // A–D: select option on active question
       if (!isLocked && !finished) {
         const key = e.key.toLowerCase();
@@ -903,7 +937,7 @@ const QuizTaker: React.FC = () => {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, confirmExit]);
+  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, confirmExit, currentQuestion, handleBmToggle]);
 
   // Helpers to adapt Question to reference shape for QuestionBox
   const toBoxQuestion = (q: Question) => {
@@ -1048,6 +1082,8 @@ const QuizTaker: React.FC = () => {
               onStart={startQuizFromSetup}
               startLabel="Start Quiz"
               ping={() => { try { navigator.vibrate?.(8); } catch {} }}
+              bookmarkCount={setupBmIds.length}
+              onPracticeBookmarks={startBookmarksQuiz}
               lead={
               <>
             {/* Resume banner — only when a quiz was left mid-way */}
@@ -1158,7 +1194,9 @@ const QuizTaker: React.FC = () => {
         {/* Header row — Practice quiz + controls */}
         <div className="lg:mb-5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 13, color: T.textSecondary, fontWeight: 500, fontFamily: T.font }}>Practice quiz</div>
+            <div style={{ fontSize: 13, color: bookmarkIds.length > 0 ? 'hsl(38 92% 45%)' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
+              {bookmarkIds.length > 0 ? `🔖 Bookmark review · ${questions.length}` : 'Practice quiz'}
+            </div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', fontFamily: T.font, color: T.textPrimary }}>Forestry PSC</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

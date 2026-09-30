@@ -249,6 +249,9 @@ const QuestionsBank: React.FC = () => {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); handleNextPage(); }
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); handlePrevPage(); }
+      else if (e.key === 'm' || e.key === 'M') {
+        if (selectedQuestion) { e.preventDefault(); handleBmToggle(selectedQuestion.id); }
+      }
       else if ((e.key === ' ' || e.key === 'Enter') && viewMode === 'raw') {
         for (const q of pageQuestions) {
           if (!rawLocked[q.id] && rawSelections[q.id]) { e.preventDefault(); handleRawSubmit(q.id, q.correct_answer); break; }
@@ -257,7 +260,7 @@ const QuestionsBank: React.FC = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleNextPage, handlePrevPage, viewMode, pageQuestions, rawSelections, rawLocked]);
+  }, [handleNextPage, handlePrevPage, viewMode, pageQuestions, rawSelections, rawLocked, selectedQuestion, handleBmToggle]);
 
   const touchStartX = useRef(0);
   const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
@@ -915,7 +918,7 @@ const QuestionsBank: React.FC = () => {
       {filtered.length > 0 && isRawMode && (
         <div style={{ textAlign: 'center', paddingBottom: '16px' }}>
           <p style={{ fontSize: '0.625rem', color: 'hsl(var(--muted-foreground) / 0.5)' }}>
-            ← → arrows: pages · Swipe: pages · Space/Enter: check answer
+            ← → arrows: pages · Swipe: pages · Space/Enter: check answer · M: bookmark
           </p>
         </div>
       )}

@@ -440,6 +440,12 @@ const QuizTaker: React.FC = () => {
   const [setupWrongCount, setSetupWrongCount] = useState(0);
   const [setupQuizCount, setSetupQuizCount] = useState(10);
   const [setupBeastMode, setSetupBeastMode] = useState(false);
+  const [setupBmIds, setSetupBmIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!showSetup || !userId) return;
+    fetchBookmarkIds(userId).then((r) => setSetupBmIds(r.ids)).catch(() => {});
+  }, [showSetup, userId]);
   const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
   const [setupCategory, setSetupCategory] = useState('');
   const [showSetupCategoryDropdown, setShowSetupCategoryDropdown] = useState(false);
@@ -684,6 +690,26 @@ const QuizTaker: React.FC = () => {
     navigate('/quiz/practice-wrong', { state: { source: 'queue' } });
   }, [navigate]);
 
+  const startBookmarksQuiz = useCallback(async () => {
+    if (setupBmIds.length === 0) return;
+    setShowSetup(false);
+    setResumeInfo(null);
+    try { localStorage.removeItem(QUIZ_STORAGE_KEY); } catch {}
+    setLoading(true);
+    try {
+      const questionsData = await fetchQuestionsByIds(setupBmIds);
+      setQuestions(shuffleArray(questionsData));
+      setSelected({});
+      setCurrentIndex(0);
+      setAnnouncement(`Bookmark review started with ${questionsData.length} questions.`);
+    } catch (err) {
+      console.error('Error fetching bookmarked questions:', err);
+      setAnnouncement('Failed to load bookmarked questions.');
+    } finally {
+      setLoading(false);
+    }
+  }, [setupBmIds]);
+
   const goToNextOrSubmit = useCallback(() => {
     setCurrentIndex((i) => {
       if (i < questions.length - 1) return i + 1;
@@ -870,6 +896,13 @@ const QuizTaker: React.FC = () => {
       const tag = (e.target as HTMLElement).tagName;
       const isTypingField = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
       if (isTypingField) return;
+
+      // M: bookmark (mark) the current question
+      if ((e.key === 'm' || e.key === 'M') && currentQuestion && !showExitConfirm) {
+        e.preventDefault();
+        handleBmToggle(currentQuestion.id);
+        return;
+      }
 
       // A–D: select option on active question
       if (!isLocked && !showExitConfirm && !finished) {
@@ -1207,6 +1240,36 @@ const QuizTaker: React.FC = () => {
               Start Quiz
             </button>
 
+            {/* Saved bookmarks */}
+            {setupBmIds.length > 0 && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 16 }} aria-hidden="true">🔖</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: T.font, color: T.textPrimary }}>
+                    {setupBmIds.length} saved question{setupBmIds.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { try { navigator.vibrate?.(10); } catch {} startBookmarksQuiz(); }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 0',
+                    borderRadius: 14,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    fontFamily: T.font,
+                    color: 'hsl(38 92% 40%)',
+                    background: 'hsl(38 92% 50% / 0.12)',
+                    border: '1px solid hsl(38 92% 50% / 0.35)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Practice bookmarks →
+                </button>
+              </div>
+            )}
+
             {/* Wrong questions queue */}
             {setupWrongCount > 0 && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
@@ -1353,7 +1416,9 @@ const QuizTaker: React.FC = () => {
         {/* Header row — Practice quiz + controls */}
         <div className="quiz-hero-row lg:mb-5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 13, color: T.textSecondary, fontWeight: 500, fontFamily: T.font }}>Practice quiz</div>
+            <div style={{ fontSize: 13, color: bookmarkIds.length > 0 ? 'hsl(38 92% 45%)' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
+              {bookmarkIds.length > 0 ? `🔖 Bookmark review · ${questions.length}` : 'Practice quiz'}
+            </div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', fontFamily: T.font, color: T.textPrimary }}>Forestry PSC</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
