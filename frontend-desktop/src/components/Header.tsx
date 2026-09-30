@@ -333,9 +333,9 @@ const Header: React.FC = () => {
       <header
         className="hidden lg:flex fixed top-0 z-40 items-center justify-between border-b"
         style={{
-          left: '280px',
+          left: 'var(--sidebar-w)',
           right: 0,
-          height: '56px',
+          height: 'var(--header-h)',
           padding: '0 5%',
           background: 'hsl(var(--background) / 0.82)',
           backdropFilter: 'blur(20px) saturate(180%)',
@@ -346,7 +346,7 @@ const Header: React.FC = () => {
       >
         <AnimatePresence mode="wait">
           <motion.h1
-            key={pageTitle}
+            key={location.pathname}
             initial={prefersReducedMotion() ? undefined : { opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReducedMotion() ? undefined : { opacity: 0, y: 4 }}
@@ -376,8 +376,10 @@ const Header: React.FC = () => {
               justifyContent: 'center',
               gap: 8,
               padding: '0 14px 0 6px',
-              background: menuOpen ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.10)',
+              background: darkMenu
+                ? menuOpen ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)'
+                : 'hsl(var(--card))',
+              border: darkMenu ? '1px solid rgba(255,255,255,0.10)' : '1px solid hsl(var(--border))',
               backdropFilter: 'blur(18px)',
               WebkitBackdropFilter: 'blur(18px)',
               boxShadow: menuOpen

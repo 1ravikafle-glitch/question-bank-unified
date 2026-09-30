@@ -11,8 +11,23 @@ import schemas
 import session
 import sys
 import random
+import app_cache
 
 router = APIRouter(prefix="/quiz", tags=["quiz"])
+
+# Per-user progress: read on every dashboard visit, changed only on submit.
+# Shared cache (memory now, Redis via REDIS_URL) with 10s TTL + invalidation
+# on write, so bursts of reloads don't re-scan the progress table.
+_PROGRESS_TTL = 10
+
+def _progress_get(user: str):
+    return app_cache.get("prog:" + user)
+
+def _progress_put(user: str, val):
+    app_cache.set("prog:" + user, val, _PROGRESS_TTL)
+
+def _progress_drop(user: str):
+    app_cache.delete("prog:" + user)
 
 
 def _normalize_answers(answers: Dict) -> Dict[int, str]:
@@ -141,6 +156,7 @@ def submit_quiz(
 
         # 4. COMMIT — if this fails, nothing is saved (atomic)
         db.commit()
+        _progress_drop(username)
         print(f"[QUIZ] {username}: {score}/{total} ({percentage}%) — committed", file=sys.stderr)
 
     except HTTPException:
@@ -194,6 +210,9 @@ def get_user_progress(
     caller: Tuple[None, bool] = Depends(session.current_user),
 ):
     user_identifier = caller[0] or user_identifier
+    cached = _progress_get(user_identifier)
+    if cached is not None:
+        return cached
     total_questions = db.query(models.Question).count()
 
     all_rows = db.query(models.UserProgress).filter(
@@ -224,7 +243,7 @@ def get_user_progress(
         models.QuizAttempt.user_identifier == user_identifier
     ).order_by(models.QuizAttempt.completed_at.desc()).limit(10).all()
 
-    return {
+    result = {
         "total_questions": total_questions,
         "lifetime_attempted": lifetime["attempted"],
         "lifetime_correct": lifetime["correct"],
@@ -251,6 +270,8 @@ def get_user_progress(
             for a in recent_attempts
         ],
     }
+    _progress_put(user_identifier, result)
+    return result
 
 
 @router.get("/question-history/{user_identifier}")
@@ -292,19 +313,29 @@ def get_random_questions(
         elif count > 100:
             count = 100
 
-    query = db.query(models.Question)
+    # Fast path: fetch IDs only (tiny), sample in Python, then load just
+    # the chosen rows. The old code loaded every row (3300+ with big JSON
+    # option blobs) on each quiz start — brutal on a small instance under
+    # load, and worse over a network DB link.
+    id_query = db.query(models.Question.id)
     if category:
-        query = query.filter(models.Question.category == category)
+        id_query = id_query.filter(models.Question.category == category)
     if difficulty:
-        query = query.filter(models.Question.difficulty == difficulty)
+        id_query = id_query.filter(models.Question.difficulty == difficulty)
 
-    all_questions = query.all()
-    if not all_questions:
+    all_ids = [r[0] for r in id_query.all()]
+    if not all_ids:
         raise HTTPException(status_code=404, detail="No questions found with given criteria")
 
-    if fetch_all or len(all_questions) <= count:
-        return all_questions
-    return random.sample(all_questions, count)
+    if fetch_all or len(all_ids) <= count:
+        picked = all_ids
+    else:
+        picked = random.sample(all_ids, count)
+
+    questions = db.query(models.Question).filter(models.Question.id.in_(picked)).all()
+    by_id = {q.id: q for q in questions}
+    # Preserve the random order (IN does not guarantee order).
+    return [by_id[i] for i in picked if i in by_id]
 
 
 @router.get("/attempt/{attempt_id}")

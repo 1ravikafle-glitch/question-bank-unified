@@ -32,6 +32,11 @@ export const fetchQuestions = async (
   params: { skip?: number; limit?: number; category?: string; difficulty?: string } = {}
 ): Promise<Question[]> => {
   const response = await api.get<Question[]>('/questions/', { params });
+  // Guard against proxy misses / HTML shells: never hand a non-array to
+  // the library view (it would crash on .filter/.map).
+  if (!Array.isArray(response.data)) {
+    throw new Error('Bad questions response (expected a list)');
+  }
   return response.data;
 };
 
@@ -79,16 +84,44 @@ export const submitQuiz = async (answers: Record<number, string>, username: stri
   }
 };
 
+// ── Tiny stale-while-revalidate cache for hot read-only metadata ──
+// First view downloads from the network; every later view (or revisit)
+// renders instantly from memory while a background revalidate refreshes it.
+// TTLs are short — admin uploads invalidate via page reload anyway.
+const _swr = new Map<string, { val: any; ts: number }>();
+const SWR_TTL = 60_000;
+
+async function swr<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  const hit = _swr.get(key);
+  const now = Date.now();
+  if (hit && now - hit.ts < SWR_TTL) {
+    // Background revalidate (fire-and-forget), serve stale instantly.
+    fetcher().then(
+      (v) => _swr.set(key, { val: v, ts: Date.now() }),
+      () => {},
+    );
+    return hit.val as T;
+  }
+  const val = await fetcher();
+  _swr.set(key, { val, ts: now });
+  return val;
+}
+
 export const fetchQuestionsCount = async (
   params: { category?: string; difficulty?: string } = {}
 ) => {
-  const response = await api.get<{ count: number }>('/questions/count/', { params });
-  return response.data;
+  const key = `count:${params.category || ''}:${params.difficulty || ''}`;
+  return swr(key, async () => {
+    const response = await api.get<{ count: number }>('/questions/count/', { params });
+    return response.data;
+  });
 };
 
 export const fetchCategories = async (): Promise<string[]> => {
-  const response = await api.get<string[]>('/questions/categories/');
-  return response.data;
+  return swr('categories', async () => {
+    const response = await api.get<string[]>('/questions/categories/');
+    return response.data;
+  });
 };
 
 export const fetchUserProgress = async (userIdentifier: string) => {
@@ -184,8 +217,10 @@ export const authLogin = async (username: string, password: string) => {
 // Fetch per-category question counts (small response — use this instead
 // of downloading the whole bank to count categories).
 export const fetchCategoryCounts = async (): Promise<Record<string, number>> => {
-  const response = await api.get('/questions/category-counts/');
-  return response.data;
+  return swr('category-counts', async () => {
+    const response = await api.get('/questions/category-counts/');
+    return response.data;
+  });
 };
 
 // Fetch specific questions by their IDs

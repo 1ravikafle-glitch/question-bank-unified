@@ -1,16 +1,23 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { fetchQuestionsCount } from '../services/api';
+import { fetchQuestionsCount, fetchCategories } from '../services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ForestryLogo } from '@/components/ForestryLogo';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 
+// Real profile URLs go here — empty string renders the icon without a link.
+const SOCIAL_URLS: Record<'fb' | 'ig' | 'tk' | 'yt', string> = {
+  fb: '',
+  ig: '',
+  tk: '',
+  yt: '',
+};
 const socialLinks = [
-  { label: 'Facebook', href: '#', icon: 'fb' },
-  { label: 'Instagram', href: '#', icon: 'ig' },
-  { label: 'TikTok', href: '#', icon: 'tk' },
-  { label: 'YouTube', href: '#', icon: 'yt' },
+  { label: 'Facebook', icon: 'fb' },
+  { label: 'Instagram', icon: 'ig' },
+  { label: 'TikTok', icon: 'tk' },
+  { label: 'YouTube', icon: 'yt' },
 ];
 const SocialIconSm: React.FC<{ type: string }> = ({ type }) => {
   const common = { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'currentColor' } as const;
@@ -23,22 +30,29 @@ const SocialIconSm: React.FC<{ type: string }> = ({ type }) => {
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const pageVariants = {
+const pageVariants: Variants = {
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   animate: { transition: { staggerChildren: 0.06 } },
 };
 
-const fadeUp = {
+const fadeUp: Variants = {
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
 const features = [
-  { icon: '📝', title: 'Question Bank', getDesc: (count: number) => `${count.toLocaleString()}+ forestry MCQs across 10 categories, searchable and filterable.` },
+  {
+    icon: '📝',
+    title: 'Question Bank',
+    getDesc: (count: number, cats: number) =>
+      count > 0 && cats > 0
+        ? `${count.toLocaleString()}+ forestry MCQs across ${cats} categories, searchable and filterable.`
+        : 'A growing forestry MCQ bank across every category, searchable and filterable.',
+  },
   { icon: '⏱️', title: 'Timed Practice', getDesc: () => '2-minute timer per question with instant right/wrong feedback.' },
   { icon: '📊', title: 'Progress Tracking', getDesc: () => 'Weekly and lifetime accuracy by category with visual analytics.' },
   { icon: '🎯', title: 'Mistake Re-practice', getDesc: () => 'Wrong questions auto-queue for focused re-practice sessions.' },
@@ -62,15 +76,19 @@ const whatWeDo = [
 
 const About: React.FC = () => {
   const navigate = useNavigate();
+  // Live database stats — refetched on every visit so About always
+  // matches the current bank (no hardcoded counts).
   const [totalQuestions, setTotalQuestions] = useState<number>(0);
+  const [totalCategories, setTotalCategories] = useState<number>(0);
 
   useEffect(() => {
-    fetchQuestionsCount().then(setTotalQuestions).catch(() => {});
+    fetchQuestionsCount().then((r) => setTotalQuestions(r.count)).catch(() => {});
+    fetchCategories().then((c) => setTotalCategories(c.length)).catch(() => {});
   }, []);
 
   const stats = [
     { value: totalQuestions > 0 ? `${totalQuestions.toLocaleString()}+` : '—', label: 'Questions' },
-    { value: '10', label: 'Categories' },
+    { value: totalCategories > 0 ? `${totalCategories}` : '—', label: 'Categories' },
     { value: '∞', label: 'Practice' },
   ];
 
@@ -140,11 +158,30 @@ const About: React.FC = () => {
               <div>
                 <p className="text-[0.7rem] font-bold uppercase tracking-widest mb-2.5" style={{ color: 'hsl(0 0% 100% / 0.95)', fontFamily: 'var(--font-display)', letterSpacing: '0.08em', textShadow: '0 1px 2px hsl(0 0% 0% / 0.2)' }}>Connect</p>
                 <div className="flex items-center gap-1.5 mb-3">
-                  {socialLinks.map((s) => (
-                    <a key={s.label} href={s.href} aria-label={s.label} onClick={(e) => { if (s.href === '#') e.preventDefault(); }} className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-105" style={{ background: 'hsl(0 0% 100% / 0.07)', border: '1px solid hsl(0 0% 100% / 0.1)', color: 'hsl(90 40% 97%)' }}>
-                      <SocialIconSm type={s.icon} />
-                    </a>
-                  ))}
+                  {socialLinks.map((s) => {
+                    const href = SOCIAL_URLS[s.icon as keyof typeof SOCIAL_URLS];
+                    return (
+                      <a
+                        key={s.label}
+                        href={href || undefined}
+                        aria-label={s.label}
+                        aria-disabled={!href || undefined}
+                        onClick={(e) => { if (!href) e.preventDefault(); }}
+                        target={href ? '_blank' : undefined}
+                        rel={href ? 'noopener noreferrer' : undefined}
+                        className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-105"
+                        style={{
+                          background: 'hsl(0 0% 100% / 0.07)',
+                          border: '1px solid hsl(0 0% 100% / 0.1)',
+                          color: 'hsl(90 40% 97%)',
+                          opacity: href ? 1 : 0.45,
+                          cursor: href ? 'pointer' : 'default',
+                        }}
+                      >
+                        <SocialIconSm type={s.icon} />
+                      </a>
+                    );
+                  })}
                 </div>
                 <div className="space-y-1">
                   <a href="mailto:forestrypscpreparation@gmail.com" className="block text-[0.78rem] hover:text-white transition-colors break-all" style={{ color: 'hsl(0 0% 100% / 0.92)', fontFamily: 'var(--font-sans)', fontWeight: 600 }}>forestrypscpreparation@gmail.com</a>
@@ -233,7 +270,7 @@ const About: React.FC = () => {
                   </span>
                   <div className="min-w-0">
                     <h3 style={{ fontSize: '0.85rem' }} className="font-semibold text-foreground mb-0.5">{f.title}</h3>
-                    <p className="text-[0.8rem] text-muted-foreground leading-relaxed">{f.getDesc(totalQuestions)}</p>
+                    <p className="text-[0.8rem] text-muted-foreground leading-relaxed">{f.getDesc(totalQuestions, totalCategories)}</p>
                   </div>
                 </motion.div>
               ))}

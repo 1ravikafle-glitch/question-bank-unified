@@ -16,6 +16,7 @@ import DesktopSidebar from './components/DesktopSidebar';
 import MobileBottomNav from './components/MobileBottomNav';
 import OfflineBanner from './components/OfflineBanner';
 import Footer from './components/Footer';
+import ErrorBoundary from './components/ErrorBoundary';
 import { AuthContext } from './context/AuthContext';
 import { authLogin } from './services/api';
 import { ThemeProvider } from './context/ThemeContext';
@@ -133,10 +134,11 @@ function AppShell() {
               showLayout
                 ? isQuiz
                   ? undefined
-                  : { paddingLeft: '5%', paddingRight: '5%', paddingTop: '60px' }
-                : { paddingLeft: '5%', paddingRight: '5%' }
+                  : { paddingLeft: 'var(--page-gutter)', paddingRight: 'var(--page-gutter)', paddingTop: 'calc(var(--header-h) + 4px)' }
+                : { paddingLeft: 'var(--page-gutter)', paddingRight: 'var(--page-gutter)' }
             }
           >
+            <ErrorBoundary key={location.pathname}>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={userId ? <QuestionList /> : <Navigate to="/login" replace />} />
@@ -151,6 +153,7 @@ function AppShell() {
               <Route path="/about" element={<About />} />
               <Route path="*" element={userId ? <Navigate to="/" replace /> : <Navigate to="/login" replace />} />
             </Routes>
+            </ErrorBoundary>
           </div>
         </main>
 

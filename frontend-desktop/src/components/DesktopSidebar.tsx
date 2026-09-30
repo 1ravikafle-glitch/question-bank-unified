@@ -124,7 +124,7 @@ interface NavSectionDef {
    Settings — the account lives in Settings and the top-right profile. */
 const navSections: NavSectionDef[] = [
   {
-    section: 'Home',
+    section: 'Study',
     items: [
       { to: '/', label: 'Home', end: true, icon: <HomeIcon /> },
       { to: '/quiz', label: 'Practice', end: false, icon: <ClockIcon /> },
@@ -136,23 +136,13 @@ const navSections: NavSectionDef[] = [
     items: [
       { to: '/quiz/practice-wrong', label: 'Wrong Questions', end: false, icon: <RetryIcon /> },
       { to: '/results', label: 'Results', end: false, icon: <CheckCircleIcon /> },
-    ],
-  },
-  {
-    section: 'Insights',
-    items: [
       { to: '/progress', label: 'Progress', end: false, icon: <TrendingUpIcon /> },
     ],
   },
   {
-    section: 'Apps',
+    section: 'System',
     items: [
       { to: '/gis', label: 'GIS Studio', end: false, icon: <GisIcon />, external: true },
-    ],
-  },
-  {
-    section: 'Settings',
-    items: [
       { to: '/admin', label: 'Admin', end: false, icon: <UploadIcon />, adminOnly: true },
       { to: '/about', label: 'About', end: false, icon: <InfoIcon /> },
       { to: '/settings', label: 'Settings', end: false, icon: <GearIcon /> },
@@ -270,7 +260,7 @@ const DesktopSidebar: React.FC = () => {
       aria-label="Sidebar navigation"
       className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 z-30 desktop-sidebar"
       style={{
-        width: '280px',
+        width: 'var(--sidebar-w)',
         borderRight: '1px solid hsl(var(--border))',
       }}
     >
@@ -346,7 +336,7 @@ const DesktopSidebar: React.FC = () => {
               >
                 {items.map((item, ii) => (
                   <Fragment key={item.to}>
-                    {ii > 0 && <RowDivider />}
+                    {ii > 0 && <div className="nav-row-divider" aria-hidden="true" />}
                     <motion.div variants={prefersReducedMotion() ? undefined : navItemVariants}>
                       <NavRow item={item} onNavigate={sfxClick} />
                     </motion.div>

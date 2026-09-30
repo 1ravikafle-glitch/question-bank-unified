@@ -1,10 +1,15 @@
 export function ForestryLogo({ size = 36, className = '' }: { size?: number; className?: string }) {
   // Logo is served under /desktop/ and /mobile/ by start_prod.py. The root
   // path 404s on the SEO-enabled mirror, so resolve from the current base
-  // with fallback to the other.
+  // with fallback to the other. In local Vite preview (DEV), public/ is
+  // served at /, so use the root path to show the real logo, not the
+  // SVG placeholder.
   const getLogoSrc = () => {
     if (typeof window !== 'undefined' && window.location.pathname.startsWith('/mobile')) {
       return '/mobile/forestry-logo.png';
+    }
+    if (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.port === '4173')) {
+      return '/forestry-logo.png';
     }
     return '/desktop/forestry-logo.png';
   };

@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import os
 import models
 import database
@@ -32,6 +34,22 @@ app.include_router(questions_router.router)
 app.include_router(quiz_router.router)
 app.include_router(admin_router.router)
 app.include_router(auth_router.router)
+
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Cache headers for hot read-only endpoints (same as start_prod)."""
+    CACHEABLE_PATHS = {"/questions/count/", "/questions/categories/", "/questions/category-counts/"}
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.method == "GET" and request.url.path in self.CACHEABLE_PATHS:
+            response.headers["Cache-Control"] = "public, max-age=60, s-maxage=120"
+        return response
+
+
+app.add_middleware(CacheControlMiddleware)
 
 @app.get("/")
 def read_root():

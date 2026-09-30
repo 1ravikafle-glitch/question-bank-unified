@@ -5,7 +5,8 @@ import { AuthContext } from '@/context/AuthContext';
 import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { getRandomScoreMessage } from '@/utils/scoreMessages';
-import { motion, AnimatePresence } from 'framer-motion';
+import { scoreColor } from '@/utils/scoreColor';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
 interface AttemptAnalysis {
   question_id: number;
@@ -27,16 +28,12 @@ interface RecentAttempt {
   incorrect_questions: number[];
 }
 
-const percentColor = (pct: number) =>
-  pct >= 90 ? 'hsl(150 60% 38%)'
-  : pct >= 80 ? 'hsl(38 92% 50%)'
-  : pct >= 60 ? 'hsl(24 95% 53%)'
-  : 'hsl(0 84% 60%)';
+const percentColor = (pct: number) => scoreColor(pct);
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const pageVariants = {
+const pageVariants: Variants = {
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] } },
 };
@@ -113,6 +110,12 @@ const ResultsScreen: React.FC = () => {
   }, [expandedAttemptId]);
 
   const latestAttempt = pastAttempts[0];
+  // A deep-link from Recent Activity / Progress (highlightAttemptId) must
+  // show THAT attempt as the hero — never the latest one.
+  const highlightedAttempt =
+    !quizResult && highlightAttemptId != null
+      ? pastAttempts.find((a) => a.id === highlightAttemptId) ?? null
+      : null;
   const heroAttempt = quizResult
     ? {
         score: quizResult.score,
@@ -121,15 +124,23 @@ const ResultsScreen: React.FC = () => {
         incorrect_questions: (quizResult as any).incorrect_questions || [],
         offline: (quizResult as any).offline || false,
       }
-    : latestAttempt
+    : highlightedAttempt
       ? {
-          score: latestAttempt.score,
-          total_questions: latestAttempt.total_questions,
-          percentage: latestAttempt.percentage,
-          incorrect_questions: latestAttempt.incorrect_questions || [],
+          score: highlightedAttempt.score,
+          total_questions: highlightedAttempt.total_questions,
+          percentage: highlightedAttempt.percentage,
+          incorrect_questions: highlightedAttempt.incorrect_questions || [],
           offline: false,
         }
-      : null;
+      : latestAttempt
+        ? {
+            score: latestAttempt.score,
+            total_questions: latestAttempt.total_questions,
+            percentage: latestAttempt.percentage,
+            incorrect_questions: latestAttempt.incorrect_questions || [],
+            offline: false,
+          }
+        : null;
   const heroMessage = useMemo(
     () => (heroAttempt ? getRandomScoreMessage(heroAttempt.percentage) : ''),
     // eslint-disable-next-line react-hooks/exhaustive-deps

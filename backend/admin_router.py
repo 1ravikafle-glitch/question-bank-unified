@@ -10,6 +10,7 @@ from sqlalchemy import func
 import models
 import database
 import session
+import app_cache
 from docx_parser import extract_questions_and_answers, guess_category_from_filename
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -50,14 +51,10 @@ def admin_set_category_meta(payload: CategoryMetaRequest, db: Session = Depends(
         else:
             db.add(models.CategoryMeta(category=name, emoji=emoji))
         db.commit()
+        app_cache.delete("q:category-meta")
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to save category emoji")
-    try:
-        import questions_router
-        questions_router._cache.pop("category-meta", None)
-    except Exception:
-        pass
     return {"category": name, "emoji": emoji}
 
 
@@ -122,6 +119,7 @@ async def upload_docx(
 
         try:
             db.commit()
+            app_cache.delete_prefix("q:")
         except Exception:
             db.rollback()
             results.append({
@@ -202,12 +200,12 @@ def rename_category(payload: RenameCategoryRequest, db: Session = Depends(databa
             else:
                 meta.category = new
         db.commit()
+        app_cache.delete_prefix("q:")
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to rename category")
     try:
-        import questions_router
-        questions_router._cache.clear()
+        app_cache.delete_prefix("q:")
     except Exception:
         pass
 
@@ -246,12 +244,12 @@ def merge_categories(payload: MergeCategoryRequest, db: Session = Depends(databa
             else:
                 smeta.category = target
         db.commit()
+        app_cache.delete_prefix("q:")
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to merge categories")
     try:
-        import questions_router
-        questions_router._cache.clear()
+        app_cache.delete_prefix("q:")
     except Exception:
         pass
     return {"merged_from": source, "merged_to": target, "questions_moved": moved}
@@ -270,12 +268,12 @@ def delete_category(category_name: str, db: Session = Depends(database.get_db), 
     try:
         deleted = db.query(models.Question).filter(models.Question.category == category_name).delete()
         db.commit()
+        app_cache.delete_prefix("q:")
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to delete category")
     try:
-        import questions_router
-        questions_router._cache.clear()
+        app_cache.delete_prefix("q:")
     except Exception:
         pass
 
@@ -317,6 +315,7 @@ def update_question(question_id: int, payload: dict, db: Session = Depends(datab
         for field, value in updates.items():
             setattr(question, field, value)
         db.commit()
+        app_cache.delete_prefix("q:")
         db.refresh(question)
     except Exception:
         db.rollback()

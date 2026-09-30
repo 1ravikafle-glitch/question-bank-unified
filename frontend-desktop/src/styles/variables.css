@@ -152,6 +152,11 @@
   --dur-standard: 220ms;
   --dur-spring: 380ms;
 
+  /* --- Layout shell (single source: sidebar / header / gutters) --- */
+  --sidebar-w: 280px;
+  --header-h: 56px;
+  --page-gutter: 5%;
+
   /* --- Z-index scale --- */
   --z-base: 0;
   --z-sticky: 30;

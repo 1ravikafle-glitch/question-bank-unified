@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchUserProgress, fetchWrongQueue } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { AuthContext } from '@/context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
 interface CategoryStat {
   category: string;
@@ -70,16 +70,16 @@ const catIcon = (name: string) => {
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const pageVariants = {
+const pageVariants: Variants = {
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   animate: { transition: { staggerChildren: 0.05 } },
 };
 
-const staggerItem = {
+const staggerItem: Variants = {
   initial: { opacity: 0, y: 10 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } },
 };
@@ -374,7 +374,7 @@ const ProgressTracker: React.FC = () => {
                     return (
                       <div key={a.id || i}>
                         <motion.div
-                          onClick={() => navigate('/results')}
+                          onClick={() => navigate('/results', { state: { highlightAttemptId: a.id } })}
                           whileHover={{ background: 'hsl(var(--muted) / 0.4)' }}
                           style={{
                             display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 0.5rem',

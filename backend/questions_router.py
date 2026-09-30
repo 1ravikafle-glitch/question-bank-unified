@@ -7,21 +7,17 @@ import database
 import schemas
 import hashlib
 import json
-import time
+import app_cache
 
-# Simple in-memory cache for read-only endpoints
-_cache = {}
-_cache_ttl = 60  # seconds
+# Read-only endpoints share one cache (memory now, Redis via REDIS_URL).
+# TTL 60s; admin upload invalidates the whole "q:" namespace.
+_QTTL = 60
 
 def _get_cached(key: str):
-    if key in _cache:
-        val, ts = _cache[key]
-        if time.time() - ts < _cache_ttl:
-            return val
-    return None
+    return app_cache.get("q:" + key)
 
 def _set_cached(key: str, val):
-    _cache[key] = (val, time.time())
+    app_cache.set("q:" + key, val, _QTTL)
 
 
 def _normalize_options(questions):

@@ -6,6 +6,8 @@ import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji } from '@/utils/categoryEmoji';
+import { scoreColor, scoreLabel } from '@/utils/scoreColor';
+import PracticeSetupBody from '@/components/PracticeSetupBody';
 import { motion } from 'framer-motion';
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -25,20 +27,11 @@ const quotes = [
 ];
 
 function perfLabel(pct: number) {
-  if (pct >= 91) return 'Fabulous';
-  if (pct >= 81) return 'Excellent';
-  if (pct >= 61) return 'Good';
-  if (pct >= 41) return 'Fair';
-  if (pct >= 21) return 'Satisfactory';
-  return 'Poor';
+  return scoreLabel(pct);
 }
 
 function perfColor(pct: number) {
-  if (pct >= 81) return 'hsl(150 60% 32%)';
-  if (pct >= 61) return 'hsl(150 45% 38%)';
-  if (pct >= 41) return 'hsl(38 65% 42%)';
-  if (pct >= 21) return 'hsl(25 60% 48%)';
-  return 'hsl(6 55% 48%)';
+  return scoreColor(pct);
 }
 
 function relativeDate(iso: string) {
@@ -127,7 +120,6 @@ const Dashboard: React.FC = () => {
   const [recentAttempts, setRecentAttempts] = useState<{ id: number; score: number; total_questions: number; percentage: number; completed_at: string }[]>([]);
   const [wrongCount, setWrongCount] = useState(0);
   const [showAllCategories, setShowAllCategories] = useState(false);
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [quote] = useState(() => quotes[Math.floor(Math.random() * quotes.length)]);
 
@@ -250,7 +242,7 @@ const Dashboard: React.FC = () => {
   /* ── Desktop Two-Column / Mobile Single-Column ──────────────── */
   return (
     <motion.main
-      className="w-full"
+      className={beastMode ? 'w-full beast-page' : 'w-full'}
       style={{ padding: '0.5rem 0 1rem 0', overflow: 'visible' }}
       variants={pageVariants}
       initial="initial"
@@ -265,8 +257,8 @@ const Dashboard: React.FC = () => {
         style={{
           borderRadius: 'var(--apple-radius-xl)',
           padding: '1.5rem 2rem',
-          background: 'linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 35%))',
-          color: 'white',
+          background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.78))',
+          color: 'hsl(var(--primary-foreground))',
           position: 'relative',
           overflow: 'hidden',
           marginBottom: '1.25rem',
@@ -334,7 +326,7 @@ const Dashboard: React.FC = () => {
               whileTap={{ scale: 0.98 }}
               style={{
                 background: 'white',
-                color: 'hsl(142 71% 45%)',
+                color: 'hsl(var(--primary))',
                 border: 'none',
                 fontWeight: 'var(--font-weight-semibold)',
                 fontSize: '0.875rem',
@@ -365,6 +357,7 @@ const Dashboard: React.FC = () => {
           {/* ── Practice Card ─────────────────────────────────── */}
           <motion.section
             variants={itemVariants}
+            className={beastMode ? 'beast-arena' : undefined}
             style={{
               background: 'hsl(var(--card))',
               border: '1px solid hsl(var(--border))',
@@ -373,248 +366,22 @@ const Dashboard: React.FC = () => {
             }}
             aria-label="Practice session setup"
           >
-            <h2
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.125rem',
-                fontWeight: 'var(--font-weight-semibold)',
-                color: 'hsl(var(--foreground))',
-                margin: '0 0 0.25rem 0',
-              }}
-            >
-              Start a Practice Session
-            </h2>
-            <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0 0 1.25rem 0', lineHeight: 1.5 }}>
-              {total.toLocaleString()} questions across {categories.length} categories
-            </p>
-
-            {/* Question count pills */}
-            <div style={{ marginBottom: '1rem' }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '0.6875rem',
-                  fontWeight: 'var(--font-weight-semibold)',
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.05em',
-                  color: 'hsl(var(--muted-foreground))',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                Questions
-              </label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {[10, 20, 50, 100].map((n) => (
-                  <motion.button
-                    key={n}
-                    onClick={() => { sfxClick(); setQuizCount(n); setBeastMode(false); }}
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.9 }}
-                    animate={
-                      !beastMode && quizCount === n
-                        ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(152 55% 45%)' }
-                        : { scale: 1, backgroundColor: 'hsl(var(--muted))' }
-                    }
-                    transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem 0',
-                      borderRadius: 'var(--apple-radius-sm)',
-                      fontSize: '0.8125rem',
-                      fontWeight: 'var(--font-weight-semibold)',
-                      color: !beastMode && quizCount === n ? 'white' : 'hsl(var(--muted-foreground))',
-                      border: !beastMode && quizCount === n ? '1px solid hsl(var(--moss-600))' : '1px solid hsl(var(--border))',
-                      cursor: 'pointer',
-                      boxShadow: !beastMode && quizCount === n
-                        ? '0 4px 14px hsl(var(--moss-600) / 0.4)'
-                        : '0 1px 3px hsl(var(--foreground) / 0.06)',
-                    }}
-                    aria-label={`Select ${n} questions`}
-                    aria-pressed={!beastMode && quizCount === n}
-                  >
-                    {n}
-                  </motion.button>
-                ))}
-                {/* Beast Mode pill — full set: whole bank or whole selected category */}
-                <style>{`.bfx{position:relative;overflow:hidden}.bfx-armed{animation:bfxGlow 1.6s ease-in-out infinite}@keyframes bfxGlow{0%,100%{box-shadow:0 4px 14px hsl(var(--moss-600)/.4)}50%{box-shadow:0 0 16px 3px rgba(251,146,60,.8),0 4px 16px hsl(var(--moss-600)/.5)}}.bfx-shake{animation:bfxShake .45s ease,bfxGlow 1.6s ease-in-out .45s infinite}@keyframes bfxShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}.bfx-ember{position:absolute;bottom:-3px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle,#fde68a 0%,#f59e0b 55%,rgba(245,158,11,0) 100%);pointer-events:none;animation:bfxRise 1.5s linear infinite}@keyframes bfxRise{0%{transform:translateY(0) scale(1);opacity:0}15%{opacity:1}100%{transform:translateY(-30px) scale(.25);opacity:0}}.bfx-spark{position:absolute;top:50%;left:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:radial-gradient(circle,#fff7ed 0%,#fb923c 60%,rgba(251,146,60,0) 100%);pointer-events:none;animation:bfxBurst .7s ease-out forwards}@keyframes bfxBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.1);opacity:0}}.bfx-dragon{position:absolute;top:1px;left:0;font-size:13px;line-height:1;pointer-events:none;animation:bfxFly 1.9s linear forwards}@keyframes bfxFly{0%{transform:translateX(-30px);opacity:0}8%{opacity:1}92%{opacity:1}100%{transform:translateX(420px);opacity:0}}@media (prefers-reduced-motion:reduce){.bfx-armed,.bfx-shake,.bfx-ember,.bfx-spark,.bfx-dragon{animation:none!important}}`}</style>
-                <motion.button
-                  key="beast"
-                  onClick={() => { sfxClick(); setBeastMode(true); }}
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.9 }}
-                  animate={
-                    beastMode
-                      ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(152 55% 45%)' }
-                      : { scale: 1, backgroundColor: 'hsl(var(--muted))' }
-                  }
-                  transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                  className={'bfx' + (beastMode ? ' bfx-armed bfx-shake' : '')}
-                  style={{
-                    flex: 1,
-                    padding: '0.5rem 0',
-                    borderRadius: 'var(--apple-radius-sm)',
-                    fontSize: '0.8125rem',
-                    fontWeight: 'var(--font-weight-semibold)',
-                    color: beastMode ? 'white' : 'hsl(var(--muted-foreground))',
-                    border: beastMode ? '1px solid hsl(var(--moss-600))' : '1px solid hsl(var(--border))',
-                    cursor: 'pointer',
-                    boxShadow: beastMode
-                      ? '0 4px 14px hsl(var(--moss-600) / 0.4)'
-                      : '0 1px 3px hsl(var(--foreground) / 0.06)',
-                  }}
-                  aria-label="Beast Mode: practice all questions"
-                  aria-pressed={beastMode}
-                  title="Beast Mode — practice ALL questions: full bank or whole category"
-                >
-                  {beastMode ? '🔥 BEAST' : '🔥 Beast'}
-                  {beastMode && [6, 20, 32, 44, 56, 68, 80, 90].map((l, i) => (
-                    <span key={'e' + i} className="bfx-ember" aria-hidden="true" style={{ left: l + '%', animationDelay: (i * 0.18) + 's' }} />
-                  ))}
-                  {beastMode && [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => {
-                    const ang = (Math.PI * 2 * i) / 12;
-                    const dist = 26 + (i % 3) * 12;
-                    return <span key={'s' + i} className="bfx-spark" aria-hidden="true" style={{ '--dx': Math.cos(ang).toFixed(0) + 'px', '--dy': Math.sin(ang).toFixed(0) + 'px' } as any} />;
-                  })}
-                  {beastMode && <span className="bfx-dragon" aria-hidden="true">🐉</span>}
-                </motion.button>
-              </div>
-            </div>
-
-            {/* Category selector */}
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '0.6875rem',
-                  fontWeight: 'var(--font-weight-semibold)',
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.05em',
-                  color: 'hsl(var(--muted-foreground))',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                Category
-              </label>
-              <div style={{ position: 'relative' }}>
-                <motion.button
-                  onClick={() => { sfxClick(); setShowCategoryDropdown(!showCategoryDropdown); }}
-                  className="category-dropdown-btn"
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.625rem 0.75rem',
-                    borderRadius: 'var(--apple-radius-md)',
-                    fontSize: '0.8125rem',
-                    fontWeight: 'var(--font-weight-medium)',
-                    color: 'hsl(var(--foreground))',
-                    background: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                  aria-haspopup="listbox"
-                  aria-expanded={showCategoryDropdown}
-                >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {category || 'All Categories'}
-                  </span>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0, marginLeft: '0.5rem' }}>
-                    <path d="M4 6l4 4 4-4" />
-                  </svg>
-                </motion.button>
-                {showCategoryDropdown && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      marginTop: '0.25rem',
-                      background: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: 'var(--apple-radius-md)',
-                      boxShadow: 'var(--shadow-lg)',
-                      zIndex: 20,
-                      maxHeight: '14rem',
-                      overflowY: 'auto',
-                    }}
-                    role="listbox"
-                    aria-label="Select a category"
-                  >
-                    {['All Categories', ...sortCategories(categories)].map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => {
-                          sfxClick();
-                          setCategory(cat === 'All Categories' ? '' : cat);
-                          setShowCategoryDropdown(false);
-                        }}
-                        className="category-dropdown-item"
-                        role="option"
-                        aria-selected={cat === (category || 'All Categories')}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '0.5rem 0.75rem',
-                          fontSize: '0.8125rem',
-                          background: cat === (category || 'All Categories') ? 'hsl(var(--moss-600) / 0.1)' : 'transparent',
-                          color: cat === (category || 'All Categories') ? 'hsl(var(--moss-600))' : 'hsl(var(--muted-foreground))',
-                          border: 'none',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 9,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.95rem',
-                            flexShrink: 0,
-                            marginRight: '0.625rem',
-                            background: cat === (category || 'All Categories') ? 'hsl(var(--moss-600) / 0.14)' : 'hsl(var(--muted))',
-                          }}
-                        >
-                          {catIcon(cat, emojiMeta)}
-                        </span>
-                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: cat === (category || 'All Categories') ? 600 : 500 }}>
-                          {cat}
-                        </span>
-                        {cat !== 'All Categories' && questionCounts.get(cat) != null && (
-                          <span style={{ fontSize: '0.6875rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))', marginLeft: '0.5rem' }}>
-                            {questionCounts.get(cat)}
-                          </span>
-                        )}
-                        {cat === (category || 'All Categories') && (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'hsl(var(--moss-600))', flexShrink: 0, marginLeft: '0.5rem' }} aria-hidden="true">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <motion.button
-              onClick={() => { sfxClick(); startQuiz(); }}
-              className="btn btn-primary"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              style={{ width: '100%', padding: '0.625rem' }}
-            >
-              Start Practice
-            </motion.button>
+            <PracticeSetupBody
+              total={total}
+              categories={categories}
+              emojiMeta={emojiMeta}
+              iconFor={(c) => catIcon(c, emojiMeta)}
+              countFor={(c) => questionCounts.get(c) ?? null}
+              quizCount={quizCount}
+              onQuizCount={(n) => { setQuizCount(n); setBeastMode(false); }}
+              beastMode={beastMode}
+              onBeast={() => setBeastMode(true)}
+              category={category}
+              onCategory={setCategory}
+              onStart={() => startQuiz()}
+              startLabel="Start Practice"
+              ping={sfxClick}
+            />
           </motion.section>
 
           {/* ── Your progress (below Practice) ─────────────────── */}
@@ -778,39 +545,6 @@ const Dashboard: React.FC = () => {
                 <span aria-hidden="true" style={{ fontSize: '1rem' }}>📖</span>
                 Browse Questions
               </motion.button>
-              <motion.button
-                variants={itemVariants}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => { sfxClick(); navigate('/quiz/practice-wrong', { state: { source: 'queue' } }); }}
-                className="btn btn-outline"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.625rem',
-                  justifyContent: 'flex-start',
-                  padding: '0.75rem 1rem',
-                  fontSize: '0.8125rem',
-                  opacity: wrongCount > 0 ? 1 : 0.5,
-                }}
-                disabled={wrongCount === 0}
-                aria-label={`Review wrong questions, ${wrongCount} available`}
-              >
-                <span aria-hidden="true" style={{ fontSize: '1rem' }}>🔁</span>
-                General Review
-                {wrongCount > 0 && (
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: '0.6875rem',
-                      fontWeight: 'var(--font-weight-semibold)',
-                      color: 'hsl(var(--moss-600))',
-                    }}
-                  >
-                    {wrongCount}
-                  </span>
-                )}
-              </motion.button>
             </div>
           </motion.section>
 
@@ -962,9 +696,9 @@ const Dashboard: React.FC = () => {
                   borderRadius: 'var(--apple-radius-md)',
                   fontSize: '0.75rem',
                   fontWeight: 'var(--font-weight-semibold)',
-                  color: 'hsl(var(--moss-600))',
+                  color: 'hsl(var(--primary))',
                   background: 'hsl(var(--moss-100))',
-                  border: '1px solid hsl(var(--moss-600) / 0.2)',
+                  border: '1px solid hsl(var(--primary) / 0.2)',
                   cursor: 'pointer',
                   transition: 'all 150ms var(--apple-transition)',
                   width: '100%',
@@ -1053,7 +787,7 @@ const Dashboard: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: 'hsl(var(--moss-600) / 0.1)',
+                        background: 'hsl(var(--primary) / 0.1)',
                         flexShrink: 0,
                       }}
                     >
@@ -1062,7 +796,7 @@ const Dashboard: React.FC = () => {
                           fontSize: '0.75rem',
                           fontWeight: 'var(--font-weight-bold)',
                           fontFamily: 'var(--font-mono)',
-                          color: 'hsl(var(--moss-600))',
+                          color: 'hsl(var(--primary))',
                         }}
                       >
                         {attempt.percentage.toFixed(0)}%

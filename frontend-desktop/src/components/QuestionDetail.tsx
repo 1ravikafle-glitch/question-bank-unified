@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
 import { type Question } from '@/shared/types';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const pageVariants = {
+const pageVariants: Variants = {
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } },
 };

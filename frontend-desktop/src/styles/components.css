@@ -3,23 +3,7 @@
    Apple-grade: minimal, clean, spacious, professional
    ============================================================= */
 
-/* ─── Keyframes ─── */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
+/* ─── Keyframes (fadeIn/slideUp live in globals.css — not duplicated here) ─── */
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
@@ -769,6 +753,24 @@
   animation: pulse 1.4s ease-in-out infinite;
 }
 
+/* ── Site footer: stacked (never clipped) below xl, row on wide screens ── */
+.site-footer-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+@media (min-width: 1280px) {
+  .site-footer-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+}
+
 /* ─── Question Index Badge ─── */
 
 .question-index-badge {
@@ -782,6 +784,189 @@
   border-radius: var(--apple-radius-full);
   display: inline-flex;
   align-items: center;
+}
+
+/* ─── Quiz question box (Apple quiet surface; replaces inline styles) ─── */
+.quiz-qbox {
+  position: relative;
+  background: hsl(var(--card));
+  border-radius: 18px;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 28px rgba(0, 0, 0, 0.06);
+  padding: 32px 32px 28px;
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  transition: opacity var(--dur-standard) var(--ease-standard),
+    transform var(--dur-standard) var(--ease-standard),
+    border-color var(--dur-standard) var(--ease-standard);
+}
+.quiz-qbox.is-next {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+}
+.quiz-qbox.is-fading {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.quiz-qbox.is-selected {
+  border-color: hsl(var(--primary) / 0.55);
+}
+@media (max-width: 640px) {
+  .quiz-qbox {
+    padding: 20px 16px 16px;
+    min-height: 260px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quiz-qbox {
+    transition: opacity 150ms ease;
+  }
+  .quiz-qbox.is-fading {
+    transform: none;
+  }
+}
+
+/* ── Beast Mode: dramatic red alert atmosphere (whole page when armed) ── */
+.beast-page {
+  position: relative;
+}
+/* Ambient red wash over the whole page */
+.beast-page::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 24px;
+  pointer-events: none;
+  z-index: 4;
+  background:
+    radial-gradient(60% 40% at 50% 0%, hsl(0 84% 60% / 0.14), transparent 70%),
+    radial-gradient(50% 35% at 50% 100%, hsl(24 95% 53% / 0.10), transparent 70%);
+  animation: beastWash 1.8s ease-in-out infinite;
+}
+/* Pulsing red edge glow around the whole page */
+.beast-page::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: 5;
+  box-shadow:
+    0 0 0 2px hsl(0 84% 60% / 0.55),
+    0 0 32px 4px hsl(0 84% 60% / 0.35),
+    inset 0 0 60px hsl(0 84% 60% / 0.10);
+  animation: beastPulse 1.6s ease-in-out infinite;
+}
+@keyframes beastWash {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+@keyframes beastPulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+/* Armed practice card: heavy red glow */
+.beast-arena {
+  border-color: hsl(0 84% 60% / 0.65) !important;
+  box-shadow:
+    0 0 0 1px hsl(0 84% 60% / 0.4),
+    0 0 28px 2px hsl(0 84% 60% / 0.35),
+    0 10px 32px hsl(0 0% 0% / 0.12) !important;
+  animation: beastCardGlow 1.6s ease-in-out infinite;
+}
+@keyframes beastCardGlow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px hsl(0 84% 60% / 0.4),
+      0 0 22px 2px hsl(0 84% 60% / 0.28),
+      0 10px 32px hsl(0 0% 0% / 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px hsl(0 84% 60% / 0.7),
+      0 0 40px 6px hsl(0 84% 60% / 0.5),
+      0 10px 32px hsl(0 0% 0% / 0.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .beast-page::before,
+  .beast-page::after,
+  .beast-arena {
+    animation: none !important;
+  }
+  .beast-page::before { opacity: 0.6; }
+  .beast-page::after { opacity: 0.8; }
+}
+
+/* ── Question-count tiers: 10 calm → 100 hot → BEAST max ── */
+.qpill {
+  flex: 1;
+  padding: 0.5rem 0;
+  border-radius: var(--apple-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-semibold);
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.06);
+  cursor: pointer;
+  transition: background-color var(--dur-instant) var(--ease-standard),
+    border-color var(--dur-instant) var(--ease-standard),
+    box-shadow var(--dur-standard) var(--ease-standard),
+    color var(--dur-instant) var(--ease-standard);
+}
+.qpill.lvl-10:hover { border-color: hsl(142 60% 45% / 0.5); }
+.qpill.lvl-20:hover { border-color: hsl(160 65% 38% / 0.55); }
+.qpill.lvl-50:hover { border-color: hsl(38 92% 50% / 0.6); }
+.qpill.lvl-100:hover { border-color: hsl(24 95% 53% / 0.65); }
+/* 10 — calm small: soft green, no animation */
+.qpill.lvl-10.is-on {
+  color: #fff;
+  background: hsl(142 55% 42%);
+  border-color: hsl(142 55% 42%);
+  box-shadow: 0 3px 10px hsl(142 55% 42% / 0.3);
+}
+/* 20 — steady: teal-green with a slow breathe */
+.qpill.lvl-20.is-on {
+  color: #fff;
+  background: hsl(162 62% 36%);
+  border-color: hsl(162 62% 36%);
+  box-shadow: 0 4px 14px hsl(162 62% 36% / 0.4);
+  animation: lvlBreathe 2.4s ease-in-out infinite;
+}
+/* 50 — warm: amber with a confident pulse */
+.qpill.lvl-50.is-on {
+  color: hsl(32 100% 14%);
+  background: hsl(38 95% 52%);
+  border-color: hsl(38 95% 52%);
+  box-shadow: 0 4px 16px hsl(38 95% 50% / 0.45);
+  animation: lvlPulse 1.8s ease-in-out infinite;
+}
+/* 100 — hot: ember orange, strong pulse */
+.qpill.lvl-100.is-on {
+  color: #fff;
+  background: hsl(22 92% 50%);
+  border-color: hsl(22 92% 50%);
+  box-shadow: 0 0 18px 2px hsl(22 92% 55% / 0.5), 0 4px 14px hsl(22 92% 50% / 0.4);
+  animation: lvlPulse 1.4s ease-in-out infinite;
+}
+@keyframes lvlBreathe {
+  0%, 100% { box-shadow: 0 4px 12px hsl(162 62% 36% / 0.3); }
+  50% { box-shadow: 0 4px 20px hsl(162 62% 36% / 0.55); }
+}
+@keyframes lvlPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qpill.lvl-20.is-on,
+  .qpill.lvl-50.is-on,
+  .qpill.lvl-100.is-on {
+    animation: none !important;
+  }
 }
 
 /* =============================================================
@@ -1557,105 +1742,122 @@
 }
 
 /* =============================================================
-   Hover Shadows — all interactive elements get a visible shadow on hover
+   Hover & Press — Apple-grade: quiet, physical, interruptible
+   - Lift + shadow ONLY on large cards (card/subject/specimen/stat/activity)
+   - Small controls (pill/chip/dropdown/pagination/nav) get color-only
+     hover, never scale/shadow — avoids visual noise + double-transform
+     with framer-motion whileHover.
+   - All motion is transform/opacity only, critically damped
+     (var(--ease-standard)), press feedback is instant (120ms).
    ============================================================= */
 
+.btn {
+  transition: transform var(--dur-instant) var(--ease-standard),
+    box-shadow var(--dur-standard) var(--ease-standard),
+    background-color var(--dur-instant) var(--ease-standard),
+    filter var(--dur-instant) var(--ease-standard);
+}
 .btn:hover:not(:disabled) {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.12);
-  transform: scale(1.02);
+  filter: brightness(0.97);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
 }
 
 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 6px 24px hsl(var(--primary) / 0.40), 0 2px 8px hsl(var(--primary) / 0.25);
-  transform: scale(1.02);
+  box-shadow: 0 6px 24px hsl(var(--primary) / 0.35), 0 2px 8px hsl(var(--primary) / 0.22);
+}
+.btn-primary:active:not(:disabled) {
+  box-shadow: 0 2px 8px hsl(var(--primary) / 0.25);
 }
 
+.card,
+.subject-card,
+.specimen-card,
+.stat-tile,
+.activity-item {
+  transition: transform var(--dur-standard) var(--ease-standard),
+    box-shadow var(--dur-standard) var(--ease-standard),
+    border-color var(--dur-standard) var(--ease-standard),
+    background-color var(--dur-standard) var(--ease-standard);
+  will-change: transform;
+}
 .card:hover {
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.07);
+  transform: translateY(-2px);
 }
 
 .subject-card:hover {
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.07);
   border-color: hsl(var(--primary) / 0.4);
-  transform: scale(1.005);
+  transform: translateY(-1px);
 }
 .subject-card:active {
   transform: scale(0.99);
+  transition: transform 100ms ease-out;
 }
 
 .specimen-card:hover {
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08);
-  transform: scale(1.02);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.07);
+  transform: translateY(-1px);
 }
 
-.activity-item {
-  transition: all 150ms var(--apple-transition);
-}
 .activity-item:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
 }
 
-.stat-tile {
-  transition: all 200ms var(--apple-transition);
-}
 .stat-tile:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
   border-color: hsl(var(--primary) / 0.3);
-  transform: scale(1.02);
 }
 
-/* Answer option hover — quiz questions */
+/* Answer options: border + background tint only, subtle 1px lift */
 .answer-option:hover:not(.answer-option-disabled):not(.answer-option-selected):not(.answer-option-correct):not(.answer-option-incorrect) {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
   border-color: hsl(var(--primary) / 0.5);
   background-color: hsl(var(--primary) / 0.05);
-  transform: scale(1.01);
 }
 
 /* Option row hover — questions library */
 .option-row:hover:not(.is-locked) {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
   border-color: hsl(var(--primary) / 0.5);
   background: hsl(var(--primary) / 0.05);
-  transform: scale(1.01);
 }
 
-/* Question navigator buttons */
+/* Small controls: color-only hover, no shadow/scale (Apple quiet) */
 .question-navigator-button:hover:not(.question-navigator-button-disabled) {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
-  transform: scale(1.05);
+  background-color: hsl(var(--muted) / 0.6);
+  color: hsl(var(--foreground));
 }
 
 /* Nav pill hover */
 .nav-pill:hover {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.10);
-  transform: scale(1.02);
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
 }
 
 /* Chip hover */
 .chip:hover {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.10);
-  transform: scale(1.05);
+  border-color: hsl(var(--primary) / 0.35);
 }
 
 /* Dropdown item hover */
 .dropdown-item:hover {
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-  transform: scale(1.01);
+  background-color: hsl(var(--muted));
 }
 
 /* Pagination item hover */
 .pagination-item:hover:not(.pagination-item-active):not(:disabled) {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.10);
-  transform: scale(1.05);
+  background-color: hsl(var(--muted) / 0.6);
+  color: hsl(var(--foreground));
 }
 
 /* Page arrow hover */
 .page-arrow-btn:hover:not(:disabled) {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.10);
-  transform: scale(1.05);
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
 }
 
 /* =============================================================
@@ -1663,20 +1865,28 @@
    ============================================================= */
 
 .desktop-sidebar nav a {
-  transition: all 150ms var(--apple-transition) !important;
+  transition: background-color var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard) !important;
 }
 .desktop-sidebar nav a:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08) !important;
-  transform: translateX(2px);
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Slim divider between rows inside a sidebar group */
+.desktop-sidebar .nav-row-divider {
+  height: 1px;
+  background: hsl(var(--border) / 0.5);
+  margin: 2px 12px;
+  border: none;
 }
 
 /* Theme toggle button hover */
 .theme-toggle-btn {
-  transition: all 150ms var(--apple-transition);
+  transition: background-color var(--dur-instant) var(--ease-standard);
 }
 .theme-toggle-btn:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
-  transform: scale(1.08);
+  box-shadow: none;
+  transform: none;
 }
 
 /* Category dropdown hover */
@@ -1859,35 +2069,36 @@
 }
 
 .dark .question-navigator-button:hover:not(.question-navigator-button-disabled) {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.08);
+  background-color: hsl(var(--muted) / 0.6);
+  box-shadow: none;
 }
 
 .dark .nav-pill:hover {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 .dark .chip:hover {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 .dark .dropdown-item:hover {
-  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 .dark .pagination-item:hover:not(.pagination-item-active):not(:disabled) {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 .dark .page-arrow-btn:hover:not(:disabled) {
-  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 .dark .desktop-sidebar nav a:hover {
-  box-shadow: 0 2px 12px rgba(255, 255, 255, 0.08), 0 1px 4px rgba(255, 255, 255, 0.05) !important;
+  box-shadow: none !important;
 }
 
 .dark .theme-toggle-btn:hover {
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 
 .dark .category-dropdown-btn:hover {

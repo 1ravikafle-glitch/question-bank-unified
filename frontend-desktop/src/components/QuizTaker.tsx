@@ -16,6 +16,7 @@ import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { useQuizPrefs } from '@/quizPrefs';
+import PracticeSetupBody from '@/components/PracticeSetupBody';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ---------------------------------------------------------------------------
@@ -136,28 +137,13 @@ function QuestionBox({
 
   return (
     <div
-      style={{
-        position: 'relative',
-        background: T.card,
-        borderRadius: 18,
-        border: `1px solid ${T.border}`,
-        boxShadow:
-          role === 'active'
-            ? '0 1px 2px rgba(0,0,0,0.04), 0 10px 28px rgba(0,0,0,0.06)'
-            : '0 1px 2px rgba(0,0,0,0.03)',
-        padding: window.innerWidth < 640 ? '20px 16px 16px' : '32px 32px 28px',
-        minHeight: window.innerWidth < 640 ? 260 : 360,
-        display: 'flex',
-        flexDirection: 'column',
-        filter: locked ? 'blur(3.5px)' : 'none',
-        opacity: fading ? 0 : locked ? 0.55 : 1,
-        transform: fading ? 'translateY(6px)' : 'translateY(0)',
-        pointerEvents: locked ? 'none' : 'auto',
-        userSelect: locked ? 'none' as const : 'auto' as const,
-        transition: 'filter 0.35s ease, opacity 0.28s ease, transform 0.28s ease',
-        outline: role === 'active' ? `2px solid ${T.accent}` : 'none',
-        outlineOffset: 2,
-      }}
+      className={
+        'quiz-qbox' +
+        (locked ? ' is-next' : '') +
+        (fading ? ' is-fading' : '') +
+        (!locked && selected ? ' is-selected' : '')
+      }
+      aria-hidden={locked || undefined}
     >
       <div
         style={{
@@ -260,23 +246,6 @@ function QuestionBox({
                 {opt.key}
               </span>
               <span style={{ fontSize: 16.5, fontWeight: 500, color: textColor, fontFamily: T.font, flex: 1 }}>{opt.text}</span>
-              {!showResult && !locked && (
-                <span style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: T.textSecondary,
-                  background: 'hsl(var(--muted))',
-                  border: `1px solid ${T.border}`,
-                  borderRadius: 6,
-                  padding: '3px 7px',
-                  fontFamily: 'monospace',
-                  flexShrink: 0,
-                  lineHeight: 1,
-                  letterSpacing: '0.02em',
-                }}>
-                  {opt.key.toLowerCase()}
-                </span>
-              )}
               {showResult && isCorrectOpt && <span style={{ marginLeft: 'auto', color: T.success, fontSize: 14, fontWeight: 700 }}>✓</span>}
               {showResult && isSelected && !isCorrectOpt && <span style={{ marginLeft: 'auto', color: T.danger, fontSize: 14, fontWeight: 700 }}>✕</span>}
             </button>
@@ -411,7 +380,6 @@ const QuizTaker: React.FC = () => {
   const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
   const [quizPrefs] = useQuizPrefs();
   const [setupCategory, setSetupCategory] = useState('');
-  const [showSetupCategoryDropdown, setShowSetupCategoryDropdown] = useState(false);
 
   const isPracticeWrongMode = location.pathname === '/quiz/practice-wrong';
   const wrongQuestionIds = (location.state as { wrongQuestionIds?: number[] })?.wrongQuestionIds ?? EMPTY_ARRAY;
@@ -791,10 +759,30 @@ const QuizTaker: React.FC = () => {
   }, [currentIndex, sfxClick]);
 
   const handleExitRequest = () => setShowExitConfirm(true);
-  const confirmExit = () => {
+
+  // Best-effort: save whatever was answered so a mid-quiz exit still
+  // counts toward progress (attempt + per-question rows + wrong queue).
+  // Only meaningful sessions (>= 5 answered) are recorded; smaller exits
+  // stay local noise. Unanswered questions are never submitted.
+  const submitPartialProgress = useCallback(async () => {
+    const answersPayload: Record<number, string> = {};
+    questions.forEach((q) => {
+      if (selected[q.id]) answersPayload[q.id] = selected[q.id];
+    });
+    if (Object.keys(answersPayload).length < 5) return;
+    try {
+      await submitQuiz(answersPayload, userId || 'anonymous');
+    } catch {
+      /* best effort — offline attempts are queued inside submitQuiz */
+    }
+  }, [questions, selected, userId]);
+
+  const confirmExit = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
     localStorage.removeItem(QUIZ_STORAGE_KEY);
     setShowExitConfirm(false);
+    // Record partial progress before resetting (fire-and-forget).
+    submitPartialProgress().catch(() => {});
     // Show setup screen instead of navigating away
     shuffledCacheRef.current.clear();
     setSelected({});
@@ -810,7 +798,7 @@ const QuizTaker: React.FC = () => {
       setSetupCategories(categoriesResp);
       setSetupWrongCount(wrongQueueResp.questions?.length || 0);
     }).catch(() => {});
-  };
+  }, [questions, selected, userId, submitPartialProgress]);
   const restartFromCurrent = () => {
     setShowExitConfirm(false);
     handleStartNewQuiz();
@@ -828,15 +816,27 @@ const QuizTaker: React.FC = () => {
   const finished = isLocked && isLastQuestion;
 
   // ── Keyboard shortcuts ──────────────────────────────────────────
-  // A–D / a–d → select, Space / Enter → next, Esc → exit confirm
+  // A–D / a–d → select, Space / Enter → next, Esc → exit confirm.
+  // With the exit dialog open: Enter = exit quiz, Esc = cancel (no mouse).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       const isTypingField = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
       if (isTypingField) return;
 
+      if (showExitConfirm) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          confirmExit();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setShowExitConfirm(false);
+        }
+        return;
+      }
+
       // A–D: select option on active question
-      if (!isLocked && !showExitConfirm && !finished) {
+      if (!isLocked && !finished) {
         const key = e.key.toLowerCase();
         const letterIdx = 'abcd'.indexOf(key);
         if (letterIdx !== -1 && activeShuffled[letterIdx]) {
@@ -847,7 +847,7 @@ const QuizTaker: React.FC = () => {
       }
 
       // Space / Enter: go to next when locked
-      if ((e.key === ' ' || e.key === 'Enter') && isLocked && !showExitConfirm) {
+      if ((e.key === ' ' || e.key === 'Enter') && isLocked) {
         e.preventDefault();
         if (finished) {
           submitQuizRequest(selected);
@@ -857,11 +857,9 @@ const QuizTaker: React.FC = () => {
         return;
       }
 
-      // Esc: exit confirm dialog or open it
+      // Esc: open the exit confirm dialog
       if (e.key === 'Escape') {
-        if (showExitConfirm) {
-          setShowExitConfirm(false);
-        } else if (!isLocked && !finished) {
+        if (!isLocked && !finished) {
           setShowExitConfirm(true);
         }
         return;
@@ -870,7 +868,7 @@ const QuizTaker: React.FC = () => {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected]);
+  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, confirmExit]);
 
   // Helpers to adapt Question to reference shape for QuestionBox
   const toBoxQuestion = (q: Question) => {
@@ -949,7 +947,7 @@ const QuizTaker: React.FC = () => {
   if (showSetup) {
     return (
       <div
-        className="quiz-apple"
+        className={setupBeastMode ? 'quiz-apple beast-page' : 'quiz-apple'}
         style={{
           background: T.page,
           fontFamily: T.font,
@@ -992,6 +990,7 @@ const QuizTaker: React.FC = () => {
 
           {/* Practice Session Card */}
           <div
+            className={setupBeastMode ? 'beast-arena' : undefined}
             style={{
               background: T.card,
               borderRadius: 18,
@@ -1000,21 +999,22 @@ const QuizTaker: React.FC = () => {
               padding: '28px 32px',
             }}
           >
-            <h2
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                fontFamily: T.font,
-                color: T.textPrimary,
-                margin: '0 0 4px 0',
-              }}
-            >
-              Start a Practice Session
-            </h2>
-            <p style={{ fontSize: 13, color: T.textSecondary, margin: '0 0 18px 0', lineHeight: 1.5, fontFamily: T.font }}>
-              {setupTotal.toLocaleString()} questions across {setupCategories.length} categories
-            </p>
-
+            <PracticeSetupBody
+              total={setupTotal}
+              categories={setupCategories}
+              emojiMeta={emojiMeta}
+              iconFor={(c) => (c === 'All Categories' ? '🗂️' : (emojiMeta[c] || guessEmoji(c)))}
+              quizCount={setupQuizCount}
+              onQuizCount={(n) => { setSetupQuizCount(n); setSetupBeastMode(false); }}
+              beastMode={setupBeastMode}
+              onBeast={() => setSetupBeastMode(true)}
+              category={setupCategory}
+              onCategory={setSetupCategory}
+              onStart={startQuizFromSetup}
+              startLabel="Start Quiz"
+              ping={() => { try { navigator.vibrate?.(8); } catch {} }}
+              lead={
+              <>
             {/* Resume banner — only when a quiz was left mid-way */}
             {resumeInfo && (
               <button
@@ -1040,197 +1040,11 @@ const QuizTaker: React.FC = () => {
                 <span aria-hidden="true">▶</span> Continue — Question {resumeInfo.index + 1} of {resumeInfo.total}
               </button>
             )}
-
-            {/* Question count pills */}
-            <div style={{ marginBottom: 16 }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.05em',
-                  color: T.textSecondary,
-                  marginBottom: 8,
-                  fontFamily: T.font,
-                }}
-              >
-                Questions
-              </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[10, 20, 50, 100].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => { try { navigator.vibrate?.(8); } catch {} setSetupQuizCount(n); setSetupBeastMode(false); }}
-                    style={{
-                      flex: 1,
-                      padding: '10px 0',
-                      borderRadius: 10,
-                      fontSize: 14,
-                      fontWeight: 600,
-                      fontFamily: T.font,
-                      color: (!setupBeastMode && setupQuizCount === n) ? '#fff' : T.textSecondary,
-                      background: (!setupBeastMode && setupQuizCount === n) ? T.accent : 'hsl(var(--muted))',
-                      border: (!setupBeastMode && setupQuizCount === n) ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      boxShadow: (!setupBeastMode && setupQuizCount === n) ? `0 4px 14px ${T.accentTint}` : '0 1px 3px rgba(0,0,0,0.06)',
-                    }}
-                  >
-                    {n}
-                    </button>
-                ))}
-                {/* Beast Mode pill — full set: whole bank or whole selected category */}
-                <style>{`.bfx{position:relative;overflow:hidden}.bfx-armed{animation:bfxGlow 1.6s ease-in-out infinite}@keyframes bfxGlow{0%,100%{box-shadow:0 4px 14px hsl(var(--moss-600)/.4)}50%{box-shadow:0 0 16px 3px rgba(251,146,60,.8),0 4px 16px hsl(var(--moss-600)/.5)}}.bfx-shake{animation:bfxShake .45s ease,bfxGlow 1.6s ease-in-out .45s infinite}@keyframes bfxShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}.bfx-ember{position:absolute;bottom:-3px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle,#fde68a 0%,#f59e0b 55%,rgba(245,158,11,0) 100%);pointer-events:none;animation:bfxRise 1.5s linear infinite}@keyframes bfxRise{0%{transform:translateY(0) scale(1);opacity:0}15%{opacity:1}100%{transform:translateY(-30px) scale(.25);opacity:0}}.bfx-spark{position:absolute;top:50%;left:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:radial-gradient(circle,#fff7ed 0%,#fb923c 60%,rgba(251,146,60,0) 100%);pointer-events:none;animation:bfxBurst .7s ease-out forwards}@keyframes bfxBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.1);opacity:0}}.bfx-dragon{position:absolute;top:1px;left:0;font-size:13px;line-height:1;pointer-events:none;animation:bfxFly 1.9s linear forwards}@keyframes bfxFly{0%{transform:translateX(-30px);opacity:0}8%{opacity:1}92%{opacity:1}100%{transform:translateX(420px);opacity:0}}@media (prefers-reduced-motion:reduce){.bfx-armed,.bfx-shake,.bfx-ember,.bfx-spark,.bfx-dragon{animation:none!important}}`}</style>
-                <button
-                  key="beast"
-                  title="Beast Mode — practice ALL questions: full bank or whole category"
-                  onClick={() => { try { navigator.vibrate?.(8); } catch {} setSetupBeastMode(true); }}
-                  className={'bfx' + (setupBeastMode ? ' bfx-armed bfx-shake' : '')}
-                  style={{
-                    flex: 1,
-                    padding: '10px 0',
-                    borderRadius: 10,
-                    fontSize: setupBeastMode ? 12 : 14,
-                    fontWeight: 700,
-                    fontFamily: T.font,
-                    color: setupBeastMode ? '#fff' : T.textSecondary,
-                    background: setupBeastMode ? T.accent : 'hsl(var(--muted))',
-                    border: setupBeastMode ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: setupBeastMode ? `0 4px 14px ${T.accentTint}` : '0 1px 3px rgba(0,0,0,0.06)',
-                  }}
-                >
-                  {setupBeastMode ? '🔥 BEAST' : '🔥 Beast'}
-                  {setupBeastMode && [6, 20, 32, 44, 56, 68, 80, 90].map((l, i) => (
-                    <span key={'e' + i} className="bfx-ember" aria-hidden="true" style={{ left: l + '%', animationDelay: (i * 0.18) + 's' }} />
-                  ))}
-                  {setupBeastMode && [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => {
-                    const ang = (Math.PI * 2 * i) / 12;
-                    const dist = 26 + (i % 3) * 12;
-                    return <span key={'s' + i} className="bfx-spark" aria-hidden="true" style={{ '--dx': Math.cos(ang).toFixed(0) + 'px', '--dy': Math.sin(ang).toFixed(0) + 'px' } as any} />;
-                  })}
-                  {setupBeastMode && <span className="bfx-dragon" aria-hidden="true">🐉</span>}
-                </button>
-              </div>
-            </div>
-
-            {/* Category selector */}
-            <div style={{ marginBottom: 18 }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.05em',
-                  color: T.textSecondary,
-                  marginBottom: 8,
-                  fontFamily: T.font,
-                }}
-              >
-                Category
-              </label>
-              <div style={{ position: 'relative' }}>
-                <button
-                  onClick={() => { try { navigator.vibrate?.(8); } catch {} setShowSetupCategoryDropdown(!showSetupCategoryDropdown); }}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    borderRadius: 12,
-                    fontSize: 14,
-                    fontWeight: 500,
-                    fontFamily: T.font,
-                    color: T.textPrimary,
-                    background: 'hsl(var(--popover, hsl(var(--card))))',
-                    border: `1px solid ${T.border}`,
-                    cursor: 'pointer',
-                    textAlign: 'left' as const,
-                  }}
-                >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                    {setupCategory || 'All Categories'}
-                  </span>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0, marginLeft: 8 }}>
-                    <path d="M4 6l4 4 4-4" />
-                  </svg>
-                </button>
-                {showSetupCategoryDropdown && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      marginTop: 4,
-                      background: 'hsl(var(--popover, hsl(var(--card))))',
-                      border: `1px solid ${T.border}`,
-                      borderRadius: 12,
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                      zIndex: 20,
-                      maxHeight: 224,
-                      overflowY: 'auto' as const,
-                    }}
-                  >
-                    {['All Categories', ...sortCategories(setupCategories)].map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => {
-                          try { navigator.vibrate?.(8); } catch {}
-                          setSetupCategory(cat === 'All Categories' ? '' : cat);
-                          setShowSetupCategoryDropdown(false);
-                        }}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '10px 14px',
-                          fontSize: 14,
-                          fontFamily: T.font,
-                          background: cat === (setupCategory || 'All Categories') ? `${T.accentTint}` : 'transparent',
-                          color: cat === (setupCategory || 'All Categories') ? T.accent : T.textSecondary,
-                          border: 'none',
-                          cursor: 'pointer',
-                          textAlign: 'left' as const,
-                        }}
-                      >
-                        {(cat === 'All Categories' ? '\U0001F5C2\uFE0F' : (emojiMeta[cat] || guessEmoji(cat))) + ' ' + cat}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Start Quiz button */}
-            <button
-              onClick={() => { try { navigator.vibrate?.(10); } catch {} startQuizFromSetup(); }}
-              style={{
-                width: '100%',
-                padding: '14px 0',
-                borderRadius: 12,
-                fontSize: 15,
-                fontWeight: 700,
-                fontFamily: T.font,
-                color: '#fff',
-                background: T.accent,
-                border: 'none',
-                cursor: 'pointer',
-                boxShadow: `0 4px 14px ${T.accentTint}`,
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = T.accentHover)}
-              onMouseLeave={(e) => (e.currentTarget.style.background = T.accent)}
-            >
-              Start Quiz
-            </button>
-
-            {/* Wrong questions queue */}
-            {setupWrongCount > 0 && (
+              </>
+              }
+              // Wrong questions queue
+              trail={
+            setupWrongCount > 0 && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1265,6 +1079,7 @@ const QuizTaker: React.FC = () => {
                 </button>
               </div>
             )}
+            />
           </div>
         </div>
       </div>
@@ -1730,7 +1545,7 @@ const QuizTaker: React.FC = () => {
           >
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6, fontFamily: T.font, color: T.textPrimary }}>Exit this quiz?</div>
             <div style={{ fontSize: 14, color: T.textSecondary, marginBottom: 20, lineHeight: 1.5, fontFamily: T.font }}>
-              Your progress on this attempt won't be saved.
+              Answer at least 5 to save this session to your progress. Unanswered ones are skipped.
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
@@ -1752,6 +1567,7 @@ const QuizTaker: React.FC = () => {
               </button>
               <button
                 onClick={confirmExit}
+                aria-label="Exit quiz (Enter)"
                 style={{
                   flex: 1,
                   fontFamily: T.font,
@@ -1765,9 +1581,12 @@ const QuizTaker: React.FC = () => {
                   cursor: 'pointer',
                 }}
               >
-                Exit quiz
+                Exit quiz ⏎
               </button>
             </div>
+            <p style={{ fontSize: 11, color: T.textTertiary, marginTop: 12, textAlign: 'center', fontFamily: T.font }}>
+              Enter to exit · Esc to cancel
+            </p>
           </div>
         </div>
       )}

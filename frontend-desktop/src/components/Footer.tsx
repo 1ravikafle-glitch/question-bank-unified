@@ -1,9 +1,7 @@
-import { useLocation } from 'react-router-dom';
+import type React from 'react';
 
 const Footer: React.FC = () => {
   const year = new Date().getFullYear();
-  const location = useLocation();
-  const isQuiz = location.pathname.startsWith('/quiz');
 
   return (
     <footer
@@ -11,7 +9,6 @@ const Footer: React.FC = () => {
       style={{
         background: 'transparent',
         borderTop: '1px solid hsl(var(--border) / 0.35)',
-        opacity: isQuiz ? 0.18 : 1,
         marginTop: '0.35rem',
         paddingBottom: '1px',
       }}
@@ -21,13 +18,12 @@ const Footer: React.FC = () => {
       <div
         className="w-full pt-[3px] pb-[2px]"
         style={{
-          paddingLeft: '5%',
-          paddingRight: '5%',
+          paddingLeft: 'var(--page-gutter)',
+          paddingRight: 'var(--page-gutter)',
         }}
       >
-        <div className="flex flex-row items-center justify-between gap-1 flex-wrap">
+        <div className="site-footer-inner">
           <p
-            className="whitespace-nowrap leading-none"
             style={{
               color: 'hsl(var(--muted-foreground))',
               fontFamily: 'var(--font-sans)',
@@ -35,6 +31,10 @@ const Footer: React.FC = () => {
               fontWeight: 400,
               letterSpacing: '0.02em',
               margin: 0,
+              flex: '1 1 auto',
+              minWidth: 0,
+              overflowWrap: 'break-word',
+              lineHeight: 1.5,
             }}
           >
             © {year}{' '}
@@ -52,7 +52,6 @@ const Footer: React.FC = () => {
             {' '}· Loksewa MCQ · Success
           </p>
           <p
-            className="whitespace-nowrap leading-none"
             style={{
               color: 'hsl(var(--muted-foreground))',
               fontFamily: 'var(--font-sans)',
@@ -60,6 +59,10 @@ const Footer: React.FC = () => {
               fontWeight: 400,
               letterSpacing: '0.01em',
               margin: 0,
+              flex: '0 1 auto',
+              minWidth: 0,
+              overflowWrap: 'break-word',
+              lineHeight: 1.5,
             }}
           >
             <span
