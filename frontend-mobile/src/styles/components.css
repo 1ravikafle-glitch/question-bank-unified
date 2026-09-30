@@ -1889,7 +1889,7 @@
 }
 /* Dark mode: deep green fill, zero glow — matches btn-primary */
 .dark .hero-start-btn {
-  background: hsl(142 50% 36%) !important;
+  background: hsl(142 55% 30%) !important;
   color: hsl(0 0% 100%) !important;
   border: 1px solid transparent !important;
   box-shadow: none;
@@ -1898,7 +1898,7 @@
   -webkit-backdrop-filter: none;
 }
 .dark .hero-start-btn:hover:not(:disabled) {
-  background: hsl(142 50% 40%) !important;
+  background: hsl(142 55% 34%) !important;
   color: hsl(0 0% 100%) !important;
   border-color: transparent !important;
   box-shadow: none;
@@ -1907,19 +1907,20 @@
 
 /* Dark mode: deep green fills, zero glow — pleasant, no glare */
 .dark .btn-primary:not(:disabled) {
-  background: hsl(142 50% 36%);
+  background: hsl(142 55% 30%);
+  color: hsl(0 0% 100%);
   border-color: transparent;
   box-shadow: none;
   filter: none;
 }
 .dark .btn-primary:hover:not(:disabled) {
-  background: hsl(142 50% 41%);
+  background: hsl(142 55% 34%);
   border-color: transparent;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
   filter: none;
 }
 .dark .btn-primary:active:not(:disabled) {
-  background: hsl(142 50% 33%);
+  background: hsl(142 55% 28%);
   box-shadow: none;
 }
 

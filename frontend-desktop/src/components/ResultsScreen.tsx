@@ -124,6 +124,8 @@ const ResultsScreen: React.FC = () => {
         total_questions: quizResult.total_questions,
         percentage: quizResult.percentage,
         incorrect_questions: (quizResult as any).incorrect_questions || [],
+        raw_score: (quizResult as any).raw_score ?? quizResult.score,
+        negative_marking: (quizResult as any).negative_marking || 0,
         offline: (quizResult as any).offline || false,
       }
     : highlightedAttempt
@@ -132,6 +134,8 @@ const ResultsScreen: React.FC = () => {
           total_questions: highlightedAttempt.total_questions,
           percentage: highlightedAttempt.percentage,
           incorrect_questions: highlightedAttempt.incorrect_questions || [],
+          raw_score: (highlightedAttempt as any).raw_score ?? highlightedAttempt.score,
+          negative_marking: (highlightedAttempt as any).negative_marking || 0,
           offline: false,
         }
       : latestAttempt
@@ -140,9 +144,15 @@ const ResultsScreen: React.FC = () => {
             total_questions: latestAttempt.total_questions,
             percentage: latestAttempt.percentage,
             incorrect_questions: latestAttempt.incorrect_questions || [],
+            raw_score: (latestAttempt as any).raw_score ?? latestAttempt.score,
+            negative_marking: (latestAttempt as any).negative_marking || 0,
             offline: false,
           }
         : null;
+  const heroPenalty =
+    heroAttempt && heroAttempt.negative_marking > 0
+      ? Math.max(0, Math.round((heroAttempt.raw_score - heroAttempt.score) * 100) / 100)
+      : 0;
   const heroMessage = useMemo(
     () => (heroAttempt ? getRandomScoreMessage(heroAttempt.percentage) : ''),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,6 +253,11 @@ const ResultsScreen: React.FC = () => {
           <p style={{ fontSize: '1rem', fontWeight: 600, color: 'hsl(var(--foreground))', margin: '0 0 1.25rem 0' }}>
             {heroMessage}
           </p>
+          {heroPenalty > 0 && (
+            <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '-0.75rem 0 1.25rem', fontFamily: 'var(--font-mono)' }}>
+              {heroAttempt.raw_score} correct − {heroPenalty} penalty ({heroAttempt.incorrect_questions.length} wrong × {heroAttempt.negative_marking}) = {heroAttempt.score}
+            </p>
+          )}
           {heroAttempt.offline && (
             <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '-0.75rem 0 1rem' }}>
               Offline result — saved on this device, will sync automatically when you reconnect.

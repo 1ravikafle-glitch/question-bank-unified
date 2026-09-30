@@ -2100,7 +2100,7 @@
 }
 /* Dark mode: deep green fill, zero glow — matches btn-primary */
 .dark .hero-start-btn {
-  background: hsl(142 50% 36%);
+  background: hsl(142 55% 30%);
   color: hsl(0 0% 100%);
   border: 1px solid transparent;
   box-shadow: none;
@@ -2109,7 +2109,7 @@
   -webkit-backdrop-filter: none;
 }
 .dark .hero-start-btn:hover:not(:disabled) {
-  background: hsl(142 50% 40%);
+  background: hsl(142 55% 34%);
   color: hsl(0 0% 100%);
   border-color: transparent;
   box-shadow: none;
@@ -2119,19 +2119,20 @@
 /* No colored glow in dark mode — soft neutral shadow only (easy on eyes) */
 /* Dark mode: deep green fills, zero glow — pleasant, no glare */
 .dark .btn-primary:not(:disabled) {
-  background: hsl(142 50% 36%);
+  background: hsl(142 55% 30%);
+  color: hsl(0 0% 100%);
   border-color: transparent;
   box-shadow: none;
   filter: none;
 }
 .dark .btn-primary:hover:not(:disabled) {
-  background: hsl(142 50% 41%);
+  background: hsl(142 55% 34%);
   border-color: transparent;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
   filter: none;
 }
 .dark .btn-primary:active:not(:disabled) {
-  background: hsl(142 50% 33%);
+  background: hsl(142 55% 28%);
   box-shadow: none;
 }
 

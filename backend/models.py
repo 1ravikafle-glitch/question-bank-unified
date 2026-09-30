@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, Index
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, Index, Float
 from sqlalchemy.sql import func
 import database
 
@@ -50,6 +50,9 @@ class QuizAttempt(Base):
     answers = Column(JSONType)
     incorrect_questions = Column(JSONType)
     completed_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Mock-exam scoring detail (null/0 = plain practice, pre-feature rows).
+    raw_score = Column(Integer, nullable=True)
+    negative_marking = Column(Float, nullable=True)
 
     __table_args__ = (
         Index("ix_quiz_attempts_user", "user_identifier"),

@@ -29,6 +29,9 @@ const T: Record<string, string> = QuizTokens;
 
 function TimerRing({ seconds, total }: { seconds: number; total: number }) {
   const pct = Math.max(0, Math.min(1, seconds / total));
+  const label = total > 300
+    ? `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, '0')}`
+    : `${Math.max(0, seconds)}`;
   const r = 19;
   const c = 2 * Math.PI * r;
   const low = seconds <= 10;
@@ -63,7 +66,7 @@ function TimerRing({ seconds, total }: { seconds: number; total: number }) {
           fontFamily: T.font,
         }}
       >
-        {seconds}
+        {label}
       </div>
     </div>
   );
@@ -387,6 +390,15 @@ const QuizTaker: React.FC = () => {
   // Wrong-question mode never auto-starts: the user confirms first.
   const [wrongReady, setWrongReady] = useState(false);
   const [wrongTotal, setWrongTotal] = useState<number | null>(null);
+  const [wrongCats, setWrongCats] = useState<string[]>([]);
+  const [wrongCatCounts, setWrongCatCounts] = useState<Record<string, number>>({});
+  const [wrongCategory, setWrongCategory] = useState('');
+  const [wrongPool, setWrongPool] = useState<Question[]>([]);
+
+  const filteredWrongCount =
+    wrongCategory && wrongCatCounts[wrongCategory] != null
+      ? wrongCatCounts[wrongCategory]
+      : wrongTotal;
   const [setupCategories, setSetupCategories] = useState<string[]>([]);
   const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
   useEffect(() => { fetchCategoryEmoji().then(setEmojiMeta).catch(() => {}); }, []);
@@ -408,6 +420,9 @@ const QuizTaker: React.FC = () => {
   const isPracticeWrongMode = location.pathname === '/quiz/practice-wrong';
   const wrongQuestionIds = (location.state as { wrongQuestionIds?: number[] })?.wrongQuestionIds ?? EMPTY_ARRAY;
   const bookmarkIds = (location.state as { bookmarkIds?: number[] })?.bookmarkIds ?? EMPTY_ARRAY;
+  const examConfig = (location.state as { examConfig?: import('@/shared/types').ExamConfig })?.examConfig ?? null;
+  const isExamMode = !!examConfig;
+  const examTotalSecs = examConfig ? examConfig.minutes * 60 : 0;
   const urlParams = new URLSearchParams(location.search);
   const questionIdFromUrl = urlParams.get('qid');
   const countParam = urlParams.get('count');
@@ -430,22 +445,34 @@ const QuizTaker: React.FC = () => {
       setLoading(true);
       try {
         if (isPracticeWrongMode && !wrongReady) {
-          // Confirm screen first: load only the count, never the questions.
+          // Confirm screen: load the pool once for category counts, start
+          // only when the user confirms (optionally category-filtered).
           try {
-            if (wrongQuestionIds.length > 0) {
-              setWrongTotal(wrongQuestionIds.length);
-            } else {
-              const queue = await fetchWrongQueue(userId || 'anonymous');
-              setWrongTotal(queue.questions?.length || 0);
-            }
+            const pool: Question[] =
+              wrongQuestionIds.length > 0
+                ? await fetchQuestionsByIds(wrongQuestionIds)
+                : (await fetchWrongQueue(userId || 'anonymous')).questions || [];
+            setWrongPool(pool);
+            setWrongTotal(pool.length);
+            const counts: Record<string, number> = {};
+            pool.forEach((q) => {
+              const c = q.category || 'Uncategorized';
+              counts[c] = (counts[c] || 0) + 1;
+            });
+            setWrongCatCounts(counts);
+            setWrongCats(sortCategories(Object.keys(counts)));
+            if (wrongCategory && counts[wrongCategory] == null) setWrongCategory('');
           } catch {
             setWrongTotal(0);
+            setWrongPool([]);
+            setWrongCats([]);
+            setWrongCatCounts({});
           } finally {
             setLoading(false);
           }
           return;
         }
-        if (!isPracticeWrongMode && !questionIdFromUrl) {
+        if (!isPracticeWrongMode && !questionIdFromUrl && !examConfig) {
           // No URL params — ALWAYS show the setup menu (never auto-start).
           // A mid-quiz save becomes an explicit Continue choice, never a forced resume.
           if (!countParam && !categoryParam) {
@@ -500,12 +527,19 @@ const QuizTaker: React.FC = () => {
           }
         }
         let questionsData: Question[];
-        if (bookmarkIds.length > 0) {
+        if (examConfig) {
+          questionsData = await fetchRandomQuestions({
+            count: examConfig.count,
+            category: examConfig.category || undefined,
+          });
+          setAnnouncement(`${examConfig.title} started: ${questionsData.length} questions, ${examConfig.minutes} minutes.`);
+        } else if (bookmarkIds.length > 0) {
           questionsData = await fetchQuestionsByIds(bookmarkIds);
         } else if (isPracticeWrongMode && wrongQuestionIds.length > 0) {
-          questionsData = await fetchQuestionsByIds(wrongQuestionIds);
+          const pool = wrongPool.length > 0 ? wrongPool : await fetchQuestionsByIds(wrongQuestionIds);
+          questionsData = wrongCategory ? pool.filter((q) => (q.category || 'Uncategorized') === wrongCategory) : pool;
         } else if (isPracticeWrongMode) {
-          const queue = await fetchWrongQueue(userId || 'anonymous');
+          const queue = await fetchWrongQueue(userId || 'anonymous', wrongCategory || undefined);
           questionsData = queue.questions || [];
         } else if (questionIdFromUrl) {
           const specificQuestion = await fetchQuestionById(parseInt(questionIdFromUrl));
@@ -533,27 +567,31 @@ const QuizTaker: React.FC = () => {
     };
     loadQuestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questionIdFromUrl, countParam, categoryParam, isPracticeWrongMode, wrongReady]);
+  }, [questionIdFromUrl, countParam, categoryParam, isPracticeWrongMode, wrongReady, examConfig, wrongCategory]);
 
   // Local scoring when offline (answers queued for server sync later)
-  const scoreLocally = (qs: Question[], sel: Record<number, string>) => {
+  const scoreLocally = (qs: Question[], sel: Record<number, string>, negative = 0) => {
     const correct: Record<number, boolean> = {};
     const incorrect: number[] = [];
-    let score = 0;
+    let raw = 0;
     qs.forEach((q) => {
       const picked = (sel[q.id] || '').toString().toLowerCase();
       const right = (q.correct_answer || '').toString().toLowerCase();
       const ok = !!picked && picked[0] === right[0];
       correct[q.id] = ok;
-      if (ok) score++;
+      if (ok) raw++;
       else incorrect.push(q.id);
     });
+    const penalty = negative > 0 ? Math.round(incorrect.length * negative * 100) / 100 : 0;
+    const score = penalty ? Math.max(0, Math.round(raw - penalty)) : raw;
     return {
       score,
       total_questions: qs.length,
       percentage: qs.length ? Math.round((score / qs.length) * 100) : 0,
       correct_answers: correct,
       incorrect_questions: incorrect,
+      raw_score: raw,
+      negative_marking: negative,
       offline: true,
     };
   };
@@ -566,12 +604,13 @@ const QuizTaker: React.FC = () => {
         questions.forEach((q) => {
           if (finalSelected[q.id]) answersPayload[q.id] = finalSelected[q.id];
         });
+        const examNegative = examConfig?.negative ?? 0;
         let result;
         try {
-          result = await submitQuiz(answersPayload, userId || 'anonymous');
+          result = await submitQuiz(answersPayload, userId || 'anonymous', examNegative);
         } catch (e: any) {
           if (e?.message === 'OFFLINE_QUEUED') {
-            result = scoreLocally(questions, finalSelected);
+            result = scoreLocally(questions, finalSelected, examNegative);
           } else {
             throw e;
           }
@@ -590,7 +629,7 @@ const QuizTaker: React.FC = () => {
         setSubmitting(false);
       }
     },
-    [questions, userId, navigate, isPracticeWrongMode],
+    [questions, userId, navigate, isPracticeWrongMode, examConfig],
   );
 
   const handleStartNewQuiz = useCallback(() => {
@@ -740,7 +779,28 @@ const QuizTaker: React.FC = () => {
   }, [isLocked, isCorrect, sfxCorrect, sfxIncorrect]);
 
   const [timeLeft, setTimeLeft] = useState(SECONDS_PER_QUESTION);
+  // Exam mode: one countdown for the whole paper, auto-submit at zero.
   useEffect(() => {
+    if (!isExamMode || loading || questions.length === 0 || submitting) return;
+    setTimeLeft(examTotalSecs);
+    if (timerRef.current) window.clearInterval(timerRef.current);
+    timerRef.current = window.setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) window.clearInterval(timerRef.current);
+          submitQuizRequest(selected);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExamMode, loading, questions.length, submitting]);
+  useEffect(() => {
+    if (isExamMode) return;
     if (loading || questions.length === 0 || submitting || !currentQuestion) return;
     if (!quizPrefs.timer) {
       if (timerRef.current) window.clearInterval(timerRef.current);
@@ -983,10 +1043,38 @@ const QuizTaker: React.FC = () => {
               {wrongTotal === null
                 ? 'Checking your review queue…'
                 : wrongTotal > 0
-                  ? `${wrongTotal} question${wrongTotal > 1 ? 's need' : ' needs'} another look. Ready when you are — nothing starts until you say so.`
+                  ? `${filteredWrongCount ?? wrongTotal} question${(filteredWrongCount ?? wrongTotal) !== 1 ? 's need' : ' needs'} another look. Ready when you are — nothing starts until you say so.`
                   : 'All caught up! No wrong questions waiting for review.'}
             </p>
-            {wrongTotal !== null && wrongTotal > 0 && (
+            {wrongCats.length > 1 && wrongTotal !== null && wrongTotal > 0 && (
+              <select
+                value={wrongCategory}
+                onChange={(e) => setWrongCategory(e.target.value)}
+                aria-label="Review a specific category"
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  fontFamily: T.font,
+                  color: T.textPrimary,
+                  background: T.card,
+                  border: `1px solid ${T.border}`,
+                  cursor: 'pointer',
+                  marginBottom: 12,
+                  textAlign: 'left' as const,
+                }}
+              >
+                <option value="">All categories ({wrongTotal})</option>
+                {wrongCats.map((c) => (
+                  <option key={c} value={c}>
+                    {c} ({wrongCatCounts[c] || 0})
+                  </option>
+                ))}
+              </select>
+            )}
+            {wrongTotal !== null && (filteredWrongCount ?? 0) > 0 && (
               <button
                 onClick={() => { try { navigator.vibrate?.(10); } catch {} setLoading(true); setWrongReady(true); }}
                 style={{
@@ -996,7 +1084,8 @@ const QuizTaker: React.FC = () => {
                   boxShadow: '0 3px 12px rgba(34,197,94,.3)',
                 }}
               >
-                Start Review — {wrongTotal} question{wrongTotal > 1 ? 's' : ''}
+                Start Review — {filteredWrongCount ?? wrongTotal} question{(filteredWrongCount ?? wrongTotal) !== 1 ? 's' : ''}
+                {wrongCategory ? ` · ${wrongCategory}` : ''}
               </button>
             )}
           </div>
@@ -1186,7 +1275,9 @@ const QuizTaker: React.FC = () => {
         <div className="lg:mb-5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 13, color: bookmarkIds.length > 0 ? 'hsl(38 92% 45%)' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
-              {bookmarkIds.length > 0 ? `🔖 Bookmark review · ${questions.length}` : 'Practice quiz'}
+              {examConfig
+                ? `📝 ${examConfig.title}${examConfig.negative > 0 ? ` · −${examConfig.negative}/wrong` : ''}`
+                : bookmarkIds.length > 0 ? `🔖 Bookmark review · ${questions.length}` : 'Practice quiz'}
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', fontFamily: T.font, color: T.textPrimary }}>Forestry PSC</div>
           </div>
@@ -1225,7 +1316,7 @@ const QuizTaker: React.FC = () => {
             >
               {currentIndex + 1}/{questions.length}
             </div>
-            <TimerRing seconds={timeLeft} total={SECONDS_PER_QUESTION} />
+            <TimerRing seconds={timeLeft} total={isExamMode ? examTotalSecs : SECONDS_PER_QUESTION} />
             {currentQuestion && (
               <BookmarkButton
                 marked={bmIds.has(currentQuestion.id)}

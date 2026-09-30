@@ -15,6 +15,33 @@ import app_cache
 
 router = APIRouter(prefix="/quiz", tags=["quiz"])
 
+
+def _ensure_attempt_extra_columns():
+    """ADD COLUMN migration for quiz_attempts (idempotent, both engines)."""
+    try:
+        from sqlalchemy import inspect, text as _text
+
+        insp = inspect(database.engine)
+        cols = {c["name"] for c in insp.get_columns("quiz_attempts")}
+        stmts = []
+        if "raw_score" not in cols:
+            stmts.append("ALTER TABLE quiz_attempts ADD COLUMN raw_score INTEGER")
+        if "negative_marking" not in cols:
+            if database.is_postgres:
+                stmts.append("ALTER TABLE quiz_attempts ADD COLUMN negative_marking FLOAT")
+            else:
+                stmts.append("ALTER TABLE quiz_attempts ADD COLUMN negative_marking REAL")
+        if stmts:
+            with database.engine.begin() as conn:
+                for st in stmts:
+                    conn.execute(_text(st))
+            print(f"[QUIZ] migrated quiz_attempts (+{len(stmts)} cols)", file=sys.stderr)
+    except Exception as e:
+        print(f"[QUIZ] column migration skipped: {e}", file=sys.stderr)
+
+
+_ensure_attempt_extra_columns()
+
 # Lifetime/weekly accuracy only tracks meaningful sessions. Attempts with
 # fewer questions still record (attempt row + wrong-queue update) and can be
 # reviewed, but their per-question rows are skipped so trivia sessions never
@@ -132,6 +159,8 @@ def submit_quiz(
             percentage=percentage,
             answers=answers,
             incorrect_questions=incorrect_questions,
+            raw_score=raw_score,
+            negative_marking=negative,
         )
         db.add(quiz_attempt)
         db.flush()
@@ -289,6 +318,8 @@ def get_user_progress(
                 "percentage": a.percentage,
                 "completed_at": a.completed_at.isoformat() if a.completed_at else None,
                 "incorrect_questions": a.incorrect_questions or [],
+                "raw_score": a.raw_score if a.raw_score is not None else a.score,
+                "negative_marking": a.negative_marking or 0,
             }
             for a in recent_attempts
         ],
