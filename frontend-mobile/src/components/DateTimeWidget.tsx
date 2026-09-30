@@ -112,7 +112,7 @@ const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
   }
   const bsLabel = bsMonthDay ? `${bsMonthDay}, ${bsYear}` : '';
   const adMonthDay = `${AD_SHORT[p.month - 1]} ${p.day}`;
-  const adYear = `${p.year} A.D.`;
+  const adYear = `${p.year}`;
   const adLabel = `${adMonthDay}, ${adYear}`;
   const h12 = String(p.hour24 % 12 === 0 ? 12 : p.hour24 % 12).padStart(2, '0');
   const suffix = p.hour24 < 12 ? 'A.M.' : 'P.M.';
