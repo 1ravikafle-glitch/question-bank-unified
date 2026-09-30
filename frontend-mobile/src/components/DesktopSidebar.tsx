@@ -80,11 +80,11 @@ const MoonIcon = () => (
   </svg>
 );
 
-const MonitorIcon = () => (
+const AutoIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="20" height="14" x="2" y="3" rx="2" />
-    <line x1="8" x2="16" y1="21" y2="21" />
-    <line x1="12" x2="12" y1="17" y2="21" />
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 3v18" />
+    <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" opacity="0.45" />
   </svg>
 );
 
@@ -191,7 +191,7 @@ const DesktopSidebar: React.FC = () => {
   const themeOptions: { value: ThemeMode; icon: React.ReactNode; label: string }[] = [
     { value: 'light', icon: <SunIcon />, label: 'Light' },
     { value: 'dark', icon: <MoonIcon />, label: 'Dark' },
-    { value: 'system', icon: <MonitorIcon />, label: 'System' },
+    { value: 'auto', icon: <AutoIcon />, label: 'Auto' },
   ];
 
   return (

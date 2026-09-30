@@ -78,7 +78,7 @@ const Settings: React.FC = () => {
   const themes: { value: ThemeMode; label: string; hint: string }[] = [
     { value: 'light', label: 'Light', hint: 'Bright paper surfaces' },
     { value: 'dark', label: 'Dark', hint: 'Easy on the eyes at night' },
-    { value: 'system', label: 'System', hint: 'Follows your device' },
+    { value: 'auto', label: 'Auto', hint: 'Follows sunrise/sunset' },
   ];
 
   const card: React.CSSProperties = {

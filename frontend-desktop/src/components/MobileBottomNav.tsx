@@ -53,7 +53,7 @@ const MobileBottomNav: React.FC = () => {
 
   const cycleTheme = useCallback(() => {
     haptic(8);
-    const next: ThemeMode = mode === 'light' ? 'dark' : mode === 'dark' ? 'system' : 'light';
+    const next: ThemeMode = mode === 'light' ? 'dark' : mode === 'dark' ? 'auto' : 'light';
     setMode(next);
   }, [mode, setMode]);
 

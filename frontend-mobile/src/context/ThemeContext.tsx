@@ -11,7 +11,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  mode: 'system',
+  mode: 'auto',
   setMode: () => {},
   resolved: 'light',
 });
@@ -20,10 +20,6 @@ export const useTheme = () => useContext(ThemeContext);
 
 const STORAGE_KEY = 'fpsc-theme-mode';
 
-function getSystemPreference(): 'light' | 'dark' {
-  if (typeof window === 'undefined') return 'light';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
 
 function getStoredMode(): ThemeMode {
   try {
@@ -38,19 +34,10 @@ function getStoredMode(): ThemeMode {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(getStoredMode);
-  const [systemPreference, setSystemPreference] = useState<'light' | 'dark'>(getSystemPreference);
 
-  // Listen to system preference changes
-  useEffect(() => {
-    const mql = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e: MediaQueryListEvent) => setSystemPreference(e.matches ? 'dark' : 'light');
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, []);
 
   // Resolve the actual theme. Auto follows real sunrise/sunset at the
-  // viewer's location; until that resolves, mirror the device so first
-  // paint is never on the wrong side.
+  // viewer's location (Kathmandu fallback until the lookup lands).
   const { isDay } = useDayNight();
   const resolved = mode === 'auto' ? (isDay ? 'light' : 'dark') : mode;
 

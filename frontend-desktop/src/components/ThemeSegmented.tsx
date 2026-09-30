@@ -9,7 +9,7 @@ import { useSfx } from '@/hooks/useSfx';
 const OPTIONS: { value: ThemeMode; label: string; glyph: string | null }[] = [
   { value: 'light', label: 'Light', glyph: '☀' },
   { value: 'dark', label: 'Dark', glyph: '☾' },
-  { value: 'system', label: 'System', glyph: null },
+  { value: 'auto', label: 'Auto', glyph: '\u25D0' },
 ];
 
 const ThemeSegmented: React.FC<{ small?: boolean }> = ({ small }) => {
@@ -38,7 +38,7 @@ const ThemeSegmented: React.FC<{ small?: boolean }> = ({ small }) => {
               setMode(opt.value);
             }}
             aria-pressed={active}
-            title={`${opt.label} theme${opt.value === 'system' ? ' (automatic)' : ''}`}
+            title={`${opt.label} theme${opt.value === 'auto' ? ' (sunrise/sunset)' : ''}`}
             style={{
               flex: 1,
               display: 'flex',
