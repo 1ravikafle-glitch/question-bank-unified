@@ -107,13 +107,13 @@ const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
   let bsYear = '';
   try {
     const bs = new NepaliDate(new Date(p.year, p.month - 1, p.day)).getBS();
-    bsMonthDay = `${BS_MONTHS[bs.month] ?? ''} ${bs.date}`;
+    bsMonthDay = `${bs.date} ${BS_MONTHS[bs.month] ?? ''}`;
     bsYear = `${bs.year} B.S.`;
   } catch {
     bsMonthDay = '';
   }
   const bsLabel = bsMonthDay ? `${bsMonthDay}, ${bsYear}` : '';
-  const adMonthDay = `${AD_SHORT[p.month - 1]} ${p.day}`;
+  const adMonthDay = `${p.day} ${AD_SHORT[p.month - 1]}`;
   const adYear = `${p.year}`;
   const adLabel = `${adMonthDay}, ${adYear}`;
   // Weekday in Kathmandu (Nepali name when ne active); Sat + Sun are holidays.
