@@ -170,10 +170,9 @@
 
 /* card hover moved to consolidated Hover Shadows section */
 
-/* Focus lives on inputs themselves (.input:focus); a whole-card outline on
-   autofocus is glare, not accessibility — keep cards quiet. */
 .card:focus-within {
-  outline: none;
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }
 
 .card-primary {

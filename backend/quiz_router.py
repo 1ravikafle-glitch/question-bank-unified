@@ -81,6 +81,12 @@ def submit_quiz(
     # historical anonymous/client-supplied behavior.
     username = caller[0] or (submission.username if submission.username else "anonymous")
     answers = _normalize_answers(submission.answers)
+    # Clamp the penalty into a sane range; anything else is plain practice.
+    try:
+        negative = float(submission.negative_marking or 0.0)
+    except (TypeError, ValueError):
+        negative = 0.0
+    negative = min(1.0, max(0.0, negative))
     question_ids = list(answers.keys())
 
     questions = db.query(models.Question).filter(models.Question.id.in_(question_ids)).all()
@@ -109,6 +115,11 @@ def submit_quiz(
             incorrect_questions.append(qid)
 
     total = len(questions)
+    raw_score = score
+    penalty = round(len(incorrect_questions) * negative, 2) if negative > 0 else 0.0
+    if penalty:
+        # Attempts store whole numbers; fractional penalties round once.
+        score = int(round(max(0, raw_score - penalty)))
     percentage = int((score / total) * 100) if total > 0 else 0
 
     # ── Write everything in one transaction ─────────────────────────────────
@@ -183,6 +194,8 @@ def submit_quiz(
         percentage=percentage,
         correct_answers=correct_answers,
         incorrect_questions=incorrect_questions,
+        raw_score=raw_score,
+        negative_marking=negative,
     )
 
 

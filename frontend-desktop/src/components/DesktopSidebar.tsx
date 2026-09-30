@@ -372,8 +372,9 @@ const DesktopSidebar: React.FC = () => {
                 initial="initial"
                 animate="animate"
               >
-                {items.map((item) => (
+                {items.map((item, ii) => (
                   <Fragment key={item.to}>
+                    {ii > 0 && <div className="nav-row-divider" aria-hidden="true" />}
                     <motion.div variants={prefersReducedMotion() ? undefined : navItemVariants}>
                       <NavRow
                         item={item.to === '/bookmarks' ? { ...item, badge: bmCount } : item}

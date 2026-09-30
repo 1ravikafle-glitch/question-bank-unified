@@ -14,6 +14,7 @@ export interface QueuedAttempt {
   answers: Record<number, string>;
   total: number;
   ts: number;
+  negativeMarking?: number;
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -200,7 +201,7 @@ export async function pendingCount(): Promise<number> {
 
 /** Submit everything queued. Returns number synced. Stops at first failure. */
 export async function syncOutbox(
-  submitFn: (answers: Record<number, string>, username: string) => Promise<unknown>,
+  submitFn: (answers: Record<number, string>, username: string, negativeMarking?: number) => Promise<unknown>,
   clearFn?: (username: string, ids: number[]) => Promise<unknown>
 ): Promise<number> {
   let synced = 0;
@@ -212,7 +213,7 @@ export async function syncOutbox(
     db.close();
   }
   for (const it of items) {
-    await submitFn(it.answers, it.username);
+    await submitFn(it.answers, it.username, it.negativeMarking || 0);
     if (clearFn) {
       try {
         await clearFn(

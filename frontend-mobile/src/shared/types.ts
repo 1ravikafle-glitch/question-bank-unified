@@ -30,6 +30,17 @@ export interface QuizResult {
   percentage: number;
   correct_answers: Record<number, boolean>;
   incorrect_questions: number[];
+  raw_score?: number;
+  negative_marking?: number;
+}
+
+/** Mock-exam configuration passed via router state into /quiz. */
+export interface ExamConfig {
+  title: string;
+  count: number;
+  minutes: number;
+  negative: number;
+  category?: string;
 }
 
 export interface UserProgress {

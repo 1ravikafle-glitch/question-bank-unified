@@ -70,16 +70,20 @@ export const fetchRandomQuestions = async (
   }
 };
 
-export const submitQuiz = async (answers: Record<number, string>, username: string = '') => {
+export const submitQuiz = async (
+  answers: Record<number, string>,
+  username: string = '',
+  negativeMarking: number = 0
+) => {
   try {
-    const response = await api.post<QuizResult>('/quiz/submit', { answers, username });
+    const response = await api.post<QuizResult>('/quiz/submit', { answers, username, negative_marking: negativeMarking });
     return response.data;
   } catch (e) {
     if (!isNetworkError(e)) throw e;
     // Offline: queue for sync, caller shows local scoring
     const { queueAttempt } = await import('@/utils/offline');
     const total = Object.keys(answers).length;
-    await queueAttempt({ username, answers, total });
+    await queueAttempt({ username, answers, total, negativeMarking });
     throw new Error(OFFLINE_QUEUED);
   }
 };

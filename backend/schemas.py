@@ -42,6 +42,8 @@ class QuizAnswer(BaseModel):
 class QuizSubmission(BaseModel):
     answers: Dict[int, str]
     username: Optional[str] = None
+    # Mock-exam penalty per wrong answer (e.g. 0.2 Loksewa-style). 0 = plain practice.
+    negative_marking: float = 0.0
 
 
 class QuizResult(BaseModel):
@@ -50,6 +52,9 @@ class QuizResult(BaseModel):
     percentage: int
     correct_answers: Dict[int, bool]
     incorrect_questions: list[int]
+    # Echoed scoring detail for mock exams (absent/0 for plain practice).
+    raw_score: Optional[int] = None
+    negative_marking: float = 0.0
 
 
 class UserProgressBase(BaseModel):
