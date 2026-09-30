@@ -430,13 +430,13 @@ const Dashboard: React.FC = () => {
                 <span className="stat-tile-label">Accuracy</span>
                 <span
                   className="stat-tile-value"
-                  style={{ color: accuracy !== null ? perfColor(accuracy) : undefined }}
+                  style={{ color: accuracy !== null && attempted > 0 ? perfColor(accuracy) : 'hsl(var(--muted-foreground))' }}
                 >
-                  {accuracy !== null ? `${accuracy.toFixed(1)}%` : '—'}
+                  {accuracy !== null && attempted > 0 ? `${accuracy.toFixed(1)}%` : '—'}
                 </span>
                 {accuracy !== null && (
                   <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
-                    {perfLabel(accuracy)}
+                    {attempted > 0 ? perfLabel(accuracy) : 'No attempts yet'}
                   </span>
                 )}
               </motion.div>
