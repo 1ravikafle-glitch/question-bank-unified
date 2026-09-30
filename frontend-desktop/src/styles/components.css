@@ -2086,9 +2086,22 @@
 }
 
 /* No colored glow in dark mode — soft neutral shadow only (easy on eyes) */
+/* Dark mode: deep green fills, zero glow — pleasant, no glare */
+.dark .btn-primary:not(:disabled) {
+  background: hsl(142 50% 36%);
+  border-color: transparent;
+  box-shadow: none;
+  filter: none;
+}
 .dark .btn-primary:hover:not(:disabled) {
+  background: hsl(142 50% 41%);
+  border-color: transparent;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
   filter: none;
+}
+.dark .btn-primary:active:not(:disabled) {
+  background: hsl(142 50% 33%);
+  box-shadow: none;
 }
 
 /* Tier pills: deep flat fills in dark, no glow, no brightness pulse */

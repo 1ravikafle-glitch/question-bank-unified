@@ -1865,10 +1865,22 @@
   filter: none;
 }
 
-/* Primary glow stays green but softer in dark mode */
+/* Dark mode: deep green fills, zero glow — pleasant, no glare */
+.dark .btn-primary:not(:disabled) {
+  background: hsl(142 50% 36%);
+  border-color: transparent;
+  box-shadow: none;
+  filter: none;
+}
 .dark .btn-primary:hover:not(:disabled) {
+  background: hsl(142 50% 41%);
+  border-color: transparent;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
   filter: none;
+}
+.dark .btn-primary:active:not(:disabled) {
+  background: hsl(142 50% 33%);
+  box-shadow: none;
 }
 
 @media (hover: hover) .dark .card:hover {
