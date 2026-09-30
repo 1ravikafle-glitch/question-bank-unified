@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import NepaliDate from 'nepali-date-converter';
 import { useDayNight } from '@/hooks/useDayNight';
+import { useLang } from '@/context/LanguageContext';
 import { useTheme } from '@/context/ThemeContext';
 
 /* Top-bar Nepal clock: BS date || AD date + live KTM time + sun/moon
@@ -92,6 +93,7 @@ function MoonIcon({ lit, dark }: { lit: boolean; dark: boolean }) {
 const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
   const [now, setNow] = useState(() => new Date());
   const { isDay, source, label: locLabel } = useDayNight();
+  const { lang } = useLang();
   const { resolved } = useTheme();
   const dark = resolved === 'dark';
 
@@ -114,6 +116,19 @@ const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
   const adMonthDay = `${AD_SHORT[p.month - 1]} ${p.day}`;
   const adYear = `${p.year}`;
   const adLabel = `${adMonthDay}, ${adYear}`;
+  // Weekday in Kathmandu (Nepali name when ne active); Sat + Sun are holidays.
+  let weekday = '';
+  let isHoliday = false;
+  try {
+    weekday = new Intl.DateTimeFormat(lang === 'ne' ? 'ne-NP' : 'en-US', {
+      weekday: 'long',
+      timeZone: 'Asia/Kathmandu',
+    }).format(now);
+    const short = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Kathmandu' }).format(now);
+    isHoliday = short === 'Sun' || short === 'Sat';
+  } catch {
+    weekday = '';
+  }
   const h12 = String(p.hour24 % 12 === 0 ? 12 : p.hour24 % 12).padStart(2, '0');
   const suffix = p.hour24 < 12 ? 'A.M.' : 'P.M.';
   // Sun/moon come from the shared day/night signal (viewer location,
@@ -136,6 +151,11 @@ const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
     >
       {!compact && (
         <span style={{ letterSpacing: '0.01em' }}>
+          {weekday && (
+            <span style={{ fontWeight: 700, color: isHoliday ? 'hsl(var(--destructive))' : 'hsl(var(--foreground))' }}>
+              {weekday},{' '}
+            </span>
+          )}
           <span style={{ fontWeight: 700, color: 'hsl(var(--foreground))' }}>{bsMonthDay}</span>{' '}
           <span style={{ opacity: 0.6 }}>{bsYear}</span>
           <span style={{ opacity: 0.45, margin: '0 4px' }}>||</span>{' '}
