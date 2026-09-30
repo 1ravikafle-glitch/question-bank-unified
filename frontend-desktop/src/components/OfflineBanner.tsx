@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { submitQuiz, fetchQuestions, fetchQuestionsCount, clearWrongQueue } from '@/services/api';
 import { isOnline, pendingCount, syncOutbox, packInfo, ensurePack } from '@/utils/offline';
+import { useTheme } from '@/context/ThemeContext';
 
 /* Offline status pill + automatic outbox sync on reconnect. */
 const OfflineBanner: React.FC = () => {
+  const { resolved } = useTheme();
   const [online, setOnline] = useState(isOnline());
   const [pending, setPending] = useState(0);
   const [hasPack, setHasPack] = useState(false);
@@ -111,8 +113,12 @@ const OfflineBanner: React.FC = () => {
         borderRadius: 999,
         fontSize: '0.78rem',
         fontWeight: 600,
-        background: online ? 'hsl(var(--primary))' : '#1c1917',
-        color: '#fff',
+        background: online
+          ? 'hsl(var(--primary))'
+          : resolved === 'dark' ? '#1c1917' : 'hsl(var(--foreground))',
+        color: online
+          ? 'hsl(var(--primary-foreground))'
+          : resolved === 'dark' ? '#fff' : 'hsl(var(--background))',
         boxShadow: '0 6px 24px rgba(0,0,0,0.25)',
         whiteSpace: 'nowrap',
         cursor: online && pending > 0 ? 'pointer' : 'default',
