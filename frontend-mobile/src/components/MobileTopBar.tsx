@@ -153,7 +153,7 @@ const MobileTopBar: React.FC = () => {
               top: 'calc(52px + env(safe-area-inset-top, 0px) + 4px)',
               right: 12,
               width: 'min(260px, calc(100vw - 28px))',
-              borderRadius: 19,
+              borderRadius: 'var(--apple-radius-xl)',
               padding: 8,
               zIndex: 99999,
               background: darkMenu ? 'rgba(15,26,20,0.94)' : 'hsl(var(--popover))',
@@ -201,6 +201,7 @@ const MobileTopBar: React.FC = () => {
                     textOverflow: 'ellipsis',
                     maxWidth: 160,
                   }}
+                  title={userId ?? undefined}
                 >
                   {userId}
                 </span>

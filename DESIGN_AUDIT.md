@@ -1,6 +1,6 @@
 # Design Audit — Forestry PSC Preparation (dark-mode-first redesign brief)
 
-Date: 2026-09-30. Source: live preview http://127.0.0.1:5173 (backend :8000),
+Date: 2026-09-30. IMPLEMENTED on branch `redesign-dark` (see status at end).
 20 renders (desktop 1440 / mobile 390 × light / dark × about, login, home,
 questions, progress) + full `frontend-desktop/src` + `frontend-mobile/src` review.
 Test user `design-audit-tmp` was created for screenshots — DELETE it when done.
@@ -20,9 +20,9 @@ Test user `design-audit-tmp` was created for screenshots — DELETE it when done
 3. **Login card neon border in dark mode.** Full-perimeter bright-green outline
    around the auth card = glare. Replace with `border: 1px solid
    hsl(var(--border))` + soft shadow. File: `Login.tsx` / `components.css`.
-4. **Mobile bottom nav overlaps content.** Progress tiles run under the fixed
-   56px nav (`pb-20` missing/insufficient on dashboard scroll container).
-   Add safe padding. Files: mobile `App.tsx`, `globals.css` (`.pb-20/safe`).
+4. **Mobile bottom nav overlap — WITHDRAWN after verification.** Scrolled-to-bottom
+   render shows last content clears the fixed nav (`pb-20` = 80px works). The
+   earlier read mistook below-fold content for overlap. No change needed.
 5. **Sidebar hairline dividers between every item.** Borders too visible —
    remove inter-item rules, keep group spacing only. File: `DesktopSidebar.tsx`.
 6. **Dev-only: `/questions` full-load returns raw API JSON.** Vite proxy maps
@@ -53,8 +53,8 @@ Test user `design-audit-tmp` was created for screenshots — DELETE it when done
     `rgba()` glass duplicated per mode. Fold into tokens.
 13. **`prefers-reduced-motion`**: globals honor it, but `framer-motion` local
     variants in QuestionList/QuizTaker do not check `useReducedMotion()`.
-14. **About page social icons render with empty URLs** (icon-only dead links).
-    Remove or link them.
+14. **About social icons — already mitigated.** Empty URLs render dimmed,
+    non-navigating icons (`preventDefault`, `aria-disabled`). No change.
 
 ## P2 — polish
 
@@ -64,6 +64,28 @@ Test user `design-audit-tmp` was created for screenshots — DELETE it when done
     keep, but drop the glow in dark (already partially suppressed — finish it).
 17. sfx default ON with no first-run consent; keep setting, add one-time hint.
 18. `forestry-logo` white wrapper is intentional for legibility — keep.
+
+## Implementation status (branch `redesign-dark`, tsc 0 errors, both `dist/` rebuilt)
+
+DONE: P0-1 hero → quiet layered surface + token button (both apps) · P0-2
+neutral empty state + `scoreColor` single source incl. new
+`frontend-mobile/src/utils/scoreColor.ts` (both apps) · P0-3 removed
+`.card:focus-within` outline, inputs keep their own rings (both apps) · P0-5
+sidebar dividers removed (desktop app) · P0-6 vite `bypass` for `/questions`
+HTML navigations (both apps, **needs dev-server restart to take effect**) ·
+P1-7 defined missing tokens (`--font-size-xs…6xl`, `--font-weight-light/
+extrabold/black`, `--font-apple`, `--shadow-2xl`, `--transition-default/slow`)
++ fixed invalid `.input` border (both apps) · P1-9 QuizTaker imports shared `T`
+(both apps) · P1-11 `title` on truncated usernames (desktop Header ×2, mobile
+TopBar) · P1-12 header radius → token, Settings logout → destructive token ·
+P1-13 `MotionConfig reducedMotion="user"` at both app roots.
+WITHDRAWN after verification: P0-4 (bottom clearance is correct), P1-14
+(socials already safe), P1-10 bookmark (other session's active edit — untouched).
+Also fixed (1 line, type-only, zero runtime change): preexisting
+`filter(Boolean)` type error in desktop `Bookmarks.tsx` from in-flight work.
+Test user `design-audit-tmp` deleted from local SQLite (backup:
+`/tmp/opencode/qb-backup-pre-cleanup.db`). Verified via 20 re-renders.
+NOT touched: backend, API, auth, scoring, routes, SEO, SW, data.
 
 ## Constraints (do not break)
 

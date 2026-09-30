@@ -115,3 +115,30 @@ def toggle_bookmark(
     except Exception:
         pass
     return {"bookmarked": bookmarked, "count": count}
+
+
+@router.delete("/user/{user_identifier}")
+def clear_bookmarks(
+    user_identifier: str,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[None, bool] = Depends(session.current_user),
+):
+    """Remove all bookmarks for a user (unbookmark-all)."""
+    user_identifier = _username(caller, user_identifier)
+    try:
+        cleared = (
+            db.query(models.Bookmark)
+            .filter(models.Bookmark.user_identifier == user_identifier)
+            .delete()
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to clear bookmarks")
+    try:
+        import app_cache
+
+        app_cache.delete("prog:" + user_identifier)
+    except Exception:
+        pass
+    return {"cleared": cleared}

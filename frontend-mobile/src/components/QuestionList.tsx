@@ -264,14 +264,13 @@ const Dashboard: React.FC = () => {
         style={{
           borderRadius: 'var(--apple-radius-xl)',
           padding: '1.5rem 2rem',
-          color: 'white',
           position: 'relative',
           overflow: 'hidden',
           marginBottom: '1.25rem',
         }}
         aria-label="Welcome hero"
       >
-        {/* Decorative gradient overlay */}
+        {/* Decorative tint overlay (token-driven, subtle in both modes) */}
         <div
           aria-hidden="true"
           style={{
@@ -281,7 +280,7 @@ const Dashboard: React.FC = () => {
             width: '24rem',
             height: '24rem',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,0.1), transparent 70%)',
+            background: 'radial-gradient(circle, hsl(var(--primary) / 0.08), transparent 70%)',
             pointerEvents: 'none',
           }}
         />
@@ -294,7 +293,7 @@ const Dashboard: React.FC = () => {
             width: '16rem',
             height: '16rem',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,0.06), transparent 70%)',
+            background: 'radial-gradient(circle, hsl(var(--primary) / 0.05), transparent 70%)',
             pointerEvents: 'none',
           }}
         />
@@ -309,7 +308,6 @@ const Dashboard: React.FC = () => {
                   fontWeight: 'var(--font-weight-semibold)',
                   margin: 0,
                   lineHeight: 1.3,
-                  color: 'white',
                 }}
               >
                 Welcome back{userId ? `, ${userId}` : ''}
@@ -321,7 +319,7 @@ const Dashboard: React.FC = () => {
                   opacity: 0.9,
                   marginTop: '0.25rem',
                   marginBottom: 0,
-                  color: 'white',
+                  color: 'hsl(var(--muted-foreground))',
                 }}
               >
                 {quote}
@@ -379,13 +377,13 @@ const Dashboard: React.FC = () => {
             <span className="stat-tile-label">Accuracy</span>
             <span
               className="stat-tile-value"
-              style={{ color: accuracy !== null ? perfColor(accuracy) : undefined }}
+              style={{ color: accuracy !== null && attempted > 0 ? perfColor(accuracy) : 'hsl(var(--muted-foreground))' }}
             >
-              {accuracy !== null ? `${accuracy.toFixed(1)}%` : '—'}
+              {accuracy !== null && attempted > 0 ? `${accuracy.toFixed(1)}%` : '—'}
             </span>
             {accuracy !== null && (
               <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
-                {perfLabel(accuracy)}
+                {attempted > 0 ? perfLabel(accuracy) : 'No attempts yet'}
               </span>
             )}
           </motion.div>

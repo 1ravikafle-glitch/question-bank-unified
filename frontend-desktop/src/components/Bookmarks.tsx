@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchBookmarks, toggleBookmark } from '../services/api';
+import { fetchBookmarks, toggleBookmark, clearBookmarks } from '../services/api';
+import { sortCategories } from '@/utils/categorySort';
 import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
@@ -14,6 +15,11 @@ const Bookmarks: React.FC = () => {
   const { sfxClick } = useSfx();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catFilter, setCatFilter] = useState('');
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const cats = sortCategories([...new Set(questions.map((q) => q.category).filter((c): c is string => Boolean(c)))]);
+  const visible = catFilter ? questions.filter((q) => q.category === catFilter) : questions;
 
   useEffect(() => {
     const load = async () => {
@@ -44,10 +50,27 @@ const Bookmarks: React.FC = () => {
   );
 
   const practiceAll = useCallback(() => {
-    if (questions.length === 0) return;
+    const list = catFilter ? questions.filter((q) => q.category === catFilter) : questions;
+    if (list.length === 0) return;
     sfxClick();
-    navigate('/quiz', { state: { bookmarkIds: questions.map((q) => q.id) } });
-  }, [questions, navigate, sfxClick]);
+    navigate('/quiz', { state: { bookmarkIds: list.map((q) => q.id) } });
+  }, [questions, catFilter, navigate, sfxClick]);
+
+  const handleClearAll = useCallback(async () => {
+    if (!userId) return;
+    if (!confirmClear) {
+      sfxClick();
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 3000);
+      return;
+    }
+    setConfirmClear(false);
+    const res = await clearBookmarks(userId).catch(() => null);
+    if (res) {
+      setQuestions([]);
+      setCatFilter('');
+    }
+  }, [userId, confirmClear, sfxClick]);
 
   if (loading) {
     return (
@@ -81,16 +104,44 @@ const Bookmarks: React.FC = () => {
           </p>
         </div>
         {questions.length > 0 && (
-          <motion.button
-            onClick={practiceAll}
-            className="btn btn-primary"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            Practice all ({questions.length})
-          </motion.button>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <motion.button
+              onClick={practiceAll}
+              className="btn btn-primary"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              Practice{catFilter ? ` ${catFilter}` : ' all'} ({visible.length})
+            </motion.button>
+            <motion.button
+              onClick={handleClearAll}
+              className="btn btn-outline"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              style={confirmClear ? { borderColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive))' } : undefined}
+            >
+              {confirmClear ? 'Tap again to remove all' : 'Unbookmark all'}
+            </motion.button>
+          </div>
         )}
       </div>
+
+      {questions.length > 0 && cats.length > 1 && (
+        <select
+          value={catFilter}
+          onChange={(e) => setCatFilter(e.target.value)}
+          className="input"
+          aria-label="Filter bookmarks by category"
+          style={{ maxWidth: '16rem' }}
+        >
+          <option value="">All categories ({questions.length})</option>
+          {cats.map((c) => (
+            <option key={c} value={c}>
+              {c} ({questions.filter((q) => q.category === c).length})
+            </option>
+          ))}
+        </select>
+      )}
 
       {questions.length === 0 ? (
         <div className="card" style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
@@ -102,9 +153,15 @@ const Bookmarks: React.FC = () => {
             Save tricky questions while practicing or browsing, then revise them here.
           </p>
         </div>
+      ) : visible.length === 0 ? (
+        <div className="card" style={{ padding: '2rem 1.5rem', textAlign: 'center' }}>
+          <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+            Nothing saved in this category yet.
+          </p>
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {questions.map((q) => {
+          {visible.map((q) => {
             const opts = (q.options || {}) as Record<string, string>;
             const keys = Object.keys(opts).sort();
             return (

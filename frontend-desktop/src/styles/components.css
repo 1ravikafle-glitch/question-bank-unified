@@ -170,9 +170,10 @@
 
 /* card hover moved to consolidated Hover Shadows section */
 
+/* Focus lives on inputs themselves (.input:focus); a whole-card outline on
+   autofocus is glare, not accessibility — keep cards quiet. */
 .card:focus-within {
-  outline: 2px solid hsl(var(--ring));
-  outline-offset: 2px;
+  outline: none;
 }
 
 .card-primary {
@@ -213,7 +214,7 @@
   line-height: var(--leading-relaxed);
   color: hsl(var(--foreground));
   background-color: hsl(var(--background));
-  border: 1px solid var(--input);
+  border: 1px solid hsl(var(--input));
   border-radius: var(--apple-radius-md);
   min-height: 40px;
   transition: border-color 150ms, box-shadow 150ms;
@@ -261,7 +262,7 @@
   width: 1rem;
   height: 1rem;
   border-radius: var(--apple-radius-sm);
-  border: 1px solid var(--input);
+  border: 1px solid hsl(var(--input));
   background-color: hsl(var(--background));
   cursor: pointer;
   transition: background-color 150ms, border-color 150ms;
@@ -797,6 +798,38 @@
 }
 
 /* ─── Quiz question box (Apple quiet surface; replaces inline styles) ─── */
+/* ── Quiz fold-flow: answered cards fold up into their progress dot,
+   which pops — then the next card flows in. No more blink-swap. ── */
+.quiz-qbox.quiz-flow-in {
+  animation: quizFlowIn 0.32s var(--ease-spring);
+}
+@keyframes quizFlowIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.quiz-qbox.is-folding {
+  animation: quizFoldOut 0.26s var(--ease-standard) forwards;
+  transform-origin: top center;
+  pointer-events: none;
+}
+@keyframes quizFoldOut {
+  to { opacity: 0; transform: translateY(-26px) scaleY(0.6) scale(0.98); }
+}
+.dot-pop {
+  animation: dotPop 0.5s var(--ease-spring);
+}
+@keyframes dotPop {
+  0% { transform: scale(0.4); }
+  55% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quiz-qbox.quiz-flow-in,
+  .quiz-qbox.is-folding,
+  .dot-pop {
+    animation: none !important;
+  }
+}
 /* ── Dashboard hero: quiet layered surface, deep forest tint in dark ── */
 .hero-card {
   background:
@@ -833,10 +866,6 @@
   pointer-events: none;
   user-select: none;
 }
-.quiz-qbox.is-fading {
-  opacity: 0;
-  transform: translateY(6px);
-}
 .quiz-qbox.is-selected {
   border-color: hsl(var(--primary) / 0.55);
 }
@@ -849,9 +878,6 @@
 @media (prefers-reduced-motion: reduce) {
   .quiz-qbox {
     transition: opacity 150ms ease;
-  }
-  .quiz-qbox.is-fading {
-    transform: none;
   }
 }
 

@@ -183,7 +183,7 @@ const Header: React.FC = () => {
               top: '64px',
               right: '16px',
               width: 'min(300px, calc(100vw - 28px))',
-              borderRadius: '19px',
+              borderRadius: 'var(--apple-radius-xl)',
               padding: '8px',
               zIndex: 99999,
               background: darkMenu ? 'rgba(15,26,20,0.94)' : 'rgba(255,255,255,0.92)',
@@ -232,6 +232,7 @@ const Header: React.FC = () => {
                     textOverflow: 'ellipsis',
                     maxWidth: 170,
                   }}
+                  title={userId ?? undefined}
                 >
                   {userId}
                 </span>
@@ -420,6 +421,7 @@ const Header: React.FC = () => {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
               }}
+              title={userId ?? undefined}
             >
               {userId}
             </span>

@@ -22,26 +22,10 @@ import { useQuizPrefs } from '@/quizPrefs';
 import PracticeSetupBody from '@/components/PracticeSetupBody';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// ---------------------------------------------------------------------------
-// Design tokens — exact T from your reference (Apple quiet neutrals)
-// ---------------------------------------------------------------------------
-const T = {
-  page: 'hsl(var(--background))',
-  card: 'hsl(var(--card))',
-  border: 'hsl(var(--border))',
-  textPrimary: 'hsl(var(--foreground))',
-  textSecondary: 'hsl(var(--muted-foreground))',
-  textTertiary: 'hsl(var(--muted-foreground) / 0.65)',
-  accent: 'hsl(var(--primary))',
-  accentHover: 'hsl(var(--primary) / 0.88)',
-  accentTint: 'hsl(var(--accent))',
-  success: 'hsl(var(--success))',
-  successTint: 'hsl(var(--success) / 0.10)',
-  danger: 'hsl(var(--destructive))',
-  dangerTint: 'hsl(var(--destructive) / 0.08)',
-  font:
-    'var(--font-apple, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif)',
-};
+// Design tokens — single source in shared/appleQuizTokens.ts
+// (widened: option render assigns different tokens to the same locals)
+import { T as QuizTokens } from '@/shared/appleQuizTokens';
+const T: Record<string, string> = QuizTokens;
 
 function TimerRing({ seconds, total }: { seconds: number; total: number }) {
   const pct = Math.max(0, Math.min(1, seconds / total));
@@ -118,7 +102,7 @@ function QuestionBox({
   selected,
   revealed,
   onChoose,
-  fading,
+  folding,
 }: {
   role: 'active' | 'next';
   question: any;
@@ -127,7 +111,7 @@ function QuestionBox({
   selected: string | null;
   revealed: boolean;
   onChoose: (k: string) => void;
-  fading: boolean;
+  folding: boolean;
 }) {
   const locked = role === 'next';
   const showResult = role === 'active' && revealed;
@@ -142,8 +126,8 @@ function QuestionBox({
     <div
       className={
         'quiz-qbox' +
-        (locked ? ' is-next' : '') +
-        (fading ? ' is-fading' : '') +
+        (locked ? ' is-next' : ' quiz-flow-in') +
+        (!locked && folding ? ' is-folding' : '') +
         (!locked && selected ? ' is-selected' : '')
       }
       aria-hidden={locked || undefined}
@@ -366,7 +350,8 @@ const QuizTaker: React.FC = () => {
   const timerRef = useRef<number | null>(null);
 
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [fading, setFading] = useState(false);
+  const [folding, setFolding] = useState(false);
+  const [popDot, setPopDot] = useState<number | null>(null);
 
   // Setup screen state
   const [showSetup, setShowSetup] = useState(false);
@@ -794,31 +779,37 @@ const QuizTaker: React.FC = () => {
     [currentQuestion, isLocked, sfxSelect],
   );
 
+  // Fold-flow navigation: the outgoing card folds up into its progress
+  // dot (which pops green/red), then the next card flows in fresh.
+  const goTo = useCallback((next: number, answeredIdx: number | null) => {
+    setFolding(true);
+    if (answeredIdx !== null) {
+      setPopDot(answeredIdx);
+      setTimeout(() => setPopDot(null), 550);
+    }
+    setTimeout(() => {
+      setCurrentIndex(next);
+      setFolding(false);
+    }, 260);
+  }, []);
+
   const handleNext = useCallback(() => {
     try { navigator.vibrate?.(8); } catch {}
     if (currentIndex < questions.length - 1) {
-      setFading(true);
-      setTimeout(() => {
-        setCurrentIndex((i) => i + 1);
-        setFading(false);
-      }, 220);
+      goTo(currentIndex + 1, isLocked ? currentIndex : null);
       sfxClick();
     } else {
       submitQuizRequest(selected);
     }
-  }, [currentIndex, questions.length, submitQuizRequest, selected, sfxClick]);
+  }, [currentIndex, questions.length, submitQuizRequest, selected, sfxClick, goTo, isLocked]);
 
   const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
       try { navigator.vibrate?.(8); } catch {}
       sfxClick();
-      setFading(true);
-      setTimeout(() => {
-        setCurrentIndex((i) => i - 1);
-        setFading(false);
-      }, 220);
+      goTo(currentIndex - 1, null);
     }
-  }, [currentIndex, sfxClick]);
+  }, [currentIndex, sfxClick, goTo]);
 
   const handleExitRequest = () => setShowExitConfirm(true);
 
@@ -1333,6 +1324,7 @@ const QuizTaker: React.FC = () => {
             return (
               <div
                 key={questions[i]?.id ?? i}
+                className={popDot === i ? 'dot-pop' : undefined}
                 style={{
                   width: window.innerWidth < 640 ? 12 : 16,
                   height: window.innerWidth < 640 ? 12 : 16,
@@ -1351,6 +1343,7 @@ const QuizTaker: React.FC = () => {
         {/* Question grid — single column on mobile, 2-col on desktop */}
         <div className="quiz-grid-2col" style={{ display: 'grid', gap: 20 }}>
           <QuestionBox
+            key={currentQuestion?.id ?? currentIndex}
             role="active"
             question={activeBoxQ}
             index={currentIndex}
@@ -1358,7 +1351,7 @@ const QuizTaker: React.FC = () => {
             selected={activeSelected}
             revealed={isLocked}
             onChoose={handleSelect}
-            fading={fading}
+            folding={folding}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
           {nextQ && (
@@ -1371,7 +1364,7 @@ const QuizTaker: React.FC = () => {
                 selected={null}
                 revealed={false}
                 onChoose={() => {}}
-                fading={fading}
+                folding={false}
               />
             </div>
           )}
