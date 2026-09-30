@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { submitQuiz, fetchQuestions, fetchQuestionsCount, clearWrongQueue } from '@/services/api';
 import { isOnline, pendingCount, syncOutbox, packInfo, ensurePack } from '@/utils/offline';
+import { useTheme } from '@/context/ThemeContext';
 
 /* Offline status pill + automatic outbox sync on reconnect. */
 const OfflineBanner: React.FC = () => {
+  const { resolved } = useTheme();
   const [online, setOnline] = useState(isOnline());
   const [pending, setPending] = useState(0);
   const [hasPack, setHasPack] = useState(false);
@@ -30,18 +32,36 @@ const OfflineBanner: React.FC = () => {
       setHasPack(!!(await packInfo()));
     };
     refresh();
-    // Silent auto-download: bank arrives in small pages with pauses between
-    // them, so the UI stays smooth. One 2s toast reports completion.
+    // Auto-download with visible progress: bank arrives in small pages with
+    // pauses between them. Completion and failure both report; fresh packs
+    // and by-design skips (offline / data-saver) stay silent.
+    let packToast: string | undefined;
     ensurePack(
       (skip, limit) => fetchQuestions({ skip, limit }),
-      () => fetchQuestionsCount().then((r) => r.count)
+      () => fetchQuestionsCount().then((r) => r.count),
+      {
+        onProgress: (done, total) => {
+          const pct = total > 0 ? Math.min(99, Math.round((done / total) * 100)) : 0;
+          const msg = `Downloading offline pack… ${pct}%`;
+          if (packToast) toast.loading(msg, { id: packToast });
+          else packToast = toast.loading(msg);
+        },
+      }
     ).then((res) => {
       if (!alive) return;
       if (res === 'downloaded') {
         refresh();
-        toast.success('Offline pack ready — practice works without internet');
+        if (packToast) toast.success('Offline pack ready — practice works without internet', { id: packToast, duration: 3000 });
+        else toast.success('Offline pack ready — practice works without internet');
+      } else if (res === 'failed') {
+        if (packToast) toast.error('Offline download failed — will retry', { id: packToast });
+        else toast.error('Offline download failed — will retry automatically.');
+      } else if (packToast) {
+        toast.dismiss(packToast);
       }
-    }).catch(() => {});
+    }).catch(() => {
+      if (packToast) toast.dismiss(packToast);
+    });
     const onOnline = async () => {
       setOnline(true);
       await trySync();
@@ -99,8 +119,12 @@ const OfflineBanner: React.FC = () => {
         borderRadius: 999,
         fontSize: '0.78rem',
         fontWeight: 600,
-        background: online ? 'hsl(var(--primary))' : '#1c1917',
-        color: '#fff',
+        background: online
+          ? 'hsl(var(--primary))'
+          : resolved === 'dark' ? '#1c1917' : 'hsl(var(--foreground))',
+        color: online
+          ? '#fff'
+          : resolved === 'dark' ? '#fff' : 'hsl(var(--background))',
         boxShadow: '0 6px 24px rgba(0,0,0,0.25)',
         whiteSpace: 'nowrap',
         cursor: online && pending > 0 ? 'pointer' : 'default',

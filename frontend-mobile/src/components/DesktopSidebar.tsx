@@ -7,7 +7,7 @@ import { useSound } from '@/context/SoundContext';
 import { useSfx } from '@/hooks/useSfx';
 import { isAdmin } from '@/config/admin';
 import { ForestryLogo } from '@/components/ForestryLogo';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
 const HomeIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -123,12 +123,12 @@ const navSections = [
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const navItemVariants = {
+const navItemVariants: Variants = {
   initial: { opacity: 0, x: -8 },
   animate: { opacity: 1, x: 0, transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
-const navContainerVariants = {
+const navContainerVariants: Variants = {
   animate: { transition: { staggerChildren: 0.04 } },
 };
 
@@ -309,13 +309,14 @@ const DesktopSidebar: React.FC = () => {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
                   isActive
-                    ? 'text-amber-600 dark:text-amber-400'
+                    ? ''
                     : 'text-[hsl(var(--foreground) / 0.7)] hover:text-foreground hover:bg-[hsl(var(--muted))]'
                 }`
               }
               style={({ isActive }) => ({
                 fontSize: '0.9375rem',
-                background: isActive ? 'hsl(38 92% 50% / 0.1)' : 'transparent',
+                color: isActive ? 'hsl(var(--primary))' : undefined,
+                background: isActive ? 'hsl(var(--primary) / 0.1)' : 'transparent',
               })}
             >
               <span className="flex-shrink-0" style={{ transform: 'scale(1.1)' }}>

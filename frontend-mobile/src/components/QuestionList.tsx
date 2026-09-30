@@ -4,6 +4,7 @@ import { fetchQuestionsCount, fetchCategories, fetchUserProgress, fetchWrongQueu
   fetchCategoryCounts,} from '../services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
+import { useDismiss } from '@/hooks/useDismiss';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji } from '@/utils/categoryEmoji';
 import { motion } from 'framer-motion';
@@ -123,6 +124,10 @@ const Dashboard: React.FC = () => {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [quote] = useState(() => quotes[Math.floor(Math.random() * quotes.length)]);
+  const categoryDropdownRef = useDismiss<HTMLDivElement>(
+    showCategoryDropdown,
+    () => setShowCategoryDropdown(false)
+  );
 
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
@@ -533,7 +538,7 @@ const Dashboard: React.FC = () => {
               >
                 Category
               </label>
-              <div style={{ position: 'relative' }}>
+              <div ref={categoryDropdownRef} style={{ position: 'relative' }}>
                 <motion.button
                   onClick={() => { sfxClick(); setShowCategoryDropdown(!showCategoryDropdown); }}
                   className="category-dropdown-btn"
@@ -579,9 +584,12 @@ const Dashboard: React.FC = () => {
                       zIndex: 20,
                       maxHeight: '14rem',
                       overflowY: 'auto',
+                      overscrollBehavior: 'contain',
                     }}
                     role="listbox"
                     aria-label="Select a category"
+                    onWheel={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
                   >
                     {['All Categories', ...sortCategories(categories)].map((cat) => (
                       <button

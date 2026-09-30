@@ -3,6 +3,7 @@ import { useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { AuthContext } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -20,6 +21,8 @@ const TITLES: Record<string, string> = {
 /* Slim sticky top bar for mobile: page title + user avatar, always visible. */
 const MobileTopBar: React.FC = () => {
   const { userId, logout } = useContext(AuthContext);
+  const { resolved } = useTheme();
+  const darkMenu = resolved === 'dark';
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -69,8 +72,8 @@ const MobileTopBar: React.FC = () => {
           height: 52,
           padding: '0 16px',
           background: 'hsl(var(--background) / 0.85)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          backdropFilter: 'blur(16px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(160%)',
         }}
         aria-label="Top bar"
       >
@@ -95,11 +98,11 @@ const MobileTopBar: React.FC = () => {
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: open ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.10)',
+              background: darkMenu ? (open ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)') : 'hsl(var(--card))',
+              border: darkMenu ? '1px solid rgba(255,255,255,0.10)' : '1px solid hsl(var(--border))',
               backdropFilter: 'blur(18px)',
               WebkitBackdropFilter: 'blur(18px)',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
+              boxShadow: darkMenu ? '0 2px 10px rgba(0,0,0,0.25)' : '0 2px 10px rgba(0,0,0,0.10)',
               cursor: 'pointer',
               padding: 0,
               flexShrink: 0,
@@ -153,12 +156,13 @@ const MobileTopBar: React.FC = () => {
               borderRadius: 19,
               padding: 8,
               zIndex: 99999,
-              background: 'rgba(30,30,32,0.94)',
-              border: '1px solid rgba(255,255,255,0.10)',
+              background: darkMenu ? 'rgba(30,30,32,0.94)' : 'hsl(var(--popover))',
+              border: darkMenu ? '1px solid rgba(255,255,255,0.10)' : '1px solid hsl(var(--border))',
               backdropFilter: 'blur(30px) saturate(130%)',
               WebkitBackdropFilter: 'blur(30px) saturate(130%)',
-              boxShadow:
-                'inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.5), 0 4px 18px rgba(0,0,0,0.4)',
+              boxShadow: darkMenu
+                ? 'inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.5), 0 4px 18px rgba(0,0,0,0.4)'
+                : '0 24px 70px rgba(0,0,0,0.16), 0 4px 18px rgba(0,0,0,0.10)',
               transformOrigin: 'top right',
               overflow: 'hidden',
             }}
@@ -188,7 +192,7 @@ const MobileTopBar: React.FC = () => {
               <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
                 <span
                   style={{
-                    color: '#fff',
+                    color: darkMenu ? '#fff' : 'hsl(var(--foreground))',
                     fontSize: 14,
                     fontWeight: 600,
                     lineHeight: 1.25,
@@ -200,12 +204,12 @@ const MobileTopBar: React.FC = () => {
                 >
                   {userId}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, lineHeight: 1.3 }}>
+                <span style={{ color: darkMenu ? 'rgba(255,255,255,0.55)' : 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.3 }}>
                   Forestry PSC
                 </span>
               </span>
             </div>
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '2px 4px 4px' }} />
+            <div style={{ height: 1, background: darkMenu ? 'rgba(255,255,255,0.08)' : 'hsl(var(--border))', margin: '2px 4px 4px' }} />
             <button
               type="button"
               onClick={() => {

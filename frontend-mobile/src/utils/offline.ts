@@ -253,8 +253,8 @@ function saveDataMode(): boolean {
 export async function ensurePack(
   pager: (skip: number, limit: number) => Promise<Question[]>,
   counter: () => Promise<number>,
-  opts: { maxAgeDays?: number } = {}
-): Promise<'ok' | 'downloaded' | 'skipped'> {
+  opts: { maxAgeDays?: number; onProgress?: (done: number, total: number) => void } = {}
+): Promise<'ok' | 'downloaded' | 'skipped' | 'failed'> {
   try {
     if (!isOnline() || saveDataMode()) return 'skipped';
     const maxAge = (opts.maxAgeDays ?? 7) * 86400000;
@@ -265,10 +265,10 @@ export async function ensurePack(
       if (!total || total === info.total) return 'ok';
     }
     if (!total) return 'skipped';
-    const pack = await downloadPackPaged(pager, total);
-    return pack.total > 0 ? 'downloaded' : 'skipped';
+    const pack = await downloadPackPaged(pager, total, opts.onProgress);
+    return pack.total > 0 ? 'downloaded' : 'failed';
   } catch {
-    return 'skipped';
+    return 'failed';
   }
 }
 

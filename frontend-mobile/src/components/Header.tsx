@@ -202,7 +202,7 @@ const Header: React.FC = () => {
       >
         <AnimatePresence mode="wait">
           <motion.h1
-            key={pageTitle}
+            key={location.pathname}
             initial={prefersReducedMotion() ? undefined : { opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReducedMotion() ? undefined : { opacity: 0, y: 4 }}

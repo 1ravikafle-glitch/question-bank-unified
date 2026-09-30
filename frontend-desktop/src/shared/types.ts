@@ -70,3 +70,10 @@ export interface QuizParams {
   category?: string;
   difficulty?: string;
 }
+
+/**
+ * Attempts with fewer questions never surface in Results history or
+ * Progress activity (too small to mean anything). Saving/tracking still
+ * happens — this is display-level only.
+ */
+export const MIN_QUESTIONS_FOR_HISTORY = 5;

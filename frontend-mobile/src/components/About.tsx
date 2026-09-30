@@ -1,10 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { fetchQuestionsCount } from '../services/api';
+import { fetchQuestionsCount, fetchCategories } from '../services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ForestryLogo } from '@/components/ForestryLogo';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 
 const socialLinks = [
   { label: 'Facebook', href: '#', icon: 'fb' },
@@ -23,22 +23,29 @@ const SocialIconSm: React.FC<{ type: string }> = ({ type }) => {
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const pageVariants = {
+const pageVariants: Variants = {
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   animate: { transition: { staggerChildren: 0.06 } },
 };
 
-const fadeUp = {
+const fadeUp: Variants = {
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
 const features = [
-  { icon: '📝', title: 'Question Bank', getDesc: (count: number) => `${count.toLocaleString()}+ forestry MCQs across 10 categories, searchable and filterable.` },
+  {
+    icon: '📝',
+    title: 'Question Bank',
+    getDesc: (count: number, cats: number) =>
+      count > 0 && cats > 0
+        ? `${count.toLocaleString()}+ forestry MCQs across ${cats} categories, searchable and filterable.`
+        : 'A growing forestry MCQ bank across every category, searchable and filterable.',
+  },
   { icon: '⏱️', title: 'Timed Practice', getDesc: () => '2-minute timer per question with instant right/wrong feedback.' },
   { icon: '📊', title: 'Progress Tracking', getDesc: () => 'Weekly and lifetime accuracy by category with visual analytics.' },
   { icon: '🎯', title: 'Mistake Re-practice', getDesc: () => 'Wrong questions auto-queue for focused re-practice sessions.' },
@@ -63,14 +70,16 @@ const whatWeDo = [
 const About: React.FC = () => {
   const navigate = useNavigate();
   const [totalQuestions, setTotalQuestions] = useState<number>(0);
+  const [totalCategories, setTotalCategories] = useState<number>(0);
 
   useEffect(() => {
-    fetchQuestionsCount().then(setTotalQuestions).catch(() => {});
+    fetchQuestionsCount().then((r) => setTotalQuestions(r.count)).catch(() => {});
+    fetchCategories().then((c) => setTotalCategories(c.length)).catch(() => {});
   }, []);
 
   const stats = [
     { value: totalQuestions > 0 ? `${totalQuestions.toLocaleString()}+` : '—', label: 'Questions' },
-    { value: '10', label: 'Categories' },
+    { value: totalCategories > 0 ? `${totalCategories}` : '—', label: 'Categories' },
     { value: '∞', label: 'Practice' },
   ];
 
@@ -233,7 +242,7 @@ const About: React.FC = () => {
                   </span>
                   <div className="min-w-0">
                     <h3 style={{ fontSize: '0.85rem' }} className="font-semibold text-foreground mb-0.5">{f.title}</h3>
-                    <p className="text-[0.8rem] text-muted-foreground leading-relaxed">{f.getDesc(totalQuestions)}</p>
+                    <p className="text-[0.8rem] text-muted-foreground leading-relaxed">{f.getDesc(totalQuestions, totalCategories)}</p>
                   </div>
                 </motion.div>
               ))}

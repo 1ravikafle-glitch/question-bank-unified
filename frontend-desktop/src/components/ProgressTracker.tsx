@@ -1,6 +1,7 @@
 import { useEffect, useState, useContext, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchUserProgress, fetchWrongQueue } from '../services/api';
+import { MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { toast } from 'react-hot-toast';
 import { AuthContext } from '@/context/AuthContext';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
@@ -121,11 +122,13 @@ const ProgressTracker: React.FC = () => {
   const currentCategories = data ? (view === 'weekly' ? data.weekly_categories : data.lifetime_categories) : [];
   const recentAttempts = useMemo(() => {
     const arr = data?.recent_attempts || [];
-    return [...arr].sort((a, b) => {
-      const da = a.completed_at ? new Date(a.completed_at).getTime() : 0;
-      const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;
-      return db - da;
-    });
+    return arr
+      .filter((a) => (a.total_questions || 0) >= MIN_QUESTIONS_FOR_HISTORY)
+      .sort((a, b) => {
+        const da = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+        const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+        return db - da;
+      });
   }, [data]);
 
   const sortedCategories = useMemo(() =>

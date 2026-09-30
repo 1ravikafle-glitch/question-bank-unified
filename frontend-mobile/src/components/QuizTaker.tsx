@@ -15,6 +15,7 @@ import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
+import { useDismiss } from '@/hooks/useDismiss';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ---------------------------------------------------------------------------
@@ -411,6 +412,10 @@ const QuizTaker: React.FC = () => {
   const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
   const [setupCategory, setSetupCategory] = useState('');
   const [showSetupCategoryDropdown, setShowSetupCategoryDropdown] = useState(false);
+  const setupCategoryDismissRef = useDismiss<HTMLDivElement>(
+    showSetupCategoryDropdown,
+    () => setShowSetupCategoryDropdown(false)
+  );
 
   const isPracticeWrongMode = location.pathname === '/quiz/practice-wrong';
   const wrongQuestionIds = (location.state as { wrongQuestionIds?: number[] })?.wrongQuestionIds ?? EMPTY_ARRAY;
@@ -1067,9 +1072,11 @@ const QuizTaker: React.FC = () => {
               >
                 Category
               </label>
-              <div style={{ position: 'relative' }}>
+              <div ref={setupCategoryDismissRef} style={{ position: 'relative' }}>
                 <button
                   onClick={() => { try { navigator.vibrate?.(8); } catch {} setShowSetupCategoryDropdown(!showSetupCategoryDropdown); }}
+                  aria-haspopup="listbox"
+                  aria-expanded={showSetupCategoryDropdown}
                   style={{
                     width: '100%',
                     display: 'flex',
@@ -1109,7 +1116,10 @@ const QuizTaker: React.FC = () => {
                       zIndex: 20,
                       maxHeight: 224,
                       overflowY: 'auto' as const,
+                      overscrollBehavior: 'contain' as const,
                     }}
+                    onWheel={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
                   >
                     {['All Categories', ...sortCategories(setupCategories)].map((cat) => (
                       <button

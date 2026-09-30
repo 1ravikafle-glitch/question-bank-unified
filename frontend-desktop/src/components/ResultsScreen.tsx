@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { type QuizResult } from '@/shared/types';
+import { type QuizResult, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue } from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -58,14 +58,16 @@ const ResultsScreen: React.FC = () => {
       try {
         const progress = await fetchUserProgress(userId);
         const rawAttempts = progress.recent_attempts || [];
-        setPastAttempts(rawAttempts.map((a: any) => ({
-          ...a,
-          incorrect_questions: Array.isArray(a.incorrect_questions) ? a.incorrect_questions : [],
-        })).sort((a: any, b: any) => {
-          const da = a.completed_at ? new Date(a.completed_at).getTime() : 0;
-          const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;
-          return db - da;
-        }));
+        setPastAttempts(rawAttempts
+          .filter((a: any) => (a.total_questions || 0) >= MIN_QUESTIONS_FOR_HISTORY)
+          .map((a: any) => ({
+            ...a,
+            incorrect_questions: Array.isArray(a.incorrect_questions) ? a.incorrect_questions : [],
+          })).sort((a: any, b: any) => {
+            const da = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+            const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+            return db - da;
+          }));
       } catch (error) {
         console.error('Error loading past results:', error);
       } finally {

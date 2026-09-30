@@ -291,11 +291,12 @@ main > div {
 	to { transform: scale(1); opacity: 1; }
 }
 
-/* --- Mobile nav glass material --- */
+/* --- Mobile nav glass material (kept light for low-end GPUs:
+   16px blur is ~3x cheaper to composite than 28px while scrolling) --- */
 :root {
 	--nav-glass-bg: rgba(255, 255, 255, 0.88);
 	--nav-glass-border: rgba(0, 0, 0, 0.06);
-	--nav-glass-blur: blur(28px) saturate(200%);
+	--nav-glass-blur: blur(16px) saturate(160%);
 }
 .dark {
 	--nav-glass-bg: rgba(20, 28, 22, 0.92);

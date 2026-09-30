@@ -2,12 +2,18 @@ export function ForestryLogo({ size = 36, className = '' }: { size?: number; cla
   // Logo is served under /desktop/ and /mobile/ by start_prod.py. The root
   // path 404s on the SEO-enabled mirror, so resolve from the current base
   // with fallback to the other.
-  const getLogoSrc = () => {
+  const getLogoBase = () => {
     if (typeof window !== 'undefined' && window.location.pathname.startsWith('/mobile')) {
-      return '/mobile/forestry-logo.png';
+      return '/mobile/';
     }
-    return '/desktop/forestry-logo.png';
+    return '/desktop/';
   };
+  const base = getLogoBase();
+  const src = `${base}forestry-logo.png`;
+  // Right-sized variants: browsers download the ~43KB 192px file for UI
+  // sizes instead of the 1.1MB 1254px original (big mobile data + decode win).
+  const srcSet = `${base}forestry-logo-192.png 192w, ${base}forestry-logo-512.png 512w, ${src} 1254w`;
+  const fallbackBase = base.includes('/mobile/') ? '/desktop/' : '/mobile/';
   return (
     <span
       className={`inline-flex items-center justify-center flex-shrink-0 rounded-full overflow-hidden bg-white ${className}`}
@@ -19,7 +25,9 @@ export function ForestryLogo({ size = 36, className = '' }: { size?: number; cla
       }}
     >
       <img
-        src={getLogoSrc()}
+        src={src}
+        srcSet={srcSet}
+        sizes={`${size}px`}
         alt="Forestry PSC"
         width={size}
         height={size}
@@ -27,10 +35,10 @@ export function ForestryLogo({ size = 36, className = '' }: { size?: number; cla
         onError={(e) => {
           const t = e.currentTarget as HTMLImageElement;
           // Try the other base once (/mobile <-> /desktop) before SVG fallback.
-          const fallback = t.src.includes('/mobile/') ? '/desktop/forestry-logo.png' : '/mobile/forestry-logo.png';
           if (!t.dataset.fallbackTried) {
             t.dataset.fallbackTried = '1';
-            t.src = fallback;
+            t.src = `${fallbackBase}forestry-logo.png`;
+            t.srcset = `${fallbackBase}forestry-logo-192.png 192w, ${fallbackBase}forestry-logo-512.png 512w`;
             return;
           }
           t.style.display = 'none';

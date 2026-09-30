@@ -12,7 +12,7 @@ import {
 } from '../services/api';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
-import { type Question } from '@/shared/types';
+import { type Question, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { useQuizPrefs } from '@/quizPrefs';
@@ -769,7 +769,7 @@ const QuizTaker: React.FC = () => {
     questions.forEach((q) => {
       if (selected[q.id]) answersPayload[q.id] = selected[q.id];
     });
-    if (Object.keys(answersPayload).length < 5) return;
+    if (Object.keys(answersPayload).length < MIN_QUESTIONS_FOR_HISTORY) return;
     try {
       await submitQuiz(answersPayload, userId || 'anonymous');
     } catch {

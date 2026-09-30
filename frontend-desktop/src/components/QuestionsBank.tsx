@@ -523,6 +523,10 @@ const QuestionsBank: React.FC = () => {
                   borderRadius: '12px',
                   padding: '20px 24px',
                   transition: 'box-shadow 0.2s, border-color 0.2s',
+                  // Offscreen cards skip layout/paint until scrolled near —
+                  // the big scroll-smoothness win on low-end phones.
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: 'auto 320px',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = '0 4px 16px hsl(var(--foreground) / 0.06)';
