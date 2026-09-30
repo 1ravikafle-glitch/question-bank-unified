@@ -159,7 +159,7 @@ function AppShell() {
 
         {/* Footer — hidden on quiz, hidden on mobile (bottom nav takes its place) */}
         {!isLogin && !isQuiz && (
-          <div className={showLayout ? 'hidden lg:block lg:ml-[280px]' : ''}>
+          <div className={showLayout ? 'site-footer-wrap' : ''}>
             <Footer />
           </div>
         )}

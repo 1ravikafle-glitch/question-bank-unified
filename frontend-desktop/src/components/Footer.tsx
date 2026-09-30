@@ -15,13 +15,7 @@ const Footer: React.FC = () => {
       role="contentinfo"
       aria-label="Site footer"
     >
-      <div
-        className="w-full pt-[3px] pb-[2px]"
-        style={{
-          paddingLeft: 'var(--page-gutter)',
-          paddingRight: 'var(--page-gutter)',
-        }}
-      >
+      <div>
         <div className="site-footer-inner">
           <p
             style={{

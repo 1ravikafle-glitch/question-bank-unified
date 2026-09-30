@@ -754,6 +754,15 @@
 }
 
 /* ── Site footer: stacked (never clipped) below xl, row on wide screens ── */
+.site-footer-wrap {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .site-footer-wrap {
+    display: block;
+    margin-left: var(--sidebar-w);
+  }
+}
 .site-footer-inner {
   display: flex;
   flex-direction: column;
@@ -761,6 +770,7 @@
   gap: 2px;
   width: 100%;
   min-width: 0;
+  padding: 3px var(--page-gutter) 2px;
 }
 @media (min-width: 1280px) {
   .site-footer-inner {
