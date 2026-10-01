@@ -87,7 +87,7 @@ const SECONDS_PER_QUESTION = 120;
 // A mid-quiz save older than this becomes a fresh menu (matches desktop overlay).
 const RESUME_WINDOW_MS = 4 * 60 * 60 * 1000;
 const EMPTY_ARRAY: number[] = [];
-const QUIZ_STORAGE_KEY = 'fpsc-quiz-state';
+const QUIZ_STORAGE_KEY = 'fpsc-quiz-state-v2';
 
 interface QuizPersistedState {
   questions: Question[];
@@ -439,6 +439,11 @@ const QuizTaker: React.FC = () => {
   const activeSlotRef = useRef<HTMLDivElement | null>(null);
   const nextSlotRef = useRef<HTMLDivElement | null>(null);
   const [enterX, setEnterX] = useState<number | undefined>(undefined);
+  // STAGED PREVIEW (travel sync): during the 280ms+ travel the preview slot
+  // keeps showing the OLD next question (the one gliding left). Only after the
+  // travel lands does the slot flip to the fresh question with its own enter
+  // animation. Without this the new content pops in while travel runs.
+  const [previewHoldIdx, setPreviewHoldIdx] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [announcement, setAnnouncement] = useState<string>('');
@@ -847,9 +852,11 @@ const QuizTaker: React.FC = () => {
 
   // Per-question shuffled options. Keys reassigned A/B/C/D by position after shuffle.
   // Cache cleared on new quiz so every session gets fresh shuffle.
-  const shuffledCacheRef = useRef<Map<number, { items: [string, string][]; correctKey: string }>>(new Map());
-  const getShuffledFor = (q: Question): { items: [string, string][]; correctKey: string } => {
-    if (!q) return { items: [], correctKey: '' };
+  // origOf maps each DISPLAYED label back to the ORIGINAL option key, so
+  // scoring/submit always use original keys (backend compares unshuffled).
+  const shuffledCacheRef = useRef<Map<number, { items: [string, string][]; correctKey: string; origOf: Record<string, string> }>>(new Map());
+  const getShuffledFor = (q: Question): { items: [string, string][]; correctKey: string; origOf: Record<string, string> } => {
+    if (!q) return { items: [], correctKey: '', origOf: {} };
     const cached = shuffledCacheRef.current.get(q.id);
     if (cached) return cached;
     const raw = q.options as any;
@@ -870,18 +877,24 @@ const QuizTaker: React.FC = () => {
     const correctIdx = shuffled.findIndex(([k]) => k.toUpperCase() === correctOriginal);
     const correctKey = correctIdx !== -1 ? labels[correctIdx] : '';
 
-    const result = { items, correctKey };
+    // Displayed label -> original key (scoring must use original keys).
+    const origOf: Record<string, string> = {};
+    shuffled.forEach(([origK], i) => {
+      origOf[labels[i]] = origK.toUpperCase();
+    });
+
+    const result = { items, correctKey, origOf };
     shuffledCacheRef.current.set(q.id, result);
     return result;
   };
-  const activeShuffledData = currentQuestion ? getShuffledFor(currentQuestion) : { items: [], correctKey: '' };
+  const activeShuffledData = currentQuestion ? getShuffledFor(currentQuestion) : { items: [], correctKey: '', origOf: {} };
   const activeShuffled = activeShuffledData.items;
   const activeCorrectKey = activeShuffledData.correctKey;
   const activeOptionsMap = Object.fromEntries(activeShuffled);
   const isCorrect =
     isLocked &&
     currentQuestion &&
-    activeCorrectKey.toLowerCase() === (currentSelected || '').toLowerCase();
+    (currentQuestion.correct_answer || '').toLowerCase() === (currentSelected || '').toLowerCase();
 
   const prevLockedRef = useRef(false);
   useEffect(() => {
@@ -958,24 +971,29 @@ const QuizTaker: React.FC = () => {
     (key: string) => {
       if (!currentQuestion || isLocked) return;
       try { navigator.vibrate?.(8); } catch {}
-      setSelected((prev) => ({ ...prev, [currentQuestion.id]: key.toLowerCase() }));
+      // Store the ORIGINAL option key (backend scores unshuffled keys).
+      const orig = activeShuffledData.origOf[key.toUpperCase()] ?? key.toUpperCase();
+      setSelected((prev) => ({ ...prev, [currentQuestion.id]: orig.toLowerCase() }));
       setAnnouncement(`Selected option ${key.toUpperCase()}.`);
       sfxSelect();
     },
-    [currentQuestion, isLocked, sfxSelect],
+    [currentQuestion, isLocked, sfxSelect, activeShuffledData],
   );
 
   // Paper-view answering: any question, answered once then locked in.
+  // Displayed labels map back to ORIGINAL keys for scoring.
   const paperSelect = useCallback(
     (qid: number, keyLower: string) => {
       if (selected[qid] !== undefined) return;
+      const q = questions.find((x) => x.id === qid);
+      const orig = (q ? getShuffledFor(q).origOf[keyLower.toUpperCase()] : undefined) ?? keyLower.toUpperCase();
       try { navigator.vibrate?.(8); } catch {}
-      setSelected((prev) => ({ ...prev, [qid]: keyLower }));
+      setSelected((prev) => ({ ...prev, [qid]: orig.toLowerCase() }));
       const idx = questions.findIndex((q) => q.id === qid);
       setAnnouncement(`Answered question ${idx + 1} of ${questions.length}.`);
       sfxSelect();
     },
-    [selected, questions, sfxSelect],
+    [selected, questions, sfxSelect, getShuffledFor],
   );
 
   // Directional slide navigation: the outgoing card glides out toward
@@ -1001,11 +1019,14 @@ const QuizTaker: React.FC = () => {
       if (a && n && n.width > 0 && dir === 'left') setEnterX(Math.max(0, n.left - a.left));
       else if (a && n && n.width > 0) setEnterX(-Math.max(0, n.left - a.left));
       else setEnterX(dir === 'left' ? 90 : -90);
+      // Hold the old preview content through the travel, release after landing.
+      setPreviewHoldIdx(currentIndex + 1);
       setCurrentIndex(next);
       setFolding(false);
       slidingRef.current = false;
+      setTimeout(() => setPreviewHoldIdx(null), 300);
     }, 280);
-  }, []);
+  }, [currentIndex]);
 
   const handleNext = useCallback(() => {
     try { navigator.vibrate?.(8); } catch {}
@@ -1071,12 +1092,11 @@ const QuizTaker: React.FC = () => {
     handleStartNewQuiz();
   };
 
-  // Derived for progress dots
+  // Derived for progress dots (original keys: selected now stores unshuffled keys)
   const resultsForProgress: (string | null)[] = questions.map((q) => {
     const sel = selected[q.id];
     if (!sel) return null;
-    const qData = getShuffledFor(q);
-    return sel.toUpperCase() === qData.correctKey ? 'correct' : 'incorrect';
+    return sel.toUpperCase() === (q.correct_answer || '').toUpperCase() ? 'correct' : 'incorrect';
   });
   const score = resultsForProgress.filter((r) => r === 'correct').length;
   const answeredCount = resultsForProgress.filter((r) => r !== null).length;
@@ -1407,6 +1427,9 @@ const QuizTaker: React.FC = () => {
 
   const activeBoxQ = toBoxQuestion(currentQuestion);
   const nextQ = currentIndex + 1 < questions.length ? toBoxQuestion(questions[currentIndex + 1]) : null;
+  // Staged preview: while held, show the held question (travel in flight).
+  const heldQ = previewHoldIdx != null && previewHoldIdx < questions.length ? toBoxQuestion(questions[previewHoldIdx]) : null;
+  const previewQ = heldQ ?? nextQ;
   const activeSelected = currentSelected ? currentSelected.toUpperCase() : null;
 
   return (
@@ -1675,13 +1698,13 @@ const QuizTaker: React.FC = () => {
             enterX={enterX}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
-          {nextQ && (
+          {previewQ && (
             <div className="hidden sm:block" ref={nextSlotRef}>
               <QuestionBox
-                key={`preview-${(nextQ as any)._rawId ?? (nextQ as any).id ?? currentIndex + 1}`}
+                key={`preview-${(previewQ as any)._rawId ?? (previewQ as any).id ?? currentIndex + 1}`}
                 role="next"
-                question={nextQ}
-                index={currentIndex + 1}
+                question={previewQ}
+                index={(previewHoldIdx ?? currentIndex) + 1}
                 total={questions.length}
                 selected={null}
                 revealed={false}

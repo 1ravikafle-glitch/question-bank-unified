@@ -390,6 +390,14 @@ const ResultsScreen: React.FC = () => {
                     ) : (
                       <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>Perfect</span>
                     )}
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline"
+                      onClick={(e) => { e.stopPropagation(); toggleAttemptDetail(a); }}
+                      aria-expanded={isExpanded}
+                    >
+                      {isExpanded ? 'Hide review' : 'Review attempt'}
+                    </button>
                   </motion.div>
 
                   {/* Expanded detail */}
@@ -409,7 +417,10 @@ const ResultsScreen: React.FC = () => {
                             <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>No detail available.</p>
                           ) : (
                             <div className="space-y-2" role="list" aria-label="Question breakdown">
-                              {expandedQuestions.filter(q => !q.is_correct).map((q) => (
+                              <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+                                Review attempt · {num(expandedQuestions.filter(q => q.is_correct).length)} right · {num(expandedQuestions.filter(q => !q.is_correct).length)} wrong
+                              </p>
+                              {expandedQuestions.map((q) => (
                                 <div key={q.question_id} role="listitem" style={{ padding: '0.75rem', borderRadius: 'var(--apple-radius-md)', background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
                                   <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'hsl(var(--foreground))', marginBottom: '0.5rem' }}>
                                     <span style={{ fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))' }}>#{q.question_number}</span> {q.question_text}

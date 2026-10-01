@@ -5,7 +5,7 @@ import type { Question } from '@/shared/types';
 
 interface ExamPaperProps {
   questions: Question[];
-  getShuffled: (q: Question) => { items: [string, string][] };
+  getShuffled: (q: Question) => { items: [string, string][]; origOf: Record<string, string> };
   selected: Record<number, string>;
   onSelect: (qid: number, keyLower: string) => void;
   examTitle: string;
@@ -53,7 +53,16 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const scrollLockRef = useRef(false);
 
   const paper = useMemo(
-    () => questions.map((q) => ({ q, items: getShuffled(q).items })),
+    () =>
+      questions.map((q) => {
+        const s = getShuffled(q);
+        // Invert displayed-label -> original-key for highlight + OMR mapping.
+        const dispOf: Record<string, string> = {};
+        for (const [label, orig] of Object.entries(s.origOf || {})) {
+          dispOf[orig.toLowerCase()] = label;
+        }
+        return { q, items: s.items, dispOf };
+      }),
     [questions, getShuffled]
   );
   const maxOpts = useMemo(
@@ -184,8 +193,10 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         </section>
 
         <section aria-label="Questions">
-          {paper.map(({ q, items }, i) => {
+          {paper.map(({ q, items, dispOf }, i) => {
             const picked = (selected[q.id] || '').toString().toLowerCase();
+            // Stored keys are ORIGINAL; map to the DISPLAYED label for highlight.
+            const pickedDisp = (dispOf[picked] || picked).toLowerCase();
             const locked = selected[q.id] !== undefined;
             const cls =
               'psc-q' +
@@ -251,7 +262,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                 )}
                 <div className="psc-opts" role="radiogroup" aria-label={`Question ${i + 1} options`}>
                   {items.map(([key, text]) => {
-                    const isSel = picked === key.toLowerCase();
+                    const isSel = pickedDisp === key.toLowerCase();
                     return (
                       <label key={key} className={'psc-opt' + (isSel ? ' sel' : '') + (locked && !isSel ? ' dim' : '')}>
                         <input
@@ -311,8 +322,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           ))}
         </div>
         <div className="psc-omr-scroll" ref={omrRef}>
-          {paper.map(({ q, items }, i) => {
+          {paper.map(({ q, items, dispOf }, i) => {
             const picked = (selected[q.id] || '').toString().toLowerCase();
+            const pickedDisp = (dispOf[picked] || picked).toLowerCase();
             return (
               <div
                 key={q.id}
@@ -328,7 +340,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                 {letters.map((l, li) => {
                   const item = items[li];
                   if (!item) return <span key={l} />;
-                  const isSel = picked === item[0].toLowerCase();
+                  const isSel = pickedDisp === item[0].toLowerCase();
                   const locked = selected[q.id] !== undefined;
                   return (
                     <label key={l} className="psc-omr-opt" aria-label={`Question ${i + 1} option ${l}`}>
