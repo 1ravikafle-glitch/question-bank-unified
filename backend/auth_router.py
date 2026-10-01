@@ -11,9 +11,14 @@ import sso
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Elfak").strip()
-# Only this username+password is admin. Override via env vars when needed.
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Kafle").strip()
+# Admin identity comes from the environment ONLY — there is deliberately no
+# built-in fallback. A hardcoded default meant every deployment that forgot to
+# set these shipped with a publicly known admin login, and the value is
+# permanently in git history so it must never be reintroduced.
+# Unset => no admin account => the admin branch below never matches.
+# Fail closed. Do not revert.
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "").strip()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
 ADMIN_USERS = [ADMIN_USERNAME.lower()] if ADMIN_USERNAME else []
 
 
@@ -55,7 +60,11 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
     try:
         # Admin login
         if ADMIN_USERNAME and username.lower() == ADMIN_USERNAME.lower():
-            if ADMIN_PASSWORD and password != ADMIN_PASSWORD:
+            # Fail closed: an unset/blank ADMIN_PASSWORD must never skip the
+            # comparison, or ANY password would authenticate as admin.
+            if not ADMIN_PASSWORD:
+                raise HTTPException(status_code=503, detail="Admin login is not configured")
+            if password != ADMIN_PASSWORD:
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             existing = db.query(models.User).filter(models.User.username == ADMIN_USERNAME).first()
             if not existing:

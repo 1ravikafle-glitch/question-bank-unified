@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -78,7 +79,13 @@ def health_check():
         question_count = db.query(models.Question).count()
         db.close()
     except Exception as e:
-        pass
+        # Previously swallowed with `pass`, so a DEAD database still reported
+        # "healthy". Surface it: a probe must fail when its dependency fails.
+        # 503 matches the prod /api/health convention so probes trip either way.
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": db_type, "error": f"{type(e).__name__}: {e}"},
+        )
     return {
         "status": "healthy",
         "database": db_type,

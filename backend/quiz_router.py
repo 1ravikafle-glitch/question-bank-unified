@@ -290,9 +290,11 @@ def _calc_stats(progress_rows, questions_by_id: Dict[int, models.Question]):
 def get_user_progress(
     user_identifier: str,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
-    user_identifier = caller[0] or user_identifier
+    # Own data only. The old `caller[0] or user_identifier` let an ANONYMOUS
+    # caller read any named user's stats by putting their name in the URL.
+    user_identifier = caller[0]
     cached = _progress_get(user_identifier)
     if cached is not None:
         return cached
@@ -363,9 +365,10 @@ def get_user_progress(
 def get_question_history(
     user_identifier: str,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
-    user_identifier = caller[0] or user_identifier
+    # Own data only — see get_user_progress.
+    user_identifier = caller[0]
     rows = (
         db.query(models.UserProgress)
         .filter(models.UserProgress.user_identifier == user_identifier)
@@ -438,10 +441,19 @@ def get_random_questions(
 
 
 @router.get("/attempt/{attempt_id}")
-def get_attempt_detail(attempt_id: int, db: Session = Depends(database.get_db)):
+def get_attempt_detail(
+    attempt_id: int,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_user),
+):
     attempt = db.query(models.QuizAttempt).filter(models.QuizAttempt.id == attempt_id).first()
     if not attempt:
         raise HTTPException(status_code=404, detail="Attempt not found")
+    # Own attempts only. This route previously had NO identity check at all and
+    # attempt ids are sequential, so anyone could enumerate and read another
+    # user's answers and per-question analysis. Do not revert.
+    if caller[0] != attempt.user_identifier:
+        raise HTTPException(status_code=403, detail="Not your attempt")
 
     user_answers = attempt.answers or {}
     question_ids = [int(qid) for qid in user_answers.keys()]
@@ -485,9 +497,10 @@ def get_wrong_queue(
     user_identifier: str,
     category: Optional[str] = Query(default=None),
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
-    user_identifier = caller[0] or user_identifier
+    # Own data only — see get_user_progress.
+    user_identifier = caller[0]
     queue_rows = db.query(models.WrongQuestionQueue).filter(
         models.WrongQuestionQueue.user_identifier == user_identifier,
         models.WrongQuestionQueue.cleared_at.is_(None),
@@ -516,9 +529,11 @@ class ClearQueueRequest(BaseModel):
 def clear_wrong_queue(
     payload: ClearQueueRequest,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
-    user_identifier = caller[0] or payload.user_identifier
+    # Own queue only. The old `or payload.user_identifier` let an ANONYMOUS
+    # caller delete from any named user's wrong-questions queue.
+    user_identifier = caller[0]
     try:
         db.query(models.WrongQuestionQueue).filter(
             models.WrongQuestionQueue.user_identifier == user_identifier,

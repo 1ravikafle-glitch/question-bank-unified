@@ -90,10 +90,15 @@ async def import_upload(
     files: List[UploadFile] = File(...),
     category: Optional[str] = Form(None),
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
-    """Parse + insert. Skips duplicates and answer-less questions."""
-    username = caller[0] or "anonymous"
+    """Parse + insert. Skips duplicates and answer-less questions.
+
+    Requires a session. This used to depend on ``current_user`` (which never
+    raises) and then fall back to ``username = "anonymous"``, so ANY anonymous
+    caller could write rows into the live question bank. Do not revert.
+    """
+    username = caller[0]
     results = []
     total_imported = 0
     for upload in files:

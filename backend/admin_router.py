@@ -15,8 +15,21 @@ from docx_parser import extract_questions_and_answers, guess_category_from_filen
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "Elfak").strip()
-ADMIN_USERS = [ADMIN_USERNAME.lower()]
+# Admin identity comes from the environment ONLY — there is deliberately no
+# built-in fallback. A hardcoded default meant every deployment that forgot to
+# set ADMIN_USERNAME/ADMIN_PASSWORD shipped with a publicly known admin login
+# (and the value is permanently in git history, so it must never be reintroduced).
+# Unset => no admin exists => admin routes are unreachable. Fail closed.
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "").strip()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
+ADMIN_USERS = [ADMIN_USERNAME.lower()] if ADMIN_USERNAME else []
+if not ADMIN_USERNAME or not ADMIN_PASSWORD:
+    import sys as _sys
+    print(
+        "[admin] WARNING: ADMIN_USERNAME/ADMIN_PASSWORD not set — admin access "
+        "is disabled. Set both in the environment to enable it.",
+        file=_sys.stderr,
+    )
 
 
 
@@ -286,6 +299,7 @@ def list_all_questions_for_admin(
     limit: int = 1000,
     category: Optional[str] = None,
     db: Session = Depends(database.get_db),
+    admin_user: str = Depends(session.require_admin),
 ):
     query = db.query(models.Question)
     if category:
