@@ -164,15 +164,16 @@ function QuestionBox({
       }
       aria-hidden={locked || undefined}
     >
-      {/* CONTENT-ONLY TRAVEL (trial): the shell stays parked — only this inner
-          content glides in from the travel offset. Remove if it reads worse. */}
+      {/* TEXT-ONLY TRAVEL: shells stay parked — kicker, title, badges and
+          labels glide in from the travel offset, staggered. Do not revert. */}
       <motion.div
-        key={`qc-${index}-${question.id ?? question.question_number ?? ''}`}
+        key={`tx-kicker-${index}-${question.id ?? question.question_number ?? ''}`}
         initial={enterX ? { x: enterX, opacity: 0 } : false}
         animate={{ x: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 30, mass: 0.9 }}
-      >
-      <div
+        transition={{
+          x: { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 },
+          opacity: { delay: 0.1, duration: 0.22 },
+        }}
         style={{
           fontSize: 11,
           fontWeight: 600,
@@ -184,9 +185,16 @@ function QuestionBox({
         }}
       >
         Question {index + 1} of {total}
-      </div>
+      </motion.div>
 
-      <div
+      <motion.div
+        key={`tx-title-${index}-${question.id ?? question.question_number ?? ''}`}
+        initial={enterX ? { x: enterX, opacity: 0 } : false}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{
+          x: { type: 'spring', stiffness: 260, damping: 30, mass: 0.9, delay: 0.04 },
+          opacity: { delay: 0.14, duration: 0.22 },
+        }}
         style={{
           fontSize: 20,
           fontWeight: 600,
@@ -198,7 +206,7 @@ function QuestionBox({
         }}
       >
         {qText}
-      </div>
+      </motion.div>
 
       {/* PREMIUM MOTION PASS: options choreograph in per question (stagger),
           keyed by question so the sequence replays on every navigation. */}
@@ -210,7 +218,7 @@ function QuestionBox({
         className={paper ? 'exam-opts' : undefined}
         style={paper ? undefined : { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}
       >
-        {qOptions.map((opt) => {
+        {qOptions.map((opt, oi) => {
           const isSelected = selected === opt.key;
           const isCorrectOpt = opt.key === qCorrect;
           let border = T.border;
@@ -245,7 +253,6 @@ function QuestionBox({
           return (
             <motion.button
               key={opt.key}
-              variants={quizOptionItem}
               whileTap={locked || showResult ? undefined : { scale: 0.985, transition: { duration: 0.1 } }}
               onClick={() => role === 'active' && !revealed && onChoose(opt.key)}
               disabled={locked || showResult}
@@ -271,8 +278,13 @@ function QuestionBox({
               }}
             >
               <motion.span
-                layout
-                transition={springSnappy}
+                key={`bdg-${index}-${opt.key}`}
+                initial={enterX ? { x: enterX, opacity: 0 } : false}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{
+                  x: { type: 'spring', stiffness: 300, damping: 30, mass: 0.9, delay: 0.08 + oi * 0.05 },
+                  opacity: { delay: 0.18 + oi * 0.05, duration: 0.2 },
+                }}
                 style={{
                   width: 32,
                   height: 32,
@@ -291,7 +303,18 @@ function QuestionBox({
               >
                 {opt.key}
               </motion.span>
-              <span style={{ fontSize: 16.5, fontWeight: 500, color: textColor, fontFamily: T.font, flex: 1 }}>{opt.text}</span>
+              <motion.span
+                key={`lbl-${index}-${opt.key}`}
+                initial={enterX ? { x: enterX, opacity: 0 } : false}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{
+                  x: { type: 'spring', stiffness: 300, damping: 30, mass: 0.9, delay: 0.12 + oi * 0.05 },
+                  opacity: { delay: 0.22 + oi * 0.05, duration: 0.2 },
+                }}
+                style={{ fontSize: 16.5, fontWeight: 500, color: textColor, fontFamily: T.font, flex: 1 }}
+              >
+                {opt.text}
+              </motion.span>
               {showResult && isCorrectOpt && (
                 <motion.span
                   initial={{ scale: 0, opacity: 0 }}
@@ -315,7 +338,6 @@ function QuestionBox({
             </motion.button>
           );
         })}
-      </motion.div>
       </motion.div>
 
       {showResult && qExplanation && (
@@ -460,6 +482,33 @@ const QuizTaker: React.FC = () => {
     q: any; idx: number; sel: string | null; rev: boolean;
     rect: { top: number; left: number; width: number } | null;
   } | null>(null);
+  // Collapse flight: the answered card rises, then shrinks into its own
+  // progress dot (WAAPI transform-only, 60fps). Single driver — no CSS
+  // keyframes on this element, so nothing jumps mid-flight. Do not revert.
+  const exitOverlayRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!exitShot) return;
+    let raf = 0;
+    raf = requestAnimationFrame(() => {
+      const el = exitOverlayRef.current;
+      const dot = document.querySelector(`[data-dotidx="${exitShot.idx}"]`);
+      if (!el || !dot) return;
+      const r = el.getBoundingClientRect();
+      const d = dot.getBoundingClientRect();
+      const dx = d.left + d.width / 2 - (r.left + r.width / 2);
+      const dy = d.top + d.height / 2 - (r.top + r.height / 2);
+      el.animate(
+        [
+          { transform: 'translate(0px, 0px) scale(1)', opacity: 1, offset: 0 },
+          { transform: 'translate(0px, -64px) scale(0.98)', opacity: 1, offset: 0.3 },
+          { transform: `translate(${dx * 0.9}px, ${dy * 0.9 + -30}px) scale(0.12)`, opacity: 0.85, offset: 0.78 },
+          { transform: `translate(${dx}px, ${dy}px) scale(0.04)`, opacity: 0, offset: 1 },
+        ],
+        { duration: 700, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' }
+      );
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [exitShot]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [announcement, setAnnouncement] = useState<string>('');
@@ -1052,7 +1101,7 @@ const QuizTaker: React.FC = () => {
     setTimeout(() => {
       setExitShot(null);
       slidingRef.current = false;
-    }, 340);
+    }, 760);
   }, [currentIndex, selected, questions]);
 
   const handleNext = useCallback(() => {
@@ -1695,6 +1744,7 @@ const QuizTaker: React.FC = () => {
             return (
               <div
                 key={questions[i]?.id ?? i}
+                data-dotidx={i}
                 className={popDot === i ? 'dot-pop' : undefined}
                 style={{
                   width: window.innerWidth < 640 ? 12 : 16,
@@ -1719,6 +1769,7 @@ const QuizTaker: React.FC = () => {
           {exitShot?.rect && (
             <div
               key={`exit-${exitShot.idx}`}
+              ref={exitOverlayRef}
               className="quiz-exit-overlay"
               aria-hidden="true"
               style={{

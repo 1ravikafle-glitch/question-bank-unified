@@ -1,8 +1,9 @@
-import { useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { type QuizResult, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useLang } from '@/context/LanguageContext';
+import { useSfx } from '@/hooks/useSfx';
 import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { getRandomScoreMessage } from '@/utils/scoreMessages';
@@ -44,6 +45,8 @@ const ResultsScreen: React.FC = () => {
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
   const { num } = useLang();
+  const { sfxClick } = useSfx();
+  const pastRef = useRef<HTMLDivElement | null>(null);
   const quizResult = (location.state as { quizResult?: QuizResult; highlightAttemptId?: number } | null)?.quizResult;
   const highlightAttemptId = (location.state as { highlightAttemptId?: number } | null)?.highlightAttemptId;
 
@@ -316,6 +319,25 @@ const ResultsScreen: React.FC = () => {
               Review Wrong Questions
             </motion.button>
             <motion.button
+              onClick={() => {
+                const latest = pastAttempts[0];
+                if (!latest?.id) {
+                  toast('No saved attempt to review yet');
+                  return;
+                }
+                sfxClick();
+                toggleAttemptDetail(latest);
+                pastRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="btn btn-outline"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              style={{ flex: 1, minWidth: '180px' }}
+              disabled={pastAttempts.length === 0}
+            >
+              Review attempt
+            </motion.button>
+            <motion.button
               onClick={() => navigate('/quiz')}
               className="btn btn-primary"
               whileHover={{ scale: 1.02 }}
@@ -328,7 +350,7 @@ const ResultsScreen: React.FC = () => {
         </div>
       )}
       {/* ── Past Attempts (kept: Recent Activity deep-links here) ── */}
-      <div className="card" style={{ padding: '0.75rem' }}>
+      <div className="card" ref={pastRef} style={{ padding: '0.75rem', scrollMarginTop: '1rem' }}>
         <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.6rem' }}>
           Past Attempts
         </p>

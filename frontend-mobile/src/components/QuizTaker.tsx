@@ -1851,7 +1851,7 @@ const QuizTaker: React.FC = () => {
           className={
             'quiz-progress-row' + (questions.length > 60 ? ' quiz-progress-row-many' : '')
           }
-          style={{ display: 'flex', gap: 6, marginBottom: 20, position: 'relative', zIndex: 5 }}
+          style={{ display: 'flex', gap: 6, marginBottom: 20, position: 'relative', zIndex: 5, paddingTop: 6, marginTop: -6 }}
         >
           {resultsForProgress.map((a, i) => {
             const isCurrent = i === currentIndex;
@@ -1867,6 +1867,7 @@ const QuizTaker: React.FC = () => {
             return (
               <div
                 key={questions[i]?.id ?? i}
+                data-dotidx={i}
                 className={'quiz-dot' + (popDot === i ? ' dot-pop' : '')}
                 style={{
                   background: bg,
