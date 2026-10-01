@@ -24,16 +24,18 @@ export const quizOptionList: Variants = {
   animate: { transition: { staggerChildren: 0.045, delayChildren: 0.05 } },
 };
 
-/** One option: glides in from the travel offset with its row, staggered.
-    Dynamic: pass custom={{ x: enterX, i: optionIndex }}. */
+/** One option: the ROW drifts a short distance and fades in, staggered —
+    shells must never fly the full gap (they collide mid-flight and read as
+    chaos). The full-distance travel lives in the TEXT nodes (kicker, title,
+    badges, labels). Dynamic: pass custom={{ i: optionIndex }}. */
 export const quizOptionItem: Variants = {
-  initial: (c: { x?: number } = {}) => ({ opacity: 0, x: c.x ?? 72 }),
-  animate: (c: { x?: number; i?: number } = {}) => ({
+  initial: () => ({ opacity: 0, x: 28 }),
+  animate: (c: { i?: number } = {}) => ({
     opacity: 1,
     x: 0,
     transition: {
-      x: { type: 'spring', stiffness: 300, damping: 30, mass: 0.9, delay: (c.i ?? 0) * 0.06 },
-      opacity: { delay: 0.08 + (c.i ?? 0) * 0.06, duration: 0.2 },
+      x: { type: 'spring', stiffness: 380, damping: 32, mass: 0.9, delay: (c.i ?? 0) * 0.055 },
+      opacity: { delay: 0.05 + (c.i ?? 0) * 0.055, duration: 0.2 },
     },
   }),
 };

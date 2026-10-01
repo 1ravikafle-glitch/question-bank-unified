@@ -153,7 +153,6 @@ const navSections: NavSectionDef[] = [
       { to: '/', label: 'nav.home', end: true, icon: <HomeIcon /> },
       { to: '/quiz', label: 'nav.practice', end: false, icon: <ClockIcon /> },
       { to: '/mock', label: 'nav.mock', end: false, icon: <ExamIcon /> },
-      { to: '/contribute', label: 'nav.contribute', end: false, icon: <UploadIcon /> },
       { to: '/questions', label: 'nav.questions', end: false, icon: <BookIcon /> },
     ],
   },
@@ -161,15 +160,16 @@ const navSections: NavSectionDef[] = [
     section: 'group.review',
     items: [
       { to: '/quiz/practice-wrong', label: 'nav.wrong', end: false, icon: <RetryIcon /> },
-      { to: '/bookmarks', label: 'nav.bookmarks', end: false, icon: <BookmarkIcon />, badge: 0 },
-      { to: '/notes', label: 'nav.notes', end: false, icon: <NoteIcon />, badge: 0 },
       { to: '/results', label: 'nav.results', end: false, icon: <CheckCircleIcon /> },
       { to: '/progress', label: 'nav.progress', end: false, icon: <TrendingUpIcon /> },
+      { to: '/bookmarks', label: 'nav.bookmarks', end: false, icon: <BookmarkIcon />, badge: 0 },
+      { to: '/notes', label: 'nav.notes', end: false, icon: <NoteIcon />, badge: 0 },
     ],
   },
   {
     section: 'group.system',
     items: [
+      { to: '/contribute', label: 'nav.contribute', end: false, icon: <UploadIcon /> },
       { to: '/gis', label: 'nav.gis', end: false, icon: <GisIcon />, external: true },
       { to: '/admin', label: 'nav.admin', end: false, icon: <UploadIcon />, adminOnly: true },
       { to: '/about', label: 'nav.about', end: false, icon: <InfoIcon /> },
