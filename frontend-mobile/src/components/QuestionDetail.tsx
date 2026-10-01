@@ -6,6 +6,8 @@ import BookmarkButton from '@/components/BookmarkButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
+import { bookmarkToast, bookmarkToastError } from '@/utils/bookmarkToast';
+
 import { type Question } from '@/shared/types';
 import { motion, type Variants } from 'framer-motion';
 
@@ -31,7 +33,9 @@ const QuestionDetail: React.FC = () => {
   const handleBmToggle = useCallback(async () => {
     if (!userId || !question) return;
     const res = await toggleBookmark(userId, question.id).catch(() => null);
-    if (res) setBookmarked(res.bookmarked);
+    if (!res) { bookmarkToastError(); return; }
+    setBookmarked(res.bookmarked);
+    bookmarkToast(res.bookmarked);
   }, [userId, question]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');

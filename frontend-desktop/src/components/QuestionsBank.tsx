@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory, fetchBookmarkIds, toggleBookmark, fetchNotes } from '../services/api';
 import { type Question } from '@/shared/types';
 import { toast } from 'react-hot-toast';
+import { bookmarkToast, bookmarkToastError } from '@/utils/bookmarkToast';
+
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { AuthContext } from '@/context/AuthContext';
@@ -120,13 +122,14 @@ const QuestionsBank: React.FC = () => {
     async (qid: number) => {
       if (!userId) return;
       const res = await toggleBookmark(userId, qid).catch(() => null);
-      if (!res) return;
+      if (!res) { bookmarkToastError(); return; }
       setBmIds((prev) => {
         const next = new Set(prev);
         if (res.bookmarked) next.add(qid);
         else next.delete(qid);
         return next;
       });
+      bookmarkToast(res.bookmarked);
     },
     [userId]
   );

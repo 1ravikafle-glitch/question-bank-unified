@@ -2,6 +2,8 @@ import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchBookmarks, toggleBookmark } from '../services/api';
 import { type Question } from '@/shared/types';
+import { bookmarkToast, bookmarkToastError } from '@/utils/bookmarkToast';
+
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { motion } from 'framer-motion';
@@ -38,7 +40,9 @@ const Bookmarks: React.FC = () => {
       if (!userId) return;
       sfxClick();
       const res = await toggleBookmark(userId, qid).catch(() => null);
-      if (res && !res.bookmarked) {
+      if (!res) { bookmarkToastError(); return; }
+      bookmarkToast(res.bookmarked);
+      if (!res.bookmarked) {
         setQuestions((prev) => prev.filter((q) => q.id !== qid));
       }
     },
