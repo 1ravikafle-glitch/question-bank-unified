@@ -334,8 +334,12 @@ if SEO_ENABLED:
 async def ads_txt():
     from fastapi.responses import PlainTextResponse
 
+    # The auth hash must be EXACTLY what AdSense shows on
+    # AdSense -> Account -> Get started with ads.txt. It was previously
+    # "f0a47c1d" - a wrong/truncated value, which fails Google's ads.txt
+    # authorization and silently blocks ad serving/earnings. Do not shorten.
     return PlainTextResponse(
-        "google.com, pub-7976760719077018, DIRECT, f0a47c1d\n",
+        "google.com, pub-7976760719077018, DIRECT, f08c47fec0942fa0\n",
         headers={"Cache-Control": "public, max-age=3600"},
     )
 
