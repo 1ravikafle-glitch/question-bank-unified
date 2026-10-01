@@ -78,6 +78,10 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     [maxOpts]
   );
   const answered = questions.filter((q) => selected[q.id] !== undefined).length;
+  // Single-highlight rule: while anything is hovered, only the hovered
+  // pair (paper + OMR) glows; the current-question marker returns when
+  // the mouse leaves. Never two greens at once.
+  const hovering = hoverIdx !== null;
 
   const scrollOmrTo = (i: number) => {
     const box = omrRef.current;
@@ -196,7 +200,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           </ol>
         </section>
 
-        <section aria-label="Questions">
+        <section aria-label="Questions" onMouseLeave={() => setHoverIdx(null)}>
           {paper.map(({ q, items, dispOf }, i) => {
             const picked = (selected[q.id] || '').toString().toLowerCase();
             // Stored keys are ORIGINAL; map to the DISPLAYED label for highlight.
@@ -204,7 +208,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
             const locked = selected[q.id] !== undefined;
             const cls =
               'psc-q' +
-              (i === currentIdx ? ' current' : '') +
+              (i === currentIdx && !hovering ? ' current' : '') +
               (hoverIdx === i ? ' hover-linked' : '');
             return (
               <article
@@ -335,7 +339,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
             <div key={l}>{l}</div>
           ))}
         </div>
-        <div className="psc-omr-scroll" ref={omrRef}>
+        <div className="psc-omr-scroll" ref={omrRef} onMouseLeave={() => setHoverIdx(null)}>
           {paper.map(({ q, items, dispOf }, i) => {
             const picked = (selected[q.id] || '').toString().toLowerCase();
             const pickedDisp = (dispOf[picked] || picked).toLowerCase();
@@ -345,8 +349,8 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                 data-omr={i}
                 className={
                   'psc-omr-row' +
-                  (i === currentIdx ? ' active' : '') +
-                  (hoverIdx === i && i !== currentIdx ? ' hover-linked' : '')
+                  (i === currentIdx && !hovering ? ' active' : '') +
+                  (hoverIdx === i ? ' hover-linked' : '')
                 }
                 style={{ gridTemplateColumns: `46px repeat(${letters.length}, 1fr)` }}
                 onMouseEnter={() => setHoverIdx(i)}
