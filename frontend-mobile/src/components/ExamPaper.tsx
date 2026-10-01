@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLang } from '@/context/LanguageContext';
+import NoteEditor from './NoteEditor';
 import type { Question } from '@/shared/types';
 
 interface ExamPaperProps {
@@ -16,6 +17,8 @@ interface ExamPaperProps {
   onBmToggle: (qid: number) => void;
   onSubmit: () => void;
   submitting: boolean;
+  noteMap: Record<number, string>;
+  onNoteSaved: (qid: number, text: string) => void;
 }
 
 /* PSC-style written-exam sheet: full question paper + OMR answer panel.
@@ -35,12 +38,19 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   onBmToggle,
   onSubmit,
   submitting,
+  noteMap,
+  onNoteSaved,
 }) => {
   const { num } = useLang();
   const [currentIdx, setCurrentIdx] = useState(0);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [noteOpenIdx, setNoteOpenIdx] = useState<number | null>(null);
+  const [noteSaveTick, setNoteSaveTick] = useState(0);
   const qRefs = useRef<(HTMLElement | null)[]>([]);
   const omrRef = useRef<HTMLDivElement | null>(null);
+  // True while a click-driven smooth scroll is in flight: the observer
+  // must not fight it by flipping the current question mid-flight.
+  const scrollLockRef = useRef(false);
 
   const paper = useMemo(
     () => questions.map((q) => ({ q, items: getShuffled(q).items })),
@@ -56,11 +66,25 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   );
   const answered = questions.filter((q) => selected[q.id] !== undefined).length;
 
+  const scrollOmrTo = (i: number) => {
+    const box = omrRef.current;
+    const row = box?.querySelector(`[data-omr="${i}"]`);
+    // Manual container scroll: scrollIntoView would also yank the page.
+    if (box && row) {
+      const target =
+        (row as HTMLElement).offsetTop - box.clientHeight / 2 + (row as HTMLElement).offsetHeight / 2;
+      box.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+    }
+  };
+
   const scrollToQ = (i: number) => {
+    scrollLockRef.current = true;
     setCurrentIdx(i);
     qRefs.current[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const row = omrRef.current?.querySelector(`[data-omr="${i}"]`);
-    row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    scrollOmrTo(i);
+    window.setTimeout(() => {
+      scrollLockRef.current = false;
+    }, 600);
   };
 
   // Track the question nearest the viewport center.
@@ -69,6 +93,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     if (els.length === 0) return;
     const obs = new IntersectionObserver(
       (entries) => {
+        if (scrollLockRef.current) return;
         let best: { idx: number; d: number } | null = null;
         for (const e of entries) {
           if (!e.isIntersecting) continue;
@@ -85,27 +110,34 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     return () => obs.disconnect();
   }, [questions.length]);
 
-  // Keep the active OMR row visible.
+  // Keep the active OMR row visible (container-only scroll).
   useEffect(() => {
-    const row = omrRef.current?.querySelector(`[data-omr="${currentIdx}"]`);
-    row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (scrollLockRef.current) return;
+    scrollOmrTo(currentIdx);
   }, [currentIdx]);
 
   // M bookmarks the hovered (else current) paper question.
+  // N opens its note editor; N again saves + closes (hover-scoped).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key !== 'm' && e.key !== 'M') return;
+      if (e.key !== 'm' && e.key !== 'M' && e.key !== 'n' && e.key !== 'N') return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return;
       const idx = hoverIdx ?? currentIdx;
       const q = questions[idx];
       if (!q) return;
       e.preventDefault();
-      onBmToggle(q.id);
+      if (e.key === 'm' || e.key === 'M') {
+        onBmToggle(q.id);
+      } else if (noteOpenIdx === idx) {
+        setNoteSaveTick((t) => t + 1);
+      } else {
+        setNoteOpenIdx(idx);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [hoverIdx, currentIdx, questions, onBmToggle]);
+  }, [hoverIdx, currentIdx, questions, onBmToggle, noteOpenIdx]);
 
   const today = new Date().toLocaleDateString();
 
@@ -190,7 +222,33 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                   >
                     {bmIds.has(q.id) ? '🔖' : '📑'}
                   </button>
+                  <button
+                    type="button"
+                    className={'psc-qbm' + (noteMap[q.id] ? ' on' : '')}
+                    onClick={() => setNoteOpenIdx(noteOpenIdx === i ? null : i)}
+                    aria-pressed={noteOpenIdx === i}
+                    aria-label={noteMap[q.id] ? 'Edit personal note' : 'Add personal note (N)'}
+                    title="Note (N)"
+                  >
+                    📝
+                  </button>
                 </div>
+                {noteOpenIdx === i && userId && (
+                  <NoteEditor
+                    userId={userId}
+                    questionId={q.id}
+                    initialText={noteMap[q.id] || ''}
+                    saveSignal={noteSaveTick}
+                    onSaved={(text) => {
+                      onNoteSaved(q.id, text);
+                      setNoteOpenIdx(null);
+                    }}
+                    onClose={() => setNoteOpenIdx(null)}
+                  />
+                )}
+                {!!noteMap[q.id] && noteOpenIdx !== i && (
+                  <div className="psc-note">📝 {noteMap[q.id]}</div>
+                )}
                 <div className="psc-opts" role="radiogroup" aria-label={`Question ${i + 1} options`}>
                   {items.map(([key, text]) => {
                     const isSel = picked === key.toLowerCase();

@@ -133,8 +133,9 @@ function QuestionBox({
   examPaper?: boolean;
   slideDir?: 'left' | 'right';
   // PREMIUM TRAVEL PASS (lead design): slotRef measures this box's position;
-  // enterX (px) is where the incoming card starts so it physically travels
-  // from the preview slot through the gap into place. Transform-only = 60fps.
+  // enterX (px) feeds CSS var --enter-x so the keyframe enter animation starts
+  // exactly where the preview sat — real travel through the gap. Single driver
+  // (CSS keyframes, transform-only) = 60fps, no fighting with framer.
   slotRef?: React.Ref<HTMLDivElement>;
   enterX?: number;
 }) {
@@ -151,11 +152,9 @@ function QuestionBox({
   const qCorrect = (question.correct ?? question.correct_answer ?? '').toString().toUpperCase();
 
   return (
-    <motion.div
+    <div
       ref={slotRef}
-      initial={enterX ? { x: enterX, opacity: 0.35 } : false}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.9 }}
+      style={enterX ? ({ '--enter-x': `${Math.round(enterX)}px` } as React.CSSProperties) : undefined}
       className={
         'quiz-qbox' +
         (locked ? ' is-next' : ` quiz-enter-${dir}`) +
@@ -434,6 +433,12 @@ const QuizTaker: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selected, setSelected] = useState<Record<number, string>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
+  // PREMIUM TRAVEL PASS: slot refs + entry offset for true FLIP travel.
+  // The incoming card starts exactly where the preview sat and glides left
+  // through the gap into the emptied slot. Transform-only = 60fps.
+  const activeSlotRef = useRef<HTMLDivElement | null>(null);
+  const nextSlotRef = useRef<HTMLDivElement | null>(null);
+  const [enterX, setEnterX] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [announcement, setAnnouncement] = useState<string>('');
@@ -450,6 +455,7 @@ const QuizTaker: React.FC = () => {
   const bmKeyRef = useRef<string>('');
   const [noteMap, setNoteMap] = useState<Record<number, string>>({});
   const [noteOpen, setNoteOpen] = useState(false);
+  const [noteSaveTick, setNoteSaveTick] = useState(0);
   // Close the note editor whenever the active question changes.
   useEffect(() => {
     setNoteOpen(false);
@@ -987,6 +993,14 @@ const QuizTaker: React.FC = () => {
       setTimeout(() => setPopDot(null), 550);
     }
     setTimeout(() => {
+      // FLIP measure (pre-swap layout still mounted): preview slot → active slot.
+      // Desktop: real pixel distance across the gap. Prev: mirrored.
+      // Mobile (no preview): fixed short travel from the screen edge.
+      const a = activeSlotRef.current?.getBoundingClientRect();
+      const n = nextSlotRef.current?.getBoundingClientRect();
+      if (a && n && n.width > 0 && dir === 'left') setEnterX(Math.max(0, n.left - a.left));
+      else if (a && n && n.width > 0) setEnterX(-Math.max(0, n.left - a.left));
+      else setEnterX(dir === 'left' ? 90 : -90);
       setCurrentIndex(next);
       setFolding(false);
       slidingRef.current = false;
@@ -1098,6 +1112,14 @@ const QuizTaker: React.FC = () => {
       // Paper view handles its own input; only Esc (below) stays global.
       if (isExamMode) return;
 
+      // N: personal note for the current question (N again saves + closes).
+      if ((e.key === 'n' || e.key === 'N') && currentQuestion && !showExitConfirm) {
+        e.preventDefault();
+        if (noteOpen) setNoteSaveTick((t) => t + 1);
+        else setNoteOpen(true);
+        return;
+      }
+
       // A–D: select option on active question
       if (!isLocked && !finished) {
         const key = e.key.toLowerCase();
@@ -1131,7 +1153,7 @@ const QuizTaker: React.FC = () => {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, confirmExit, currentQuestion, handleBmToggle, isExamMode]);
+  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, confirmExit, currentQuestion, handleBmToggle, isExamMode, noteOpen]);
 
   // Helpers to adapt Question to reference shape for QuestionBox
   const toBoxQuestion = (q: Question) => {
@@ -1522,6 +1544,15 @@ const QuizTaker: React.FC = () => {
             onBmToggle={handleBmToggle}
             onSubmit={() => submitQuizRequest(selected)}
             submitting={submitting}
+            noteMap={noteMap}
+            onNoteSaved={(qid, text) => {
+              setNoteMap((prev) => {
+                const next = { ...prev };
+                if (text) next[qid] = text;
+                else delete next[qid];
+                return next;
+              });
+            }}
           />
         ) : (
           <>
@@ -1532,6 +1563,7 @@ const QuizTaker: React.FC = () => {
               userId={userId}
               questionId={currentQuestion.id}
               initialText={noteMap[currentQuestion.id] || ''}
+              saveSignal={noteSaveTick}
               onSaved={(text) => {
                 const qid = currentQuestion.id;
                 setNoteMap((prev) => {
@@ -1559,6 +1591,8 @@ const QuizTaker: React.FC = () => {
         }}>
           {[
             { keys: ['A', 'B', 'C', 'D'].slice(0, activeShuffled.length), label: 'Select' },
+            { keys: ['M'], label: 'Bookmark' },
+            { keys: ['N'], label: 'Note' },
             { keys: ['Space'], label: 'Next' },
             { keys: ['Enter'], label: 'Next' },
             { keys: ['Esc'], label: isLocked ? 'Exit' : 'Exit quiz' },
@@ -1583,13 +1617,16 @@ const QuizTaker: React.FC = () => {
                 }}>{k}</kbd>
               ))}
               <span style={{ fontSize: 10, fontWeight: 500, color: T.textTertiary, fontFamily: T.font, marginLeft: 2 }}>{shortcut.label}</span>
-              {si < 3 && <span style={{ color: T.border, fontSize: 10, marginLeft: 4 }}>·</span>}
+              {si < 5 && <span style={{ color: T.border, fontSize: 10, marginLeft: 4 }}>·</span>}
             </div>
           ))}
         </div>
 
         {/* Thin dot strip for overall standing */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+        <div
+          className={'quiz-dot-strip' + (questions.length > 60 ? ' quiz-dot-strip-many' : '')}
+          style={{ display: 'flex', gap: 6, marginBottom: 20 }}
+        >
           {resultsForProgress.map((a, i) => {
             const isCurrent = i === currentIndex;
             let bg: string = 'hsl(var(--muted))';
@@ -1634,10 +1671,12 @@ const QuizTaker: React.FC = () => {
             folding={folding}
             examPaper={isExamMode}
             slideDir={slideDir}
+            slotRef={activeSlotRef}
+            enterX={enterX}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
           {nextQ && (
-            <div className="hidden sm:block">
+            <div className="hidden sm:block" ref={nextSlotRef}>
               <QuestionBox
                 role="next"
                 question={nextQ}
@@ -1654,7 +1693,11 @@ const QuizTaker: React.FC = () => {
 
         {/* Feedback + next control, only under active column */}
         {isLocked && !finished && (
-          <div
+          <motion.div
+            key={`feedback-${currentIndex}`}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             className="hidden sm:flex"
             style={{
               marginTop: 16,
@@ -1722,7 +1765,7 @@ const QuizTaker: React.FC = () => {
                 Next question
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {finished && (
@@ -1763,16 +1806,15 @@ const QuizTaker: React.FC = () => {
         )}
       </div>
 
-      {/* ── Mobile sticky bottom nav bar ── */}
+      {/* ── Mobile sticky bottom nav bar (phones/tablets only) ── */}
       <div
-        className="lg:hidden"
+        className="quiz-sticky-bar"
         style={{
           position: 'fixed',
           bottom: 'calc(60px + env(safe-area-inset-bottom, 0px))',
           left: 0,
           right: 0,
           zIndex: 40,
-          display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 8,

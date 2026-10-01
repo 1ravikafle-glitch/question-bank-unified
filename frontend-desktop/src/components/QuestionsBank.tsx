@@ -108,6 +108,7 @@ const QuestionsBank: React.FC = () => {
   const [bmIds, setBmIds] = useState<Set<number>>(new Set());
   const [noteMap, setNoteMap] = useState<Record<number, string>>({});
   const [noteOpenId, setNoteOpenId] = useState<number | null>(null);
+  const [noteSaveTick, setNoteSaveTick] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
@@ -260,6 +261,11 @@ const QuestionsBank: React.FC = () => {
       else if (e.key === 'm' || e.key === 'M') {
         if (hoveredId != null) { e.preventDefault(); handleBmToggle(hoveredId); }
       }
+      else if (e.key === 'n' || e.key === 'N') {
+        // Hover-scoped like M: open for the hovered card, N again saves + closes.
+        if (noteOpenId != null) { e.preventDefault(); setNoteSaveTick((t) => t + 1); }
+        else if (hoveredId != null) { e.preventDefault(); setNoteOpenId(hoveredId); }
+      }
       else if ((e.key === ' ' || e.key === 'Enter') && viewMode === 'raw') {
         for (const q of pageQuestions) {
           if (!rawLocked[q.id] && rawSelections[q.id]) { e.preventDefault(); handleRawSubmit(q.id, q.correct_answer); break; }
@@ -268,7 +274,7 @@ const QuestionsBank: React.FC = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleNextPage, handlePrevPage, viewMode, pageQuestions, rawSelections, rawLocked, hoveredId, handleBmToggle]);
+  }, [handleNextPage, handlePrevPage, viewMode, pageQuestions, rawSelections, rawLocked, hoveredId, handleBmToggle, noteOpenId]);
 
   const touchStartX = useRef(0);
   const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
@@ -827,6 +833,7 @@ const QuestionsBank: React.FC = () => {
                     userId={userId}
                     questionId={q.id}
                     initialText={noteMap[q.id] || ''}
+                    saveSignal={noteSaveTick}
                     onSaved={(text) => {
                       setNoteMap((prev) => {
                         const next = { ...prev };
@@ -959,7 +966,7 @@ const QuestionsBank: React.FC = () => {
       {filtered.length > 0 && isRawMode && (
         <div style={{ textAlign: 'center', paddingBottom: '16px' }}>
           <p style={{ fontSize: '0.625rem', color: 'hsl(var(--muted-foreground) / 0.5)' }}>
-            ← → arrows: pages · Swipe: pages · Space/Enter: check answer · M: bookmark
+            ← → arrows: pages · Swipe: pages · Space/Enter: check answer · M: bookmark · N: note
           </p>
         </div>
       )}

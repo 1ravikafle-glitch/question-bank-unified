@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { saveNote } from '../services/api';
 
@@ -8,10 +8,12 @@ interface NoteEditorProps {
   initialText: string;
   onSaved: (text: string) => void;
   onClose?: () => void;
+  /** Increment to save the current draft (N-shortcut close). */
+  saveSignal?: number;
 }
 
 /** Inline personal-note editor: textarea + save/clear. Offline-tolerant. */
-const NoteEditor: React.FC<NoteEditorProps> = ({ userId, questionId, initialText, onSaved, onClose }) => {
+const NoteEditor: React.FC<NoteEditorProps> = ({ userId, questionId, initialText, onSaved, onClose, saveSignal }) => {
   const [text, setText] = useState(initialText);
   const [saving, setSaving] = useState(false);
 
@@ -35,6 +37,16 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ userId, questionId, initialText
     }
   };
 
+  // N-shortcut close: parent bumps saveSignal to persist the draft.
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const textRef = useRef(text);
+  textRef.current = text;
+  useEffect(() => {
+    if (saveSignal && saveSignal > 0) saveRef.current(textRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveSignal]);
+
   return (
     <div
       style={{
@@ -49,7 +61,13 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ userId, questionId, initialText
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Write a personal note for this question…"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' || ((e.ctrlKey || e.metaKey) && e.key === 'Enter')) {
+            e.preventDefault();
+            save(text);
+          }
+        }}
+        placeholder="Write a personal note for this question… (Esc saves)"
         rows={3}
         autoFocus
         style={{

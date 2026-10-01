@@ -118,6 +118,8 @@ function QuestionBox({
   folding,
   examPaper,
   slideDir,
+  enterX,
+  slotRef,
 }: {
   role: 'active' | 'next';
   question: any;
@@ -129,6 +131,11 @@ function QuestionBox({
   folding: boolean;
   examPaper?: boolean;
   slideDir?: 'left' | 'right';
+  // PREMIUM TRAVEL PASS (lead design): enterX feeds CSS var --enter-x.
+  // Mobile has no preview slot — fixed edge travel (±90). Single driver
+  // (CSS keyframes, transform-only) = 60fps. Do not revert.
+  enterX?: number;
+  slotRef?: React.Ref<HTMLDivElement>;
 }) {
   const locked = role === 'next';
   const showResult = role === 'active' && revealed;
@@ -144,9 +151,11 @@ function QuestionBox({
 
   return (
     <div
+      ref={slotRef}
       className={!locked ? 'quiz-qbox quiz-enter-' + dir + (folding ? ' is-exiting-' + dir : '') + (paper ? ' exam-paper' : '') : undefined}
       style={{
         position: 'relative',
+        ...(enterX ? ({ '--enter-x': `${Math.round(enterX)}px` } as React.CSSProperties) : null),
         background: T.card,
         borderRadius: 18,
         border: `1px solid ${T.border}`,
@@ -471,6 +480,7 @@ const QuizTaker: React.FC = () => {
   const bmKeyRef = useRef<string>('');
   const [noteMap, setNoteMap] = useState<Record<number, string>>({});
   const [noteOpen, setNoteOpen] = useState(false);
+  const [noteSaveTick, setNoteSaveTick] = useState(0);
   // Close the note editor whenever the active question changes.
   useEffect(() => {
     setNoteOpen(false);
@@ -949,6 +959,10 @@ const QuizTaker: React.FC = () => {
   // opposite side. Answered cards also pop their progress dot.
   const [slideDir, setSlideDir] = useState<'left' | 'right'>('left');
   const slidingRef = useRef(false);
+  // PREMIUM TRAVEL PASS: FLIP measure for true travel (same as desktop).
+  const activeSlotRef = useRef<HTMLDivElement | null>(null);
+  const nextSlotRef = useRef<HTMLDivElement | null>(null);
+  const [enterX, setEnterX] = useState<number | undefined>(undefined);
   const goTo = useCallback((next: number, answeredIdx: number | null, dir: 'left' | 'right') => {
     if (slidingRef.current) return;
     slidingRef.current = true;
@@ -959,6 +973,11 @@ const QuizTaker: React.FC = () => {
       setTimeout(() => setPopDot(null), 550);
     }
     setTimeout(() => {
+      const a = activeSlotRef.current?.getBoundingClientRect();
+      const n = nextSlotRef.current?.getBoundingClientRect();
+      if (a && n && n.width > 0 && dir === 'left') setEnterX(Math.max(0, n.left - a.left));
+      else if (a && n && n.width > 0) setEnterX(-Math.max(0, n.left - a.left));
+      else setEnterX(dir === 'left' ? 90 : -90);
       setCurrentIndex(next);
       setFolding(false);
       slidingRef.current = false;
@@ -1059,6 +1078,14 @@ const QuizTaker: React.FC = () => {
       // Paper view handles its own input; only exit/shortcut keys below stay global.
       if (isExamMode) return;
 
+      // N: personal note for the current question (N again saves + closes).
+      if ((e.key === 'n' || e.key === 'N') && currentQuestion && !showExitConfirm) {
+        e.preventDefault();
+        if (noteOpen) setNoteSaveTick((t) => t + 1);
+        else setNoteOpen(true);
+        return;
+      }
+
       // A–D: select option on active question
       if (!isLocked && !showExitConfirm && !finished) {
         const key = e.key.toLowerCase();
@@ -1094,7 +1121,7 @@ const QuizTaker: React.FC = () => {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, isExamMode]);
+  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, isExamMode, noteOpen]);
 
   // Helpers to adapt Question to reference shape for QuestionBox
   const toBoxQuestion = (q: Question) => {
@@ -1698,6 +1725,15 @@ const QuizTaker: React.FC = () => {
             onBmToggle={handleBmToggle}
             onSubmit={() => submitQuizRequest(selected)}
             submitting={submitting}
+            noteMap={noteMap}
+            onNoteSaved={(qid, text) => {
+              setNoteMap((prev) => {
+                const next = { ...prev };
+                if (text) next[qid] = text;
+                else delete next[qid];
+                return next;
+              });
+            }}
           />
         ) : (
           <>
@@ -1708,6 +1744,7 @@ const QuizTaker: React.FC = () => {
               userId={userId}
               questionId={currentQuestion.id}
               initialText={noteMap[currentQuestion.id] || ''}
+              saveSignal={noteSaveTick}
               onSaved={(text) => {
                 const qid = currentQuestion.id;
                 setNoteMap((prev) => {
@@ -1813,10 +1850,12 @@ const QuizTaker: React.FC = () => {
             folding={folding}
             examPaper={isExamMode}
             slideDir={slideDir}
+            enterX={enterX}
+            slotRef={activeSlotRef}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
           {nextQ && (
-            <div className="desktop-640-block">
+            <div className="desktop-640-block" ref={nextSlotRef}>
               <QuestionBox
                 role="next"
                 question={nextQ}
@@ -1939,10 +1978,10 @@ const QuizTaker: React.FC = () => {
         )}
       </div>
 
-      {/* ── Mobile sticky bottom nav bar ── */}
+      {/* ── Mobile sticky bottom nav bar (phones/tablets only) ── */}
       <div
         className={
-          'lg:hidden' +
+          'quiz-sticky-bar' +
           (isLocked && !finished
             ? isCorrect
               ? ' quiz-sticky-correct'
@@ -1955,7 +1994,6 @@ const QuizTaker: React.FC = () => {
           left: 0,
           right: 0,
           zIndex: 40,
-          display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 8,

@@ -824,11 +824,11 @@
   animation: quizEnterRight 0.42s cubic-bezier(0.32, 0.72, 0, 1);
 }
 @keyframes quizEnterLeft {
-  from { opacity: 0; transform: translateX(72px) scale(0.985); }
+  from { opacity: 0; transform: translateX(var(--enter-x, 72px)) scale(0.985); }
   to { opacity: 1; transform: translateX(0) scale(1); }
 }
 @keyframes quizEnterRight {
-  from { opacity: 0; transform: translateX(-72px) scale(0.985); }
+  from { opacity: 0; transform: translateX(calc(-1 * var(--enter-x, 72px))) scale(0.985); }
   to { opacity: 1; transform: translateX(0) scale(1); }
 }
 .quiz-qbox.is-exiting-left {
@@ -912,6 +912,17 @@
   .quiz-qbox {
     transition: opacity 150ms ease;
   }
+}
+
+/* ── Progress dot strip: scrolls instead of exploding on huge sets ── */
+.quiz-dot-strip { max-width: 100%; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.quiz-dot-strip-many { gap: 4px !important; }
+.quiz-dot-strip-many > div { width: 10px !important; height: 10px !important; transition: none !important; }
+
+/* ── Mobile sticky quiz bar: phones/tablets only, never on desktop ── */
+.quiz-sticky-bar { display: flex; }
+@media (min-width: 1024px) {
+  .quiz-sticky-bar { display: none !important; }
 }
 
 /* ── Exam paper mode: real question-paper sheet, OMR-style options ── */
@@ -1045,6 +1056,7 @@
 .psc-qbm { margin-left: auto; flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; opacity: 0.45; filter: grayscale(1); border-radius: 6px; }
 .psc-qbm.on { opacity: 1; filter: none; }
 .psc-qbm:hover { opacity: 1; filter: none; background: hsl(var(--muted)); }
+.psc-note { margin: 8px 0 0 29px; font-size: 12.5px; line-height: 1.55; padding: 6px 10px; border-left: 3px solid hsl(210 90% 50%); background: hsl(210 90% 50% / 0.08); border-radius: 0 8px 8px 0; white-space: pre-wrap; }
 .psc-opts { margin-top: 8px; margin-left: 29px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px 28px; }
 .psc-opt { display: flex; align-items: flex-start; min-height: 26px; font-size: 13.5px; line-height: 1.42; cursor: pointer; border-radius: 6px; padding: 2px 4px; transition: background 0.15s ease; }
 .psc-opt:hover { background: hsl(var(--foreground) / 0.07); }
@@ -1091,8 +1103,8 @@
   .psc-paper { padding: 28px 17px 45px; }
   .psc-meta { flex-direction: column; gap: 4px; }
   .psc-info-row { grid-template-columns: 105px 1fr; }
-  .psc-info-row .psc-info-label:nth-of-type(2) { border-top: 1px solid hsl(var(--muted-foreground) / 0.5); }
-  .psc-info-row .psc-info-value:nth-of-type(2) { border-top: 1px solid hsl(var(--muted-foreground) / 0.5); }
+  .psc-info-row > :nth-child(n+3) { border-top: 1px solid hsl(var(--muted-foreground) / 0.5); }
+  .psc-info-row .psc-info-value { border-right: none; }
   .psc-opts { grid-template-columns: 1fr; margin-left: 14px; }
   .psc-qtext { font-size: 14px; }
   .psc-omr { max-height: 430px; }
