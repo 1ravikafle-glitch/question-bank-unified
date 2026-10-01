@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, Index, Float
 from sqlalchemy.sql import func
 import database
+import json as _json
 
 Base = database.Base
 
@@ -10,6 +11,30 @@ if database.is_postgres:
     JSONType = JSONB
 else:
     JSONType = JSON
+
+
+def usable_options(raw) -> dict:
+    """Parse stored options (plain or double-encoded JSON) to a dict.
+
+    Rows with fewer than 2 options are defective (e.g. '{}') and must
+    never reach a quiz or the bank — answering them is impossible.
+    """
+    v = raw
+    for _ in range(3):
+        if isinstance(v, dict):
+            break
+        if isinstance(v, str):
+            try:
+                v = _json.loads(v)
+            except Exception:
+                break
+        else:
+            break
+    return v if isinstance(v, dict) else {}
+
+
+def is_usable_question(q) -> bool:
+    return len(usable_options(getattr(q, "options", None))) >= 2
 
 
 class User(Base):

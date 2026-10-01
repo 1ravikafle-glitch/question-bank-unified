@@ -18,20 +18,8 @@ router = APIRouter(prefix="/quiz", tags=["quiz"])
 
 
 def _options_dict(raw):
-    """SQLite stores options as JSON (sometimes double-encoded); the review
-    UI needs a real dict, so parse until we get one."""
-    v = raw
-    for _ in range(3):
-        if isinstance(v, dict):
-            return v
-        if isinstance(v, str):
-            try:
-                v = json.loads(v)
-            except Exception:
-                break
-        else:
-            break
-    return v if isinstance(v, dict) else {}
+    """Review UI needs a real dict (see models.usable_options)."""
+    return models.usable_options(raw)
 
 
 def _ensure_attempt_extra_columns():
@@ -432,7 +420,21 @@ def get_random_questions(
     questions = db.query(models.Question).filter(models.Question.id.in_(picked)).all()
     by_id = {q.id: q for q in questions}
     # Preserve the random order (IN does not guarantee order).
-    return [by_id[i] for i in picked if i in by_id]
+    ordered = [by_id[i] for i in picked if i in by_id]
+    # Drop defective rows (fewer than 2 options) and top up so the quiz
+    # still starts with the requested count whenever the bank allows it.
+    usable = [q for q in ordered if models.is_usable_question(q)]
+    if len(usable) < len(ordered):
+        remaining = [i for i in all_ids if i not in picked]
+        tries = 0
+        while len(usable) < len(ordered) and remaining and tries < 3:
+            tries += 1
+            extra = random.sample(remaining, min(len(ordered) - len(usable), len(remaining)))
+            remaining = [i for i in remaining if i not in extra]
+            for q in db.query(models.Question).filter(models.Question.id.in_(extra)).all():
+                if models.is_usable_question(q) and q.id not in {x.id for x in usable}:
+                    usable.append(q)
+    return usable
 
 
 @router.get("/attempt/{attempt_id}")
@@ -498,7 +500,7 @@ def get_wrong_queue(
     q = db.query(models.Question).filter(models.Question.id.in_(question_ids))
     if category:
         q = q.filter(models.Question.category == category)
-    questions = q.all()
+    questions = [x for x in q.all() if models.is_usable_question(x)]
     id_to_q = {q.id: q for q in questions}
     ordered = [id_to_q[qid] for qid in question_ids if qid in id_to_q]
 

@@ -38,6 +38,7 @@ class QuestionIdsRequest(BaseModel):
 class DeltaSyncRequest(BaseModel):
     known_ids: List[int] = []
     last_sync: Optional[str] = None
+    limit: int = 500
 
 
 # Default emoji per known category (admin overrides via CategoryMeta).
@@ -120,7 +121,7 @@ def get_questions(
         query = query.filter(models.Question.difficulty == difficulty)
 
     questions = query.offset(skip).limit(limit).all()
-    return _normalize_options(questions)
+    return _normalize_options([q for q in questions if models.is_usable_question(q)])
 
 
 @router.get("/count/")
@@ -198,8 +199,9 @@ def get_questions_by_ids(
     if not payload.question_ids:
         return []
     questions = db.query(models.Question).filter(models.Question.id.in_(payload.question_ids)).all()
-    _normalize_options(questions)
-    id_to_question = {q.id: q for q in questions}
+    usable = [q for q in questions if models.is_usable_question(q)]
+    _normalize_options(usable)
+    id_to_question = {q.id: q for q in usable}
     return [id_to_question[id] for id in payload.question_ids if id in id_to_question]
 
 
@@ -231,5 +233,6 @@ def sync_delta(
     query = db.query(models.Question)
     if payload.known_ids:
         query = query.filter(models.Question.id.notin_(payload.known_ids))
-    questions = query.order_by(models.Question.id.asc()).limit(500).all()
+    limit = max(1, min(int(payload.limit or 500), 500))
+    questions = query.order_by(models.Question.id.asc()).limit(limit).all()
     return questions
