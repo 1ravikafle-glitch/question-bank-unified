@@ -161,17 +161,19 @@ const Header: React.FC = () => {
       return;
     }
     els.forEach((el, i) => {
+      // Turn-by-turn cascade: each card starts a beat after the previous,
+      // spreading the full wave across ~2.5s.
       (el as HTMLElement).animate(
         [
           { filter: 'brightness(1)', offset: 0 },
           { filter: 'brightness(0.3)', offset: 0.45 },
           { filter: 'brightness(1)', offset: 1 },
         ],
-        { duration: 800, delay: Math.min(i, 30) * 10, easing: 'ease-in-out', fill: 'none' }
+        { duration: 900, delay: Math.min(i, 35) * 45, easing: 'ease-in-out', fill: 'none' }
       );
     });
-    window.setTimeout(() => setThemeMode(to), 430);
-    window.setTimeout(() => setDayNightSweep(null), 1250);
+    window.setTimeout(() => setThemeMode(to), 1000);
+    window.setTimeout(() => setDayNightSweep(null), 2600);
   }, [dayNightSweep, menuOpen, closeAnimated, themeResolved, setThemeMode]);
 
   const handleLogout = useCallback(() => {
