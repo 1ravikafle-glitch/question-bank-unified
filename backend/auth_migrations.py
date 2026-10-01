@@ -56,6 +56,46 @@ def ensure_user_columns() -> None:
         except Exception:
             pass  # non-fatal: login by username still works
 
+        # A UNIQUE index on email. Without it two accounts could share one
+        # address (the register endpoint's 409 is app-level only and races),
+        # and forgot-password-by-email then resolves to whichever row comes
+        # first - so the inbox owner could be handed a reset token for a
+        # DIFFERENT account and change its password. NULLs are unaffected:
+        # both SQLite and Postgres allow many NULLs in a unique index.
+        try:
+            indexes = {i["name"] for i in insp.get_indexes("users")}
+            if "ux_users_email" not in indexes:
+                # Look for duplicates FIRST. The CREATE below fails when any
+                # exist, and the losing side of that failure is a real account
+                # takeover path, so name the offending addresses in the log
+                # rather than leaving a bare constraint-violation string.
+                dupes = [
+                    r[0]
+                    for r in database.engine.connect().execute(
+                        _text(
+                            "SELECT email FROM users "
+                            "WHERE email IS NOT NULL AND email <> '' "
+                            "GROUP BY email HAVING COUNT(*) > 1"
+                        )
+                    )
+                ]
+                if dupes:
+                    print(f"[AUTH] WARNING duplicate emails block the unique "
+                          f"index: {dupes}. Each of these inboxes can request a "
+                          f"reset that resolves to whichever account is found "
+                          f"first - de-duplicate them manually.", file=sys.stderr)
+                else:
+                    with database.engine.begin() as conn:
+                        conn.execute(
+                            _text("CREATE UNIQUE INDEX ux_users_email ON users (email)")
+                        )
+                    print("[AUTH] unique index on users.email", file=sys.stderr)
+        except Exception as e:
+            # Pre-existing duplicates would make this fail. That is worth
+            # shouting about rather than silently leaving ambiguous.
+            print(f"[AUTH] email index not created ({e}) - resolve duplicate "
+                  f"emails or reset-by-email stays ambiguous", file=sys.stderr)
+
         # An index on google_sub keeps sign-in a single-row lookup.
         try:
             indexes = {i["name"] for i in insp.get_indexes("users")}

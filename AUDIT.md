@@ -227,6 +227,7 @@ explicitly why not.
 | `sync/version` cannot detect content edits | It hashes `latest_id` + `total` + categories only, so an edited question never re-syncs into an offline pack. Needs a real content hash |
 | bcrypt 72-byte truncation | `AuthRequest.password` is now capped at 200 chars, but passwords sharing a 72-byte prefix are still interchangeable. Needs a pre-hash (e.g. SHA-256 then bcrypt) if it matters to you |
 | Login throttle is in-process | Per-username, 8 failures / 5 min. A second worker gets its own counter. Fine for one process |
+| Rate limits are per-worker | Same for the register/forgot/verify limits in auth_flow: in-process dicts, so N workers = N independent budgets |
 | Dead code: ~41 unused exports, orphaned `ui/label.tsx` + `ui/select.tsx`, 6 uncalled backend routes | Cosmetic; no runtime impact |
 | 48 `as any` / eslint-disable suppressions, 0 `@ts-ignore` | No TODO/FIXME/HACK anywhere in the repo |
 | Toast covers content at `bottom: 76` | Overlaps the category select and the progress tiles. Needs a layout-aware toast position |
@@ -246,6 +247,34 @@ Lesson: a test that asserts a failure without first proving it reached the
 code under test is not evidence.
 
 ---
+
+## 12b. Auth deployment matrix (read before deploying auth)
+
+Two environment variables decide how client IPs are resolved, and getting them
+wrong either lets anyone bypass every per-IP limit or throttles your whole
+userbase as one client. They must agree:
+
+| Topology | TRUST_PROXY | What happens |
+|---|---|---|
+| Behind a proxy that overwrites X-Forwarded-For (Render) | **set to 1** | the app reads the header and every real client gets its own bucket |
+| Directly exposed (no proxy) | **leave unset** | the app uses the socket peer; a spoofed header is ignored |
+
+Three details that are easy to get wrong:
+
+* **Uvicorn rewrites `request.client` before app code runs.** Its
+  `ProxyHeadersMiddleware` applies X-Forwarded-For when the peer is in
+  `FORWARDED_ALLOW_IPS`, whose default is `127.0.0.1`. start_prod.py therefore
+  passes `forwarded_allow_ips=""` so uvicorn never rewrites and
+  `auth_flow._trust_proxy()` is the single decision point. If you launch uvicorn
+  yourself (local dev), the default applies and loopback requests are rewritten
+  from the header — harmless locally, but it makes rate-limit tests lie.
+* **The app parses the RIGHTMOST XFF entry.** Each proxy appends the address it
+  saw, so the leftmost is client-controlled and the rightmost is the one our
+  trusted proxy vouches for. Verified: a client claiming `9.9.9.9, 7.7.7.7`
+  lands in 7.7.7.7's bucket, not a fresh one.
+* **The two fixes are one fix.** Reading the header without the TRUST_PROXY
+  gate, or gating it while uvicorn still rewrites, both leave a spoofable IP in
+  front of the rate limiter.
 
 ## 13. Quick self-check before you commit
 

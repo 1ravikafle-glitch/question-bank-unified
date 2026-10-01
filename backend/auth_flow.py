@@ -28,7 +28,7 @@ import sys
 import time
 from typing import Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -66,10 +66,36 @@ USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,31}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 _Counters: dict = {}
+_MAX_COUNTER_KEYS = 20_000
+_SWEEP_EVERY = 60.0
+_last_sweep = 0.0
+_LONGEST_WINDOW = 3600
+
+
+def _sweep(now: float) -> None:
+    """Evict expired buckets, then hard-cap the table.
+
+    Without this the dict only ever shrank when a key was hit again, so a flood
+    of unique identifiers (an attacker controls the identifier) grew it without
+    bound for the life of the process.
+    """
+    global _last_sweep
+    if now - _last_sweep < _SWEEP_EVERY and len(_Counters) <= _MAX_COUNTER_KEYS:
+        return
+    _last_sweep = now
+    for key in [k for k, v in _Counters.items() if not v or now - v[-1] > _LONGEST_WINDOW]:
+        _Counters.pop(key, None)
+    if len(_Counters) > _MAX_COUNTER_KEYS:
+        # Drop the least-recently-active half. Cheap and keeps the common case
+        # (a small number of real clients) entirely untouched.
+        ordered = sorted(_Counters.items(), key=lambda kv: kv[1][-1] if kv[1] else 0)
+        for key, _ in ordered[: len(ordered) // 2]:
+            _Counters.pop(key, None)
 
 
 def _hit(key: str, limit: int, window: int) -> None:
     now = time.time()
+    _sweep(now)
     hits = [t for t in _Counters.get(key, []) if now - t < window]
     if len(hits) >= limit:
         wait = int(window - (now - hits[0])) + 1
@@ -82,12 +108,30 @@ def _hit(key: str, limit: int, window: int) -> None:
     _Counters[key] = hits
 
 
+def _trust_proxy() -> bool:
+    """Whether X-Forwarded-For may be believed.
+
+    That header is CLIENT-SET. Trusting it unconditionally made every per-IP
+    limit meaningless: 26 forgot-password requests, each claiming a different
+    forwarded IP, produced zero throttles. Behind a real proxy you do want it
+    (otherwise every visitor shares the proxy's address and one person can lock
+    everyone else out); directly exposed you must not. So it is opt-in.
+    Set TRUST_PROXY=1 when running behind a proxy that overwrites the header.
+    """
+    return (os.getenv("TRUST_PROXY") or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _client_ip(request: Optional[Request]) -> str:
     if request is None:
         return "-"
-    fwd = request.headers.get("x-forwarded-for", "")
-    if fwd:
-        return fwd.split(",")[0].strip()
+    if _trust_proxy():
+        fwd = request.headers.get("x-forwarded-for", "")
+        if fwd:
+            # RIGHTMOST entry. Each proxy APPENDS the address it saw, so the
+            # leftmost is client-controlled and the rightmost is the one our
+            # trusted proxy actually vouches for. Reading the leftmost would
+            # let a client behind an appending proxy name any IP it likes.
+            return fwd.split(",")[-1].strip()
     try:
         return request.client.host if request.client else "-"
     except Exception:
@@ -264,6 +308,7 @@ def _generic_forgot_reply(email_delivery: bool) -> dict:
 def forgot_password_otp(
     req: ForgotOtpRequest,
     request: Request,
+    background: BackgroundTasks,
     db: Session = Depends(database.get_db),
 ):
     """Email an 8-character reset code. Writes nothing to the bank."""
@@ -306,7 +351,11 @@ def forgot_password_otp(
     )
     db.commit()
 
-    mailer_send(
+    # Sent on a background task. Calling this inline made the response wait for
+    # an SMTP connection ONLY when the account existed, so response time alone
+    # revealed who has an account - even though the reply body was identical.
+    background.add_task(
+        mailer_send,
         recipient,
         "Your Forestry PSC reset code",
         (

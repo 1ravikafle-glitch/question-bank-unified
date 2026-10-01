@@ -298,6 +298,17 @@ def google_login(req: GoogleAuthRequest, db: Session = Depends(database.get_db))
         # links the history instead of stranding it under a second account.
         user = db.query(models.User).filter(models.User.username == email).first()
     if user is None:
+        # email is uniquely indexed, so creating a Google account whose address
+        # is already on a MANUAL account would fail at commit. Do not
+        # auto-link (that would hand a Google user someone else's account) and
+        # do not 500: say what happened.
+        clash = db.query(models.User).filter(models.User.email == email).first()
+        if clash is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="That email is already registered with a password. "
+                       "Sign in with your password instead of Google.",
+            )
         user = models.User(
             username=email,
             password=NO_PASSWORD,
@@ -305,7 +316,14 @@ def google_login(req: GoogleAuthRequest, db: Session = Depends(database.get_db))
             email=email,
         )
         db.add(user)
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="That email is already registered. Sign in with your password.",
+            )
         is_new = True
     else:
         changed = False

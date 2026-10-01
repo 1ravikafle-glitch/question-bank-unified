@@ -401,4 +401,18 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     db_type = "PostgreSQL" if is_postgres else "SQLite"
     print(f"[STARTUP] Question Bank running on port {port} with {db_type}", file=sys.stderr)
-    uvicorn.run("start_prod:app", host="0.0.0.0", port=port, reload=False, log_level="info")
+    # forwarded_allow_ips="" disables uvicorn's own X-Forwarded-For rewriting,
+    # so request.client.host is always the real socket peer and auth_flow
+    # _trust_proxy() becomes the ONLY place the header is consulted. Two layers
+    # disagreeing about trust is how a spoofable IP reaches the rate limiter:
+    # uvicorn's default trusts 127.0.0.1, which rewrites scope["client"] from a
+    # client-set header BEFORE app code runs. Set TRUST_PROXY=1 behind a proxy
+    # that overwrites the header (Render); leave it unset when directly exposed.
+    uvicorn.run(
+        "start_prod:app",
+        host="0.0.0.0",
+        port=port,
+        reload=False,
+        log_level="info",
+        forwarded_allow_ips="",
+    )
