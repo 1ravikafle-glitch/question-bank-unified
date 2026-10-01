@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import text as sql_text
-from pydantic import BaseModel
-from typing import Optional, Tuple
+from pydantic import BaseModel, Field
+from typing import Dict, List, Optional, Tuple
 import hashlib
 import os
 import secrets
@@ -51,8 +51,14 @@ def verify_password(password: str, hashed: str) -> bool:
 
 
 class AuthRequest(BaseModel):
-    username: str
-    password: str
+    # Length bounds matter: users.username is String(100), so an oversized name
+    # was accepted on SQLite and then blew up the INSERT on Postgres (500), and
+    # bcrypt silently truncates at 72 bytes, so two passwords sharing a 72-byte
+    # prefix were interchangeable. Bound both at the edge.
+    username: str = Field(..., min_length=1, max_length=100)
+    # 72 bytes is bcrypt's real limit; cap characters a little above it so a
+    # legitimate long passphrase is not silently truncated mid-hash.
+    password: str = Field(..., min_length=1, max_length=200)
 
 
 def _bump_sessions(user: models.User, db: Session) -> None:
@@ -112,6 +118,47 @@ class AuthResponse(BaseModel):
     session_token: Optional[str] = None
 
 
+# ── Login throttle ────────────────────────────────────────────────────────────
+# Per-(ip, username) failed-attempt counter. In-process on purpose: no new
+# dependency, and it still stops online password guessing. A shared store would
+# be needed to make it hold across multiple workers.
+LOGIN_MAX_FAILURES = 8
+LOGIN_WINDOW_SECONDS = 300
+_LOGIN_FAILURES: Dict[str, List[float]] = {}
+
+
+def _login_key(username: str) -> str:
+    """Throttle key. Per-username (case-insensitive).
+
+    Deliberately not per-IP: this is a single-operator app where the admin
+    account is the only thing worth guessing, and keying on IP would let one
+    attacker lock the real admin out from another network. A distributed store
+    would be needed for the limit to hold across multiple workers.
+    """
+    return username.lower()
+
+
+def _throttle_check(key: str) -> None:
+    now = time.time()
+    hits = [t for t in _LOGIN_FAILURES.get(key, []) if now - t < LOGIN_WINDOW_SECONDS]
+    if len(hits) >= LOGIN_MAX_FAILURES:
+        wait = int(LOGIN_WINDOW_SECONDS - (now - hits[0])) + 1
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed attempts. Try again in {wait}s.",
+            headers={"Retry-After": str(wait)},
+        )
+    _LOGIN_FAILURES[key] = hits
+
+
+def _throttle_fail(key: str) -> None:
+    _LOGIN_FAILURES.setdefault(key, []).append(time.time())
+
+
+def _throttle_reset(key: str) -> None:
+    _LOGIN_FAILURES.pop(key, None)
+
+
 @router.post("/login", response_model=AuthResponse)
 def login(req: AuthRequest, db: Session = Depends(database.get_db)):
     username = req.username.strip()
@@ -119,6 +166,11 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
 
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username and password are required")
+
+    # Brute-force throttle. There was no limit at all: 25 wrong admin passwords
+    # went through in 0.317s. In-process and per-username, which is enough to
+    # stop online guessing against a single account. Do not revert.
+    _throttle_check(_login_key(username))
 
     try:
         # Admin login
@@ -128,12 +180,14 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
             if not ADMIN_PASSWORD:
                 raise HTTPException(status_code=503, detail="Admin login is not configured")
             if password != ADMIN_PASSWORD:
+                _throttle_fail(_login_key(username))
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             existing = db.query(models.User).filter(models.User.username == ADMIN_USERNAME).first()
             if not existing:
                 admin_user = models.User(username=ADMIN_USERNAME, password=hash_password(ADMIN_PASSWORD))
                 db.add(admin_user)
                 db.commit()
+            _throttle_reset(_login_key(username))
             return AuthResponse(
                 user_identifier=ADMIN_USERNAME,
                 is_new=False,
@@ -156,13 +210,16 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
         if existing:
             if existing.password.startswith("$2"):
                 if not verify_password(password, existing.password):
+                    _throttle_fail(_login_key(username))
                     raise HTTPException(status_code=401, detail="Invalid credentials")
             else:
                 if existing.password is None or existing.password != password:
+                    _throttle_fail(_login_key(username))
                     raise HTTPException(status_code=401, detail="Invalid credentials")
                 existing.password = hash_password(password)
                 db.commit()
                 _bump_sessions(existing, db)
+            _throttle_reset(_login_key(username))
             return AuthResponse(
                 user_identifier=username,
                 is_new=False,
@@ -441,7 +498,14 @@ def sso_refresh(req: AuthRequest, db: Session = Depends(database.get_db)):
 
     is_admin = bool(ADMIN_USERNAME) and username.lower() == ADMIN_USERNAME.lower()
     if is_admin:
-        if ADMIN_PASSWORD and password != ADMIN_PASSWORD:
+        # Fail closed. This used to read `if ADMIN_PASSWORD and password != ...`,
+        # so a BLANK ADMIN_PASSWORD skipped the comparison entirely and minted
+        # an admin-flagged token for ANY password — the same bug /auth/login
+        # had. Do not revert.
+        if not ADMIN_PASSWORD:
+            raise HTTPException(status_code=503, detail="Admin login is not configured")
+        if password != ADMIN_PASSWORD:
+            _throttle_fail(_login_key(username))
             raise HTTPException(status_code=401, detail="Invalid credentials")
     else:
         existing = db.query(models.User).filter(models.User.username == username).first()
@@ -476,7 +540,11 @@ def get_user_progress(username: str, db: Session = Depends(database.get_db), adm
         .all()
     )
 
-    total_attempted = len(set(r.question_id for r in progress_records))
+    # Count rows, not distinct questions, to match quiz_router._calc_stats and
+    # the dashboard. Mixing the two made this view report accuracy ABOVE 100%
+    # for anyone who retried questions (e.g. 12 correct / 10 attempted).
+    # Do not revert.
+    total_attempted = len(progress_records)
     total_correct = sum(1 for r in progress_records if r.is_correct)
     total_attempts = len(attempts)
 
