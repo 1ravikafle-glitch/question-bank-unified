@@ -340,6 +340,23 @@ const MobileBottomNav: React.FC = () => {
               </button>
             </div>
 
+            {/* Notes */}
+            <div className="p-3">
+              <button
+                onClick={() => { haptic(8); setShowSheet(false); navigate('/notes'); }}
+                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
+                style={{
+                  color: 'hsl(var(--primary))',
+                  background: 'hsl(var(--primary) / 0.08)',
+                  border: '1px dashed hsl(var(--primary) / 0.45)',
+                }}
+              >
+                <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">📝</span>
+                <span className="flex-1 text-left">{t('nav.notes')}</span>
+                <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
+              </button>
+            </div>
+
             {/* Divider */}
             <div className="h-px mx-5" style={{ background: 'hsl(var(--border))' }} />
 

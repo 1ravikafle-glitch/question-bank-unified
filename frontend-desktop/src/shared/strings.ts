@@ -24,6 +24,7 @@ const STRINGS: Record<string, { en: string; ne: string }> = {
   'nav.mock': { en: 'Mock Exam', ne: 'मक परीक्षा' },
   'nav.questions': { en: 'Questions', ne: 'प्रश्नहरू' },
   'nav.bookmarks': { en: 'Bookmarks', ne: 'बुकमार्क' },
+  'nav.notes': { en: 'My Notes', ne: 'मेरा नोटहरू' },
   'nav.wrong': { en: 'Wrong Questions', ne: 'गलत प्रश्नहरू' },
   'nav.results': { en: 'Results', ne: 'नतिजा' },
   'nav.progress': { en: 'Progress', ne: 'प्रगति' },

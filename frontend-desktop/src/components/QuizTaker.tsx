@@ -11,6 +11,7 @@ import {
   fetchCategories,
   fetchBookmarkIds,
   toggleBookmark,
+  fetchNotes,
 } from '../services/api';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
@@ -21,6 +22,8 @@ import { useLang } from '@/context/LanguageContext';
 import toast from 'react-hot-toast';
 import BookmarkButton from '@/components/BookmarkButton';
 import ExamPaper from '@/components/ExamPaper';
+import NoteButton from '@/components/NoteButton';
+import NoteEditor from '@/components/NoteEditor';
 import { useQuizPrefs } from '@/quizPrefs';
 import PracticeSetupBody from '@/components/PracticeSetupBody';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -116,6 +119,8 @@ function QuestionBox({
   folding,
   examPaper,
   slideDir,
+  slotRef,
+  enterX,
 }: {
   role: 'active' | 'next';
   question: any;
@@ -127,6 +132,11 @@ function QuestionBox({
   folding: boolean;
   examPaper?: boolean;
   slideDir?: 'left' | 'right';
+  // PREMIUM TRAVEL PASS (lead design): slotRef measures this box's position;
+  // enterX (px) is where the incoming card starts so it physically travels
+  // from the preview slot through the gap into place. Transform-only = 60fps.
+  slotRef?: React.Ref<HTMLDivElement>;
+  enterX?: number;
 }) {
   const locked = role === 'next';
   const showResult = role === 'active' && revealed;
@@ -141,7 +151,11 @@ function QuestionBox({
   const qCorrect = (question.correct ?? question.correct_answer ?? '').toString().toUpperCase();
 
   return (
-    <div
+    <motion.div
+      ref={slotRef}
+      initial={enterX ? { x: enterX, opacity: 0.35 } : false}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.9 }}
       className={
         'quiz-qbox' +
         (locked ? ' is-next' : ` quiz-enter-${dir}`) +
@@ -434,6 +448,12 @@ const QuizTaker: React.FC = () => {
 
   const [bmIds, setBmIds] = useState<Set<number>>(new Set());
   const bmKeyRef = useRef<string>('');
+  const [noteMap, setNoteMap] = useState<Record<number, string>>({});
+  const [noteOpen, setNoteOpen] = useState(false);
+  // Close the note editor whenever the active question changes.
+  useEffect(() => {
+    setNoteOpen(false);
+  }, [currentIndex]);
 
   // Bookmark state for the active set (loaded once per quiz).
   useEffect(() => {
@@ -443,6 +463,9 @@ const QuizTaker: React.FC = () => {
     bmKeyRef.current = key;
     fetchBookmarkIds(userId)
       .then((r) => setBmIds(new Set(r.ids)))
+      .catch(() => {});
+    fetchNotes(userId)
+      .then((r) => setNoteMap(r.notes || {}))
       .catch(() => {});
   }, [userId, showSetup, questions]);
 
@@ -1072,6 +1095,9 @@ const QuizTaker: React.FC = () => {
         return;
       }
 
+      // Paper view handles its own input; only Esc (below) stays global.
+      if (isExamMode) return;
+
       // A–D: select option on active question
       if (!isLocked && !finished) {
         const key = e.key.toLowerCase();
@@ -1441,6 +1467,12 @@ const QuizTaker: React.FC = () => {
                 onToggle={() => handleBmToggle(currentQuestion.id)}
               />
             )}
+            {currentQuestion && userId && (
+              <NoteButton
+                hasNote={!!noteMap[currentQuestion.id]}
+                onOpen={() => setNoteOpen((v) => !v)}
+              />
+            )}
             <button
               onClick={handleExitRequest}
               aria-label="Exit quiz"
@@ -1493,6 +1525,27 @@ const QuizTaker: React.FC = () => {
           />
         ) : (
           <>
+        {/* Personal-note editor for the active question */}
+        {noteOpen && currentQuestion && userId && (
+          <div style={{ marginBottom: 12 }}>
+            <NoteEditor
+              userId={userId}
+              questionId={currentQuestion.id}
+              initialText={noteMap[currentQuestion.id] || ''}
+              onSaved={(text) => {
+                const qid = currentQuestion.id;
+                setNoteMap((prev) => {
+                  const next = { ...prev };
+                  if (text) next[qid] = text;
+                  else delete next[qid];
+                  return next;
+                });
+                setNoteOpen(false);
+              }}
+              onClose={() => setNoteOpen(false)}
+            />
+          </div>
+        )}
         {/* Keyboard shortcut index bar — hidden on mobile */}
         <div className="hidden lg:flex" style={{
           alignItems: 'center',

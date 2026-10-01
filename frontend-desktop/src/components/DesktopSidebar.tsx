@@ -64,6 +64,13 @@ const BookmarkIcon = () => (
   </svg>
 );
 
+const NoteIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+  </svg>
+);
+
 const ExamIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="8" y="2" width="8" height="4" rx="1" />
@@ -155,6 +162,7 @@ const navSections: NavSectionDef[] = [
     items: [
       { to: '/quiz/practice-wrong', label: 'nav.wrong', end: false, icon: <RetryIcon /> },
       { to: '/bookmarks', label: 'nav.bookmarks', end: false, icon: <BookmarkIcon />, badge: 0 },
+      { to: '/notes', label: 'nav.notes', end: false, icon: <NoteIcon />, badge: 0 },
       { to: '/results', label: 'nav.results', end: false, icon: <CheckCircleIcon /> },
       { to: '/progress', label: 'nav.progress', end: false, icon: <TrendingUpIcon /> },
     ],

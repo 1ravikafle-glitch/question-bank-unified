@@ -11,6 +11,7 @@ import {
   fetchCategories,
   fetchBookmarkIds,
   toggleBookmark,
+  fetchNotes,
 } from '../services/api';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
@@ -21,6 +22,9 @@ import { useSfx } from '@/hooks/useSfx';
 import toast from 'react-hot-toast';
 import { useDismiss } from '@/hooks/useDismiss';
 import BookmarkButton from '@/components/BookmarkButton';
+import ExamPaper from '@/components/ExamPaper';
+import NoteButton from '@/components/NoteButton';
+import NoteEditor from '@/components/NoteEditor';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   quizOptionList,
@@ -465,6 +469,12 @@ const QuizTaker: React.FC = () => {
   const [showSetup, setShowSetup] = useState(false);
   const [bmIds, setBmIds] = useState<Set<number>>(new Set());
   const bmKeyRef = useRef<string>('');
+  const [noteMap, setNoteMap] = useState<Record<number, string>>({});
+  const [noteOpen, setNoteOpen] = useState(false);
+  // Close the note editor whenever the active question changes.
+  useEffect(() => {
+    setNoteOpen(false);
+  }, [currentIndex]);
 
   // Bookmark state for the active set (loaded once per quiz).
   useEffect(() => {
@@ -474,6 +484,9 @@ const QuizTaker: React.FC = () => {
     bmKeyRef.current = key;
     fetchBookmarkIds(userId)
       .then((r) => setBmIds(new Set(r.ids)))
+      .catch(() => {});
+    fetchNotes(userId)
+      .then((r) => setNoteMap(r.notes || {}))
       .catch(() => {});
   }, [userId, showSetup, questions]);
 
@@ -918,6 +931,19 @@ const QuizTaker: React.FC = () => {
     [currentQuestion, isLocked, sfxSelect],
   );
 
+  // Paper-view answering: any question, answered once then locked in.
+  const paperSelect = useCallback(
+    (qid: number, keyLower: string) => {
+      if (selected[qid] !== undefined) return;
+      try { navigator.vibrate?.(8); } catch {}
+      setSelected((prev) => ({ ...prev, [qid]: keyLower }));
+      const idx = questions.findIndex((q) => q.id === qid);
+      setAnnouncement(`Answered question ${idx + 1} of ${questions.length}.`);
+      sfxSelect();
+    },
+    [selected, questions, sfxSelect],
+  );
+
   // Directional slide navigation: the outgoing card glides out toward
   // the travel direction while the incoming card sweeps in from the
   // opposite side. Answered cards also pop their progress dot.
@@ -1023,12 +1049,15 @@ const QuizTaker: React.FC = () => {
       const isTypingField = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
       if (isTypingField) return;
 
-      // M: bookmark (mark) the current question
-      if ((e.key === 'm' || e.key === 'M') && currentQuestion && !showExitConfirm) {
+      // M: bookmark (mark) the current question (paper view has its own M handler)
+      if ((e.key === 'm' || e.key === 'M') && currentQuestion && !showExitConfirm && !isExamMode) {
         e.preventDefault();
         handleBmToggle(currentQuestion.id);
         return;
       }
+
+      // Paper view handles its own input; only exit/shortcut keys below stay global.
+      if (isExamMode) return;
 
       // A–D: select option on active question
       if (!isLocked && !showExitConfirm && !finished) {
@@ -1065,7 +1094,7 @@ const QuizTaker: React.FC = () => {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected]);
+  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, isExamMode]);
 
   // Helpers to adapt Question to reference shape for QuestionBox
   const toBoxQuestion = (q: Question) => {
@@ -1614,6 +1643,12 @@ const QuizTaker: React.FC = () => {
                 onToggle={() => handleBmToggle(currentQuestion.id)}
               />
             )}
+            {currentQuestion && userId && (
+              <NoteButton
+                hasNote={!!noteMap[currentQuestion.id]}
+                onOpen={() => setNoteOpen((v) => !v)}
+              />
+            )}
             <button
               onClick={handleExitRequest}
               aria-label="Exit quiz"
@@ -1648,6 +1683,45 @@ const QuizTaker: React.FC = () => {
           </div>
         </div>
 
+        {isExamMode ? (
+          <ExamPaper
+            questions={questions}
+            getShuffled={getShuffledFor}
+            selected={selected}
+            onSelect={paperSelect}
+            examTitle={examConfig?.title ?? 'Mock Exam'}
+            negative={examConfig?.negative ?? 0}
+            minutes={examConfig?.minutes ?? Math.max(1, Math.round(examTotalSecs / 60))}
+            category={examConfig?.category || ''}
+            userId={userId}
+            bmIds={bmIds}
+            onBmToggle={handleBmToggle}
+            onSubmit={() => submitQuizRequest(selected)}
+            submitting={submitting}
+          />
+        ) : (
+          <>
+        {/* Personal-note editor for the active question */}
+        {noteOpen && currentQuestion && userId && (
+          <div style={{ marginBottom: 12 }}>
+            <NoteEditor
+              userId={userId}
+              questionId={currentQuestion.id}
+              initialText={noteMap[currentQuestion.id] || ''}
+              onSaved={(text) => {
+                const qid = currentQuestion.id;
+                setNoteMap((prev) => {
+                  const next = { ...prev };
+                  if (text) next[qid] = text;
+                  else delete next[qid];
+                  return next;
+                });
+                setNoteOpen(false);
+              }}
+              onClose={() => setNoteOpen(false)}
+            />
+          </div>
+        )}
         {/* Keyboard shortcut index bar — hidden on mobile */}
         <div className="hidden lg:flex" style={{
           alignItems: 'center',
@@ -1860,6 +1934,8 @@ const QuizTaker: React.FC = () => {
               View results
             </button>
           </div>
+        )}
+          </>
         )}
       </div>
 

@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory, fetchBookmarkIds, toggleBookmark } from '../services/api';
+import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory, fetchBookmarkIds, toggleBookmark, fetchNotes } from '../services/api';
 import BookmarkButton from '@/components/BookmarkButton';
+import NoteButton from '@/components/NoteButton';
+import NoteEditor from '@/components/NoteEditor';
 import { type Question } from '@/shared/types';
 import { toast } from 'react-hot-toast';
 import { sortCategories } from '@/utils/categorySort';
@@ -101,10 +103,13 @@ const QuestionsBank: React.FC = () => {
   // M never fires for a question you are not pointing at.
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [bmIds, setBmIds] = useState<Set<number>>(new Set());
+  const [noteMap, setNoteMap] = useState<Record<number, string>>({});
+  const [noteOpenId, setNoteOpenId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!userId) return;
     fetchBookmarkIds(userId).then((r) => setBmIds(new Set(r.ids))).catch(() => {});
+    fetchNotes(userId).then((r) => setNoteMap(r.notes || {})).catch(() => {});
   }, [userId]);
 
   const handleBmToggle = useCallback(
@@ -600,8 +605,9 @@ const QuestionsBank: React.FC = () => {
                       {q.difficulty}
                     </span>
                   )}
-                  <span style={{ marginLeft: 'auto', display: 'inline-flex' }}>
+                  <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '2px' }}>
                     <BookmarkButton marked={bmIds.has(q.id)} onToggle={() => handleBmToggle(q.id)} />
+                    <NoteButton hasNote={!!noteMap[q.id]} onOpen={() => setNoteOpenId(noteOpenId === q.id ? null : q.id)} />
                   </span>
                   {perfIndex.length > 0 && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
@@ -805,6 +811,34 @@ const QuestionsBank: React.FC = () => {
                     </motion.div>
                   )}
                 </AnimatePresence>
+                {/* Personal note */}
+                {noteOpenId === q.id && userId && (
+                  <NoteEditor
+                    userId={userId}
+                    questionId={q.id}
+                    initialText={noteMap[q.id] || ''}
+                    onSaved={(text) => {
+                      setNoteMap((prev) => {
+                        const next = { ...prev };
+                        if (text) next[q.id] = text;
+                        else delete next[q.id];
+                        return next;
+                      });
+                      setNoteOpenId(null);
+                    }}
+                    onClose={() => setNoteOpenId(null)}
+                  />
+                )}
+                {!!noteMap[q.id] && noteOpenId !== q.id && (
+                  <p style={{
+                    fontSize: '0.75rem', lineHeight: 1.6, color: 'hsl(var(--foreground))',
+                    background: 'hsl(210 90% 50% / 0.07)', borderLeft: '3px solid hsl(210 90% 50%)',
+                    borderRadius: '0 8px 8px 0', padding: '0.5rem 0.75rem', margin: '12px 0 0',
+                    whiteSpace: 'pre-wrap',
+                  }}>
+                    {noteMap[q.id]}
+                  </p>
+                )}
               </motion.div>
             );
           })
