@@ -937,34 +937,8 @@
 .quiz-dot-strip-many { gap: 4px !important; }
 .quiz-dot-strip-many > div { width: 10px !important; height: 10px !important; transition: none !important; }
 
-/* ── Day/night lights sweep: corner-to-corner wipe, theme flips mid-flight ── */
-.theme-sweep {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-}
-.theme-sweep.to-dark {
-  background: radial-gradient(circle at 100% 0%, #000 0%, #050807 100%);
-  animation: themeSweepDark 0.86s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-}
-.theme-sweep.to-light {
-  background: radial-gradient(circle at 0% 100%, #fffdf4 0%, #f4efe2 100%);
-  animation: themeSweepLight 0.86s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-}
-@keyframes themeSweepDark {
-  0% { clip-path: circle(0 at calc(100% - 70px) 44px); opacity: 1; }
-  45% { clip-path: circle(150% at calc(100% - 70px) 44px); opacity: 1; }
-  100% { clip-path: circle(150% at calc(100% - 70px) 44px); opacity: 0; }
-}
-@keyframes themeSweepLight {
-  0% { clip-path: circle(0 at 70px calc(100% - 44px)); opacity: 1; }
-  45% { clip-path: circle(150% at 70px calc(100% - 44px)); opacity: 1; }
-  100% { clip-path: circle(150% at 70px calc(100% - 44px)); opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .theme-sweep { display: none; }
-}
+/* ── Day/night lights wave is WAAPI-driven (see Header toggleDayNight);
+   no overlay CSS needed — content is never covered ── */
 
 /* ── Mobile sticky quiz bar: phones/tablets only, never on desktop ── */
 .quiz-sticky-bar { display: flex; }

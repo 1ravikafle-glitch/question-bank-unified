@@ -253,6 +253,8 @@ function QuestionBox({
           return (
             <motion.button
               key={opt.key}
+              variants={quizOptionItem}
+              custom={{ x: enterX, i: oi }}
               whileTap={locked || showResult ? undefined : { scale: 0.985, transition: { duration: 0.1 } }}
               onClick={() => role === 'active' && !revealed && onChoose(opt.key)}
               disabled={locked || showResult}
@@ -279,12 +281,9 @@ function QuestionBox({
             >
               <motion.span
                 key={`bdg-${index}-${opt.key}`}
-                initial={enterX ? { x: enterX, opacity: 0 } : false}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{
-                  x: { type: 'spring', stiffness: 300, damping: 30, mass: 0.9, delay: 0.08 + oi * 0.05 },
-                  opacity: { delay: 0.18 + oi * 0.05, duration: 0.2 },
-                }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1 + oi * 0.05, duration: 0.2 }}
                 style={{
                   width: 32,
                   height: 32,
@@ -305,12 +304,9 @@ function QuestionBox({
               </motion.span>
               <motion.span
                 key={`lbl-${index}-${opt.key}`}
-                initial={enterX ? { x: enterX, opacity: 0 } : false}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{
-                  x: { type: 'spring', stiffness: 300, damping: 30, mass: 0.9, delay: 0.12 + oi * 0.05 },
-                  opacity: { delay: 0.22 + oi * 0.05, duration: 0.2 },
-                }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.14 + oi * 0.05, duration: 0.2 }}
                 style={{ fontSize: 16.5, fontWeight: 500, color: textColor, fontFamily: T.font, flex: 1 }}
               >
                 {opt.text}
@@ -470,6 +466,21 @@ const QuizTaker: React.FC = () => {
   const activeSlotRef = useRef<HTMLDivElement | null>(null);
   const nextSlotRef = useRef<HTMLDivElement | null>(null);
   const [enterX, setEnterX] = useState<number | undefined>(undefined);
+  // SHELL HEIGHT EASE (no whole-card movement): the frame never translates —
+  // it only resizes to fit incoming text. Measured pre-swap, interpolated
+  // post-swap via WAAPI on height. Transform untouched. Do not revert.
+  const easeShellHeight = useCallback((prevH: number) => {
+    const el = activeSlotRef.current;
+    if (!el || !(prevH > 0)) return;
+    requestAnimationFrame(() => {
+      const nextH = el.getBoundingClientRect().height;
+      if (Math.abs(nextH - prevH) < 4) return;
+      el.animate(
+        [{ height: `${prevH}px` }, { height: `${nextH}px` }],
+        { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' }
+      );
+    });
+  }, []);
   // STAGED PREVIEW (travel sync): during the 280ms+ travel the preview slot
   // keeps showing the OLD next question (the one gliding left). Only after the
   // travel lands does the slot flip to the fresh question with its own enter
@@ -500,8 +511,8 @@ const QuizTaker: React.FC = () => {
       el.animate(
         [
           { transform: 'translate(0px, 0px) scale(1)', opacity: 1, offset: 0 },
-          { transform: 'translate(0px, -64px) scale(0.98)', opacity: 1, offset: 0.3 },
-          { transform: `translate(${dx * 0.9}px, ${dy * 0.9 + -30}px) scale(0.12)`, opacity: 0.85, offset: 0.78 },
+          { transform: 'translate(0px, -64px) scale(0.98)', opacity: 1, offset: 0.35 },
+          { transform: `translate(${dx * 0.9}px, ${dy * 0.9 + -30}px) scale(0.12)`, opacity: 1, offset: 0.85 },
           { transform: `translate(${dx}px, ${dy}px) scale(0.04)`, opacity: 0, offset: 1 },
         ],
         { duration: 700, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' }
@@ -1077,6 +1088,7 @@ const QuizTaker: React.FC = () => {
     // FLIP measure (pre-swap layout still mounted): preview slot → active slot.
     const a = activeSlotRef.current?.getBoundingClientRect();
     const n = nextSlotRef.current?.getBoundingClientRect();
+    const prevH = a?.height ?? 0;
     if (a && n && n.width > 0 && dir === 'left') setEnterX(Math.max(0, n.left - a.left));
     else if (a && n && n.width > 0) setEnterX(-Math.max(0, n.left - a.left));
     else setEnterX(dir === 'left' ? 90 : -90);
@@ -1097,12 +1109,13 @@ const QuizTaker: React.FC = () => {
     setPreviewHoldIdx(currentIndex + 1);
     setCurrentIndex(next);
     setFolding(false);
+    easeShellHeight(prevH);
     setTimeout(() => setPreviewHoldIdx(null), 300);
     setTimeout(() => {
       setExitShot(null);
       slidingRef.current = false;
     }, 760);
-  }, [currentIndex, selected, questions]);
+  }, [currentIndex, selected, questions, easeShellHeight]);
 
   const handleNext = useCallback(() => {
     try { navigator.vibrate?.(8); } catch {}
@@ -1647,6 +1660,8 @@ const QuizTaker: React.FC = () => {
             onBmToggle={handleBmToggle}
             onSubmit={() => submitQuizRequest(selected)}
             submitting={submitting}
+            timeLeft={timeLeft}
+            warnSecs={examWarnSecs}
             noteMap={noteMap}
             onNoteSaved={(qid, text) => {
               setNoteMap((prev) => {
@@ -1795,8 +1810,11 @@ const QuizTaker: React.FC = () => {
               />
             </div>
           )}
+          {/* SHELLS NEVER REMOUNT: no key here — the card frame persists and only
+              resizes (layout spring) while keyed inner content travels.
+              Do not re-add a key: remounting the shell causes whole-card
+              movement and the empty-flash. */}
           <QuestionBox
-            key={currentQuestion?.id ?? currentIndex}
             role="active"
             question={activeBoxQ}
             index={currentIndex}

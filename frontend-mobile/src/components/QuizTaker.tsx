@@ -217,7 +217,7 @@ function QuestionBox({
         initial="initial"
         animate="animate"
         className={'quiz-options-stack' + (paper ? ' exam-opts' : '')} style={paper ? undefined : { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
-        {qOptions.map((opt) => {
+        {qOptions.map((opt, oi) => {
           const isSelected = selected === opt.key;
           const isCorrectOpt = opt.key === qCorrect;
           let border = T.border;
@@ -252,6 +252,7 @@ function QuestionBox({
             <motion.button
               key={opt.key}
               variants={quizOptionItem}
+              custom={{ x: enterX, i: oi }}
               whileTap={locked || showResult ? undefined : { scale: 0.985, transition: { duration: 0.1 } }}
               onClick={() => role === 'active' && !revealed && onChoose(opt.key)}
               disabled={locked || showResult}
@@ -278,8 +279,9 @@ function QuestionBox({
               }}
             >
               <motion.span
-                layout
-                transition={springSnappy}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1 + oi * 0.05, duration: 0.2 }}
                 style={{
                   width: 32,
                   height: 32,
@@ -974,6 +976,20 @@ const QuizTaker: React.FC = () => {
   const activeSlotRef = useRef<HTMLDivElement | null>(null);
   const nextSlotRef = useRef<HTMLDivElement | null>(null);
   const [enterX, setEnterX] = useState<number | undefined>(undefined);
+  // SHELL HEIGHT EASE (no whole-card movement): the frame never translates —
+  // it only resizes to fit incoming text. Do not revert.
+  const easeShellHeight = useCallback((prevH: number) => {
+    const el = activeSlotRef.current;
+    if (!el || !(prevH > 0)) return;
+    requestAnimationFrame(() => {
+      const nextH = el.getBoundingClientRect().height;
+      if (Math.abs(nextH - prevH) < 4) return;
+      el.animate(
+        [{ height: `${prevH}px` }, { height: `${nextH}px` }],
+        { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' }
+      );
+    });
+  }, []);
   // STAGED PREVIEW (travel sync): hold old preview through the travel,
   // release after landing — same as desktop.
   const [previewHoldIdx, setPreviewHoldIdx] = useState<number | null>(null);
@@ -1024,6 +1040,7 @@ const QuizTaker: React.FC = () => {
     {
       const a = activeSlotRef.current?.getBoundingClientRect();
       const n = nextSlotRef.current?.getBoundingClientRect();
+      const prevH = a?.height ?? 0;
       if (a && n && n.width > 0 && dir === 'left') setEnterX(Math.max(0, n.left - a.left));
       else if (a && n && n.width > 0) setEnterX(-Math.max(0, n.left - a.left));
       else setEnterX(dir === 'left' ? 140 : -140);
@@ -1041,6 +1058,7 @@ const QuizTaker: React.FC = () => {
       setCurrentIndex(next);
       setFolding(false);
       slidingRef.current = false;
+      easeShellHeight(prevH);
       setTimeout(() => setPreviewHoldIdx(null), 300);
       setTimeout(() => {
         setExitShot(null);
@@ -1049,7 +1067,7 @@ const QuizTaker: React.FC = () => {
       // previous scroll offset and the user lands mid-question.
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [currentIndex, selected, questions]);
+  }, [currentIndex, selected, questions, easeShellHeight]);
 
   const handleNext = useCallback(() => {
     try { navigator.vibrate?.(8); } catch {}
@@ -1939,8 +1957,11 @@ const QuizTaker: React.FC = () => {
               />
             </div>
           )}
+          {/* SHELLS NEVER REMOUNT: no key here — the card frame persists and only
+              resizes (layout spring) while keyed inner content travels.
+              Do not re-add a key: remounting the shell causes whole-card
+              movement and the empty-flash. */}
           <QuestionBox
-            key={currentQuestion?.id ?? currentIndex}
             role="active"
             question={activeBoxQ}
             index={currentIndex}

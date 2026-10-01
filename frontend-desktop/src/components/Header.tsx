@@ -133,20 +133,45 @@ const Header: React.FC = () => {
     setMenuOpen(true);
   }, []);
 
-  // E-avatar tap: day/night toggle. The avatar and name swap sides with a
-  // layout slide (E-first = day, name-first = night) while a lights-out
-  // sweep wipes corner-to-corner; the theme flips mid-sweep.
+  // E-avatar tap: day/night toggle. Cards dim out one after another,
+  // the theme flips at the dimmest point, then cards light back up in
+  // the new theme — lights-out wave, all content always visible.
+  // (WAAPI filter brightness composes on the GPU; instant if reduced motion.)
   const toggleDayNight = useCallback(() => {
     if (dayNightSweep) return;
     if (menuOpen) closeAnimated();
     const to = themeResolved === 'dark' ? 'light' : 'dark';
-    if (prefersReducedMotion()) {
+    const reduce =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || typeof (Element.prototype as any).animate !== 'function') {
       setThemeMode(to);
       return;
     }
+    const els = Array.from(
+      document.querySelectorAll('.card, .stat-tile, .qpill, .quiz-qbox, .psc-paper, .psc-omr')
+    )
+      .filter((el) => (el as HTMLElement).getClientRects().length > 0)
+      .slice(0, 48);
     setDayNightSweep({ to });
-    window.setTimeout(() => setThemeMode(to), 380);
-    window.setTimeout(() => setDayNightSweep(null), 860);
+    if (els.length === 0) {
+      setThemeMode(to);
+      setDayNightSweep(null);
+      return;
+    }
+    els.forEach((el, i) => {
+      (el as HTMLElement).animate(
+        [
+          { filter: 'brightness(1)', offset: 0 },
+          { filter: 'brightness(0.3)', offset: 0.45 },
+          { filter: 'brightness(1)', offset: 1 },
+        ],
+        { duration: 800, delay: Math.min(i, 30) * 10, easing: 'ease-in-out', fill: 'none' }
+      );
+    });
+    window.setTimeout(() => setThemeMode(to), 430);
+    window.setTimeout(() => setDayNightSweep(null), 1250);
   }, [dayNightSweep, menuOpen, closeAnimated, themeResolved, setThemeMode]);
 
   const handleLogout = useCallback(() => {
@@ -480,15 +505,16 @@ const Header: React.FC = () => {
                 width: 32,
                 height: 32,
                 borderRadius: '50%',
-                background: 'hsl(var(--primary))',
-                color: 'hsl(var(--primary-foreground))',
+                // Day: green E on the white pill. Night: calm avatar, name takes the green.
+                background: themeResolved === 'dark' ? 'hsl(var(--muted))' : 'hsl(var(--primary))',
+                color: themeResolved === 'dark' ? 'hsl(var(--foreground))' : 'hsl(var(--primary-foreground))',
+                border: themeResolved === 'dark' ? '1px solid hsl(var(--border))' : 'none',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 13,
                 fontWeight: 700,
                 flexShrink: 0,
-                border: 'none',
                 cursor: 'pointer',
               }}
             >
@@ -512,8 +538,8 @@ const Header: React.FC = () => {
               title={userId ?? undefined}
               style={{
                 fontSize: '0.875rem',
-                fontWeight: 600,
-                color: 'hsl(var(--foreground))',
+                fontWeight: 700,
+                color: themeResolved === 'dark' ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
                 whiteSpace: 'nowrap',
                 maxWidth: 120,
                 overflow: 'hidden',
@@ -529,14 +555,6 @@ const Header: React.FC = () => {
           </motion.div>
         )}
       </header>
-
-      {/* Day/night lights sweep (corner-to-corner wipe, theme flips mid-flight) */}
-      {dayNightSweep && (
-        <div
-          className={'theme-sweep ' + (dayNightSweep.to === 'dark' ? 'to-dark' : 'to-light')}
-          aria-hidden="true"
-        />
-      )}
 
       {dropdownNode}
     </>

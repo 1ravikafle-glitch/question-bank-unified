@@ -114,14 +114,18 @@ export const quizOptionList: Variants = {
   animate: { transition: { staggerChildren: 0.045, delayChildren: 0.05 } },
 };
 
-/** One option: 10px rise + fade, spring-settled. */
+/** One option: glides in from the travel offset with its row, staggered.
+    Dynamic: pass custom={{ x: enterX, i: optionIndex }}. */
 export const quizOptionItem: Variants = {
-  initial: { opacity: 0, y: 10 },
-  animate: {
+  initial: (c: { x?: number } = {}) => ({ opacity: 0, x: c.x ?? 72 }),
+  animate: (c: { x?: number; i?: number } = {}) => ({
     opacity: 1,
-    y: 0,
-    transition: { duration: 0.28, ease: MOTION.easeSpring },
-  },
+    x: 0,
+    transition: {
+      x: { type: 'spring', stiffness: 300, damping: 30, mass: 0.9, delay: (c.i ?? 0) * 0.06 },
+      opacity: { delay: 0.08 + (c.i ?? 0) * 0.06, duration: 0.2 },
+    },
+  }),
 };
 
 /** Selection pop: brief tactile compression on the badge. */
