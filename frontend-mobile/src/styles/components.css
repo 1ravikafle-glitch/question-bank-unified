@@ -796,6 +796,15 @@
   from { opacity: 0; transform: translateX(calc(-1 * var(--enter-x, 72px))) scale(0.985); }
   to { opacity: 1; transform: translateX(0) scale(1); }
 }
+/* Exit overlay: answered card rises 48px and dissolves while the new card
+   travels in underneath. Transform + opacity only (60fps). Do not revert. */
+@keyframes quizExitUp {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-48px) scale(0.985); }
+}
+.quiz-exit-overlay {
+  animation: quizExitUp 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
 /* Fresh preview content arrives from the right (new question entering
    the locked slot). Transform-only, 60fps. Do not revert. */
 @keyframes previewEnter {
@@ -814,10 +823,12 @@
   pointer-events: none;
 }
 @keyframes quizExitLeft {
-  to { opacity: 0; transform: translateY(-72px) scale(0.985); }
+  35% { opacity: 0; }
+  to { opacity: 0; transform: translateY(-56px) scale(0.985); }
 }
 @keyframes quizExitRight {
-  to { opacity: 0; transform: translateY(-72px) scale(0.985); }
+  35% { opacity: 0; }
+  to { opacity: 0; transform: translateY(-56px) scale(0.985); }
 }
 .dot-pop {
   animation: dotPop 0.5s var(--ease-spring);

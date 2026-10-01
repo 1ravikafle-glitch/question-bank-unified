@@ -157,13 +157,21 @@ function QuestionBox({
       style={enterX ? ({ '--enter-x': `${Math.round(enterX)}px` } as React.CSSProperties) : undefined}
       className={
         'quiz-qbox' +
-        (locked ? ' is-next quiz-preview-enter' : ` quiz-enter-${dir}`) +
+        (locked ? ' is-next quiz-preview-enter' : (enterX ? '' : ` quiz-enter-${dir}`)) +
         (!locked && folding ? ` is-exiting-${dir}` : '') +
         (!locked && selected ? ' is-selected' : '') +
         (paper ? ' exam-paper' : '')
       }
       aria-hidden={locked || undefined}
     >
+      {/* CONTENT-ONLY TRAVEL (trial): the shell stays parked — only this inner
+          content glides in from the travel offset. Remove if it reads worse. */}
+      <motion.div
+        key={`qc-${index}-${question.id ?? question.question_number ?? ''}`}
+        initial={enterX ? { x: enterX, opacity: 0 } : false}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 30, mass: 0.9 }}
+      >
       <div
         style={{
           fontSize: 11,
@@ -308,6 +316,7 @@ function QuestionBox({
           );
         })}
       </motion.div>
+      </motion.div>
 
       {showResult && qExplanation && (
         <div
@@ -444,6 +453,13 @@ const QuizTaker: React.FC = () => {
   // travel lands does the slot flip to the fresh question with its own enter
   // animation. Without this the new content pops in while travel runs.
   const [previewHoldIdx, setPreviewHoldIdx] = useState<number | null>(null);
+  // EXIT OVERLAY (no-gap advance): snapshot of the answered card rendered
+  // fixed over its slot, gliding up while the new card travels in.
+  // No empty frame between questions. Do not revert.
+  const [exitShot, setExitShot] = useState<{
+    q: any; idx: number; sel: string | null; rev: boolean;
+    rect: { top: number; left: number; width: number } | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [announcement, setAnnouncement] = useState<string>('');
@@ -1005,28 +1021,39 @@ const QuizTaker: React.FC = () => {
     if (slidingRef.current) return;
     slidingRef.current = true;
     setSlideDir(dir);
-    setFolding(true);
     if (answeredIdx !== null) {
       setPopDot(answeredIdx);
       setTimeout(() => setPopDot(null), 550);
     }
+    // FLIP measure (pre-swap layout still mounted): preview slot → active slot.
+    const a = activeSlotRef.current?.getBoundingClientRect();
+    const n = nextSlotRef.current?.getBoundingClientRect();
+    if (a && n && n.width > 0 && dir === 'left') setEnterX(Math.max(0, n.left - a.left));
+    else if (a && n && n.width > 0) setEnterX(-Math.max(0, n.left - a.left));
+    else setEnterX(dir === 'left' ? 90 : -90);
+    // Snapshot the answered card into a fixed overlay BEFORE the swap so the
+    // slot never sits empty: overlay glides up while the new card travels in.
+    // (Raw question shape — QuestionBox normalizes both shapes itself.)
+    if (currentQuestion) {
+      const snapSel = selected[currentQuestion.id] ?? null;
+      setExitShot({
+        q: currentQuestion,
+        idx: currentIndex,
+        sel: snapSel,
+        rev: snapSel !== null && snapSel !== undefined,
+        rect: a ? { top: a.top, left: a.left, width: a.width } : null,
+      });
+    }
+    // Hold the old preview content through the travel, release after landing.
+    setPreviewHoldIdx(currentIndex + 1);
+    setCurrentIndex(next);
+    setFolding(false);
+    setTimeout(() => setPreviewHoldIdx(null), 300);
     setTimeout(() => {
-      // FLIP measure (pre-swap layout still mounted): preview slot → active slot.
-      // Desktop: real pixel distance across the gap. Prev: mirrored.
-      // Mobile (no preview): fixed short travel from the screen edge.
-      const a = activeSlotRef.current?.getBoundingClientRect();
-      const n = nextSlotRef.current?.getBoundingClientRect();
-      if (a && n && n.width > 0 && dir === 'left') setEnterX(Math.max(0, n.left - a.left));
-      else if (a && n && n.width > 0) setEnterX(-Math.max(0, n.left - a.left));
-      else setEnterX(dir === 'left' ? 90 : -90);
-      // Hold the old preview content through the travel, release after landing.
-      setPreviewHoldIdx(currentIndex + 1);
-      setCurrentIndex(next);
-      setFolding(false);
+      setExitShot(null);
       slidingRef.current = false;
-      setTimeout(() => setPreviewHoldIdx(null), 300);
-    }, 280);
-  }, [currentIndex]);
+    }, 340);
+  }, [currentIndex, selected, questions]);
 
   const handleNext = useCallback(() => {
     try { navigator.vibrate?.(8); } catch {}
@@ -1430,7 +1457,11 @@ const QuizTaker: React.FC = () => {
   // Staged preview: while held, show the held question (travel in flight).
   const heldQ = previewHoldIdx != null && previewHoldIdx < questions.length ? toBoxQuestion(questions[previewHoldIdx]) : null;
   const previewQ = heldQ ?? nextQ;
-  const activeSelected = currentSelected ? currentSelected.toUpperCase() : null;
+  // Displayed label for the stored (original-key) selection, so the box
+  // highlights the option the user actually tapped.
+  const activeSelected = currentSelected
+    ? (Object.entries(activeShuffledData.origOf).find(([, o]) => o === currentSelected.toUpperCase())?.[0] ?? currentSelected.toUpperCase())
+    : null;
 
   return (
     <div
@@ -1682,6 +1713,37 @@ const QuizTaker: React.FC = () => {
 
         {/* Question grid — single column on mobile, 2-col on desktop */}
         <div className="quiz-grid-2col" style={{ display: 'grid', gap: 20 }}>
+          {/* EXIT OVERLAY: the answered card keeps rendering here, fixed over
+              its old slot, gliding up while the new card travels in.
+              Zero empty frames. */}
+          {exitShot?.rect && (
+            <div
+              key={`exit-${exitShot.idx}`}
+              className="quiz-exit-overlay"
+              aria-hidden="true"
+              style={{
+                position: 'fixed',
+                top: exitShot.rect.top,
+                left: exitShot.rect.left,
+                width: exitShot.rect.width,
+                zIndex: 30,
+                pointerEvents: 'none',
+              }}
+            >
+              <QuestionBox
+                role="active"
+                question={exitShot.q}
+                index={exitShot.idx}
+                total={questions.length}
+                selected={exitShot.sel}
+                revealed={exitShot.rev}
+                onChoose={() => {}}
+                folding={false}
+                examPaper={isExamMode}
+                slideDir={slideDir}
+              />
+            </div>
+          )}
           <QuestionBox
             key={currentQuestion?.id ?? currentIndex}
             role="active"
