@@ -46,7 +46,26 @@
 
         <meta name="google-adsense-account" content="ca-pub-7976760719077018" />
 
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7976760719077018" crossorigin="anonymous"></script>
+        <script>
+              // AdSense loader, gated by route. Auto Ads inserts ads wherever its
+              // scanner likes, and the ONE placement that genuinely harms this app is
+              // inside a timed exam - between the question and its options, or as an
+              // interstitial over the paper. The loader is therefore not injected at
+              // all on the exam routes, so a refresh or deep link into the exam is
+              // guaranteed ad-free. (Client-side navigation keeps an already-loaded
+              // loader alive; the manual banner still hides on those routes, and the
+              // AdSense dashboard settings must stay conservative - see AUDIT.md.)
+              // Same route test as the banner logic below. Do not revert.
+              (function () {
+                var p = location.pathname || '';
+                if (p.indexOf('/quiz') !== -1 || p.indexOf('/attempt') !== -1) return;
+                var s = document.createElement('script');
+                s.async = true;
+                s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7976760719077018';
+                s.crossOrigin = 'anonymous';
+                document.head.appendChild(s);
+              })();
+              </script>
     <style>
       #ad-top-mobile{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:6px 0;position:relative;z-index:100}
       #ad-top-mobile{max-height:130px;overflow:hidden}

@@ -300,6 +300,24 @@ Three details that are easy to get wrong:
   gate, or gating it while uvicorn still rewrites, both leave a spoofable IP in
   front of the rate limiter.
 
+## 12c. Ads are route-gated on purpose
+
+The adsbygoogle.js loader in both index.html files is NOT a plain <script src>
+tag: it is an inline snippet that injects the loader only off the exam routes.
+A static tag would let AdSense Auto Ads - which inserts ads wherever its
+scanner likes - put a unit inside a timed paper, between a question and its
+options, or an interstitial over the OMR sheet. That is the one placement that
+genuinely harms this app. Verified: booting on /quiz injects zero ad scripts.
+
+If you change the ad setup, keep three things:
+- the route gate stays (same /quiz + /attempt test the banner logic uses);
+- the manual banner keeps its collapse-on-unfilled logic (an empty ad slot is
+  worse than no ad slot);
+- Auto Ads is enabled DASHBOARD-side only. Recommend conservative settings:
+  vignette/interstitial ads OFF, low in-page density. Client-side navigation
+  into an exam keeps an already-loaded loader alive, and conservative settings
+  are the only control Google offers for that case.
+
 ## 13. Quick self-check before you commit
 
 ```bash
