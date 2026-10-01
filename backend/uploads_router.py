@@ -1,8 +1,15 @@
-"""User uploads: anyone signed in can contribute PDF/DOCX question papers.
+"""User uploads: signed-in users contribute PDF/DOCX question papers.
 
-Two-step flow: /uploads/parse previews what was found (no writes),
-/uploads/import commits with source=user:<name> so user content stays
-distinguishable from the curated bank. Same dedupe rules as admin import.
+Contributor flow (non-admin): /uploads/parse previews what was found (no
+writes), then /uploads/requests parks the parsed questions as a PENDING
+request. Nothing reaches the question bank until an admin approves it via
+/admin/contributions/{id}/approve. A contributor may hold at most
+MAX_PENDING_CONTRIBUTIONS (5) awaiting review; each accept or reject frees a
+slot, and a rejection carries a reason back to the contributor.
+
+Admin flow: /uploads/import commits straight into the bank (unlimited, no
+queue), tagged source=user:<admin> so admin content stays distinguishable
+from the curated bank. Same dedupe rules for both paths.
 """
 import io
 from typing import List, Optional
@@ -22,6 +29,11 @@ from pdf_parser import extract_questions_and_answers_pdf
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 MAX_BYTES = 10 * 1024 * 1024
+
+# A contributor may hold at most this many requests awaiting review. Each admin
+# accept OR reject moves one out of 'pending' and frees a slot. Admins bypass
+# this entirely (they import straight into the bank). Do not revert.
+MAX_PENDING_CONTRIBUTIONS = 5
 
 
 def _parse_upload(filename: str, raw: bytes, category: Optional[str]):
@@ -90,15 +102,16 @@ async def import_upload(
     files: List[UploadFile] = File(...),
     category: Optional[str] = Form(None),
     db: Session = Depends(database.get_db),
-    caller: Tuple[str, bool] = Depends(session.require_user),
+    admin_user: str = Depends(session.require_admin),
 ):
-    """Parse + insert. Skips duplicates and answer-less questions.
+    """Parse + insert straight into the bank. ADMIN ONLY, unlimited, no queue.
 
-    Requires a session. This used to depend on ``current_user`` (which never
-    raises) and then fall back to ``username = "anonymous"``, so ANY anonymous
+    Contributors must use /uploads/requests instead so an admin reviews their
+    upload first. This endpoint used to depend on ``current_user`` (which never
+    raises) and fall back to ``username = "anonymous"``, so ANY anonymous
     caller could write rows into the live question bank. Do not revert.
     """
-    username = caller[0]
+    username = admin_user
     results = []
     total_imported = 0
     for upload in files:
@@ -161,3 +174,122 @@ async def import_upload(
             }
         )
     return {"files": results, "total_imported": total_imported}
+
+
+# ── Contributor review queue ────────────────────────────────────────────────
+# Contributors park parsed questions here; an admin approval is the only thing
+# that inserts them into the bank. See module docstring for the quota rule.
+
+@router.get("/requests/mine")
+def my_requests(
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_user),
+):
+    """The caller's own requests, newest first, with any rejection reason."""
+    rows = (
+        db.query(models.ContributionRequest)
+        .filter(models.ContributionRequest.user_identifier == caller[0])
+        .order_by(models.ContributionRequest.created_at.desc())
+        .all()
+    )
+    pending = sum(1 for r in rows if r.status == "pending")
+    return {
+        "pending": pending,
+        "max_pending": MAX_PENDING_CONTRIBUTIONS,
+        "remaining": max(0, MAX_PENDING_CONTRIBUTIONS - pending),
+        "requests": [
+            {
+                "id": r.id,
+                "filename": r.filename,
+                "category": r.category,
+                "status": r.status,
+                "question_count": r.question_count,
+                "with_answer": r.with_answer,
+                # Only meaningful on a rejection.
+                "admin_note": r.admin_note,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/requests")
+async def submit_request(
+    files: List[UploadFile] = File(...),
+    category: Optional[str] = Form(None),
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_user),
+):
+    """Submit a PDF/DOCX for admin review. Writes nothing to the bank."""
+    username = caller[0]
+
+    pending = (
+        db.query(models.ContributionRequest)
+        .filter(
+            models.ContributionRequest.user_identifier == username,
+            models.ContributionRequest.status == "pending",
+        )
+        .count()
+    )
+    if pending >= MAX_PENDING_CONTRIBUTIONS:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"You already have {pending} uploads waiting for review "
+                f"(max {MAX_PENDING_CONTRIBUTIONS}). An admin must accept or "
+                f"reject one before you can send another."
+            ),
+        )
+
+    created = []
+    for upload in files:
+        raw = await upload.read()
+        if len(raw) > MAX_BYTES:
+            raise HTTPException(status_code=400, detail=f"{upload.filename}: file over 10MB")
+        try:
+            parsed, cat = _parse_upload(upload.filename or "", raw, category)
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse {upload.filename}: {e}")
+
+        with_answer = sum(1 for q in parsed if q.get("correct_answer"))
+        row = models.ContributionRequest(
+            user_identifier=username,
+            filename=upload.filename or "upload",
+            category=cat,
+            status="pending",
+            question_count=len(parsed),
+            with_answer=with_answer,
+            # Park the parsed questions; they only reach the bank on approval.
+            payload=[
+                {
+                    "question_number": q.get("question_number", 0),
+                    "question_text": q.get("question_text", ""),
+                    "options": q.get("options", {}),
+                    "correct_answer": q.get("correct_answer", ""),
+                }
+                for q in parsed
+            ],
+        )
+        db.add(row)
+        created.append(row)
+
+    db.commit()
+    for row in created:
+        db.refresh(row)
+    return {
+        "submitted": [
+            {
+                "id": r.id,
+                "filename": r.filename,
+                "category": r.category,
+                "question_count": r.question_count,
+                "with_answer": r.with_answer,
+            }
+            for r in created
+        ],
+        "status": "pending_review",
+    }

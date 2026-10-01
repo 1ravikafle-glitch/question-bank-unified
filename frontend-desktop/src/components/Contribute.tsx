@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { fetchCategories } from '../services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
@@ -21,7 +21,19 @@ interface FileResult {
   error?: string;
 }
 
-/* Contribute question papers: PDF/DOCX upload with parse preview + import. */
+interface MyRequest {
+  id: number;
+  filename: string;
+  category?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  question_count: number;
+  with_answer: number;
+  admin_note?: string | null;
+  created_at?: string | null;
+  reviewed_at?: string | null;
+}
+
+/* Contribute question papers: PDF/DOCX upload that goes to an admin for review. */
 const Contribute: React.FC = () => {
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
@@ -32,11 +44,36 @@ const Contribute: React.FC = () => {
   const [phase, setPhase] = useState<'idle' | 'parsing' | 'preview' | 'importing' | 'done'>('idle');
   const [result, setResult] = useState<FileResult | null>(null);
   const [error, setError] = useState('');
+  // Review quota: max 5 requests awaiting an admin decision.
+  const [pending, setPending] = useState(0);
+  const [maxPending, setMaxPending] = useState(5);
+  const [requests, setRequests] = useState<MyRequest[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const loadRequests = useCallback(() => {
+    const t = token();
+    if (!t) return;
+    fetch(`${API}/uploads/requests/mine`, { headers: { Authorization: `Bearer ${t}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        setPending(d.pending ?? 0);
+        setMaxPending(d.max_pending ?? 5);
+        setRequests(d.requests || []);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
+
+  // Slots left before the review queue is full.
+  const remaining = Math.max(0, maxPending - pending);
 
   const token = () => {
     try {
@@ -46,7 +83,7 @@ const Contribute: React.FC = () => {
     }
   };
 
-  const postFile = async (path: 'parse' | 'import', f: File) => {
+  const postFile = async (path: 'parse' | 'requests', f: File) => {
     const fd = new FormData();
     fd.append('files', f);
     if (category) fd.append('category', category);
@@ -55,7 +92,18 @@ const Contribute: React.FC = () => {
       headers: token() ? { Authorization: `Bearer ${token()}` } : {},
       body: fd,
     });
-    if (!res.ok) throw new Error(`Server ${res.status}`);
+    if (!res.ok) {
+      // Surface the server's reason (e.g. the 5-pending quota) instead of a
+      // bare status code.
+      let detail = `Server ${res.status}`;
+      try {
+        const j = await res.json();
+        if (j?.detail) detail = j.detail;
+      } catch {
+        /* keep the status-code fallback */
+      }
+      throw new Error(detail);
+    }
     return res.json();
   };
 
@@ -86,17 +134,21 @@ const Contribute: React.FC = () => {
     }
   };
 
-  const handleImport = async () => {
+  // Contributors never write to the bank directly: this parks the parsed
+  // questions as a pending request for an admin to approve or reject.
+  const handleSubmit = async () => {
     if (!file) return;
     sfxClick();
     setPhase('importing');
+    setError('');
     try {
-      const data = await postFile('import', file);
-      const r: FileResult = data.files?.[0] || { error: 'Empty server response' };
+      const data = await postFile('requests', file);
+      const r: FileResult = data.submitted?.[0] || { error: 'Empty server response' };
       setResult(r);
       setPhase('done');
-    } catch {
-      setError('Import failed. Check your connection and try again.');
+      loadRequests();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upload failed. Please try again.');
       setPhase('preview');
     }
   };
@@ -123,9 +175,39 @@ const Contribute: React.FC = () => {
           {t('nav.contribute')}
         </h1>
         <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0', lineHeight: 1.55 }}>
-          Upload a PDF or DOCX question paper. Preview what was found, then import.
-          Duplicates and answer-less questions are skipped automatically.
+          Upload a PDF or DOCX question paper. An admin reviews every submission before
+          anything is added to the question bank.
         </p>
+      </div>
+
+      {/* Review quota: max 5 awaiting a decision. Each accept or reject frees a slot. */}
+      <div
+        className="card"
+        style={{
+          padding: '0.875rem 1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          borderColor: remaining === 0 ? 'hsl(var(--destructive))' : undefined,
+        }}
+      >
+        <div>
+          <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'hsl(var(--foreground))', margin: 0 }}>
+            {remaining === 0 ? 'Review queue full' : `${remaining} of ${maxPending} submissions left`}
+          </p>
+          <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '0.15rem 0 0' }}>
+            {remaining === 0
+              ? 'An admin must accept or reject a waiting upload before you can send another.'
+              : `${pending} waiting for review.`}
+          </p>
+        </div>
+        <span
+          className={remaining === 0 ? 'badge badge-destructive' : 'badge'}
+          style={{ flexShrink: 0 }}
+        >
+          {pending}/{maxPending}
+        </span>
       </div>
 
       <div className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
@@ -214,20 +296,70 @@ const Contribute: React.FC = () => {
           )}
           {phase !== 'done' && (
             <motion.button
-              onClick={handleImport}
+              onClick={handleSubmit}
               className="btn btn-primary"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              style={{ width: '100%' }}
+              disabled={remaining === 0}
+              whileHover={remaining === 0 ? undefined : { scale: 1.02 }}
+              whileTap={remaining === 0 ? undefined : { scale: 0.97 }}
+              style={{ width: '100%', opacity: remaining === 0 ? 0.5 : 1, cursor: remaining === 0 ? 'not-allowed' : 'pointer' }}
             >
-              Import {result.found ?? 0} questions
+              {remaining === 0 ? 'Waiting for admin review' : `Send ${result.found ?? 0} questions for review`}
             </motion.button>
           )}
           {phase === 'done' && (
             <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'hsl(var(--primary))', margin: 0 }}>
-              ✓ Imported. Thank you for contributing{userId ? `, ${userId}` : ''}!
+              ✓ Sent for review. An admin will accept or reject it{userId ? `, ${userId}` : ''}.
             </p>
           )}
+        </div>
+      )}
+
+      {/* Submission history, including any admin rejection reason. */}
+      {requests.length > 0 && (
+        <div className="card" style={{ padding: '1.25rem' }}>
+          <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', margin: '0 0 0.75rem' }}>
+            Your submissions
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {requests.slice(0, 8).map((r) => (
+              <div
+                key={r.id}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem',
+                  padding: '0.625rem 0.75rem',
+                  borderRadius: 'var(--apple-radius-md)',
+                  background: 'hsl(var(--muted))',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'hsl(var(--foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.filename}
+                  </span>
+                  <span
+                    className={
+                      r.status === 'approved' ? 'badge badge-success'
+                        : r.status === 'rejected' ? 'badge badge-destructive'
+                        : 'badge'
+                    }
+                    style={{ flexShrink: 0 }}
+                  >
+                    {r.status === 'pending' ? 'in review' : r.status}
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  {r.question_count} questions · {r.with_answer} with answers
+                  {r.category ? ` · ${r.category}` : ''}
+                </span>
+                {r.status === 'rejected' && r.admin_note && (
+                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--destructive))', lineHeight: 1.5 }}>
+                    Reason: {r.admin_note}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

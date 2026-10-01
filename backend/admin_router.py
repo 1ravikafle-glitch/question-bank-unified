@@ -2,7 +2,7 @@ import io
 import os
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -336,3 +336,163 @@ def update_question(question_id: int, payload: dict, db: Session = Depends(datab
         raise HTTPException(status_code=500, detail="Failed to update question")
 
     return question
+
+
+# ── Contributor review queue ────────────────────────────────────────────────
+# Contributors cannot write to `questions` directly. They POST to
+# /uploads/requests; an admin approves or rejects here. Approving is the ONLY
+# path that inserts contributor questions into the bank. Admins who want to
+# bypass review entirely use /admin/upload-docx or /uploads/import (unlimited).
+
+class ReviewRequest(BaseModel):
+    note: Optional[str] = None
+
+
+def _serialize_request(r: models.ContributionRequest, include_payload: bool = False):
+    out = {
+        "id": r.id,
+        "user_identifier": r.user_identifier,
+        "filename": r.filename,
+        "category": r.category,
+        "status": r.status,
+        "question_count": r.question_count,
+        "with_answer": r.with_answer,
+        "admin_note": r.admin_note,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
+    }
+    if include_payload:
+        rows = r.payload or []
+        out["preview"] = [
+            {
+                "question_number": q.get("question_number", 0),
+                "question_text": (q.get("question_text") or "")[:200],
+                "options": q.get("options", {}),
+                "correct_answer": q.get("correct_answer", ""),
+            }
+            for q in rows[:5]
+        ]
+    return out
+
+
+@router.get("/contributions")
+def list_contributions(
+    status: Optional[str] = Query(default="pending"),
+    db: Session = Depends(database.get_db),
+    admin_user: str = Depends(session.require_admin),
+):
+    """Pending contributor uploads by default. Pass status=all for history."""
+    q = db.query(models.ContributionRequest)
+    if status and status != "all":
+        q = q.filter(models.ContributionRequest.status == status)
+    rows = q.order_by(models.ContributionRequest.created_at.asc()).all()
+    return {
+        "requests": [_serialize_request(r) for r in rows],
+        "pending_total": db.query(models.ContributionRequest)
+        .filter(models.ContributionRequest.status == "pending")
+        .count(),
+    }
+
+
+@router.get("/contributions/{request_id}")
+def get_contribution(
+    request_id: int,
+    db: Session = Depends(database.get_db),
+    admin_user: str = Depends(session.require_admin),
+):
+    row = db.query(models.ContributionRequest).filter(models.ContributionRequest.id == request_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Request not found")
+    return _serialize_request(row, include_payload=True)
+
+
+@router.post("/contributions/{request_id}/approve")
+def approve_contribution(
+    request_id: int,
+    body: ReviewRequest = ReviewRequest(),
+    db: Session = Depends(database.get_db),
+    admin_user: str = Depends(session.require_admin),
+):
+    """Approve: insert the parked questions into the bank, then mark approved.
+
+    Dedupes on (question_text, category) exactly like the direct import path.
+    Approving frees the contributor one of their 5 pending slots.
+    """
+    row = db.query(models.ContributionRequest).filter(models.ContributionRequest.id == request_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if row.status != "pending":
+        raise HTTPException(status_code=409, detail=f"Already {row.status}")
+
+    imported = skipped_dup = skipped_no_answer = 0
+    for q in row.payload or []:
+        if not q.get("correct_answer"):
+            skipped_no_answer += 1
+            continue
+        exists = (
+            db.query(models.Question)
+            .filter(
+                models.Question.question_text == q["question_text"],
+                models.Question.category == row.category,
+            )
+            .first()
+        )
+        if exists:
+            skipped_dup += 1
+            continue
+        db.add(
+            models.Question(
+                question_number=q.get("question_number", 0),
+                question_text=q["question_text"],
+                options=q.get("options", {}),
+                correct_answer=str(q["correct_answer"]).strip().lower()[:1],
+                category=row.category,
+                difficulty=None,
+                source=f"user:{row.user_identifier}",
+            )
+        )
+        imported += 1
+
+    row.status = "approved"
+    row.admin_note = body.note or None
+    row.reviewed_by = admin_user
+    row.reviewed_at = func.now()
+    try:
+        db.commit()
+        app_cache.delete_prefix("q:")
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Database commit failed")
+
+    return {
+        "id": row.id,
+        "status": "approved",
+        "imported": imported,
+        "skipped_duplicate": skipped_dup,
+        "skipped_no_answer": skipped_no_answer,
+    }
+
+
+@router.post("/contributions/{request_id}/reject")
+def reject_contribution(
+    request_id: int,
+    body: ReviewRequest = ReviewRequest(),
+    db: Session = Depends(database.get_db),
+    admin_user: str = Depends(session.require_admin),
+):
+    """Reject: nothing is inserted. The note is shown to the contributor.
+
+    Rejecting also frees one of the contributor's 5 pending slots.
+    """
+    row = db.query(models.ContributionRequest).filter(models.ContributionRequest.id == request_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if row.status != "pending":
+        raise HTTPException(status_code=409, detail=f"Already {row.status}")
+
+    row.status = "rejected"
+    row.admin_note = body.note or None
+    row.reviewed_by = admin_user
+    row.reviewed_at = func.now()
+    db.commit()
+    return {"id": row.id, "status": "rejected"}

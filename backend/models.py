@@ -170,3 +170,35 @@ class QuestionNote(Base):
         Index("ix_notes_user", "user_identifier"),
         Index("ix_notes_user_question", "user_identifier", "question_id", unique=True),
     )
+
+
+class ContributionRequest(Base):
+    """A contributor's PDF/DOCX waiting for admin review.
+
+    Contributors never write to `questions` directly. The parsed questions are
+    parked here as JSON; an admin approval is what actually inserts them into
+    the bank. A contributor may hold at most MAX_PENDING_CONTRIBUTIONS of these
+    at once — each accept OR reject moves one out of 'pending' and frees a slot.
+    """
+
+    __tablename__ = "contribution_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_identifier = Column(String(100), nullable=False, index=True)
+    filename = Column(String(255), nullable=False)
+    category = Column(String(100), nullable=True)
+    # pending | approved | rejected
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    question_count = Column(Integer, nullable=False, default=0)
+    with_answer = Column(Integer, nullable=False, default=0)
+    # Parsed questions, held until approved.
+    payload = Column(JSONType)
+    # Shown to the contributor when status == 'rejected'.
+    admin_note = Column(Text, nullable=True)
+    reviewed_by = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_contrib_user_status", "user_identifier", "status"),
+    )

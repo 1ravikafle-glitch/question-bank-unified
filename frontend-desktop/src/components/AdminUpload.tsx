@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { type Question } from '@/shared/types';
 import { sortCategories } from '@/utils/categorySort';
 import { motion } from 'framer-motion';
+import AdminReviewQueue from './AdminReviewQueue';
 
 interface FileResult {
   filename: string;
@@ -313,6 +314,10 @@ const AdminUpload: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
     >
+
+      {/* Contributor submissions awaiting a decision. Approving here is the
+          only way their questions reach the question bank. */}
+      <AdminReviewQueue />
 
       {/* Header */}
       <div>
