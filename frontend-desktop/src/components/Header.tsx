@@ -459,12 +459,6 @@ const Header: React.FC = () => {
           <motion.div
             ref={triggerRef}
             tabIndex={-1}
-            layout
-            transition={
-              prefersReducedMotion()
-                ? undefined
-                : { layout: { type: 'spring', stiffness: 480, damping: 38 } }
-            }
             style={{
               height: 44,
               minWidth: 44,
@@ -474,7 +468,7 @@ const Header: React.FC = () => {
               justifyContent: 'center',
               gap: 8,
               padding: '0 14px 0 6px',
-              flexDirection: themeResolved === 'dark' ? 'row-reverse' : 'row',
+              flexDirection: 'row',
               background: darkMenu
                 ? menuOpen ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)'
                 : 'hsl(var(--card))',
@@ -488,18 +482,12 @@ const Header: React.FC = () => {
             }}
             aria-label="User account"
           >
-            {/* E avatar: day/night toggle (tap to switch, slides sides) */}
+            {/* E avatar: day/night toggle (positions stay fixed) */}
             <motion.button
               type="button"
-              layout
               onClick={toggleDayNight}
               whileHover={prefersReducedMotion() ? undefined : { scale: 1.08 }}
               whileTap={prefersReducedMotion() ? undefined : { scale: 0.88 }}
-              transition={
-                prefersReducedMotion()
-                  ? undefined
-                  : { layout: { type: 'spring', stiffness: 480, damping: 38 } }
-              }
               aria-label={themeResolved === 'dark' ? 'Switch to day mode' : 'Switch to night mode'}
               aria-pressed={themeResolved === 'dark'}
               title={themeResolved === 'dark' ? 'Switch to day mode' : 'Switch to night mode'}
@@ -525,15 +513,9 @@ const Header: React.FC = () => {
             {/* Name: opens the account menu (as before) */}
             <motion.button
               type="button"
-              layout
               onClick={() => (menuOpen ? closeAnimated() : openMenu())}
               whileHover={prefersReducedMotion() ? undefined : { scale: 1.04 }}
               whileTap={prefersReducedMotion() ? undefined : { scale: 0.96 }}
-              transition={
-                prefersReducedMotion()
-                  ? undefined
-                  : { layout: { type: 'spring', stiffness: 480, damping: 38 } }
-              }
               aria-label="User menu"
               aria-expanded={menuOpen}
               aria-haspopup="menu"
