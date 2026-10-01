@@ -796,6 +796,15 @@
   from { opacity: 0; transform: translateX(calc(-1 * var(--enter-x, 72px))) scale(0.985); }
   to { opacity: 1; transform: translateX(0) scale(1); }
 }
+/* Fresh preview content arrives from the right (new question entering
+   the locked slot). Transform-only, 60fps. Do not revert. */
+@keyframes previewEnter {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.quiz-preview-enter {
+  animation: previewEnter 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
 .quiz-qbox.is-exiting-left {
   animation: quizExitLeft 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   pointer-events: none;

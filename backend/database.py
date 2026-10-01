@@ -3,7 +3,13 @@ import sys
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./question_bank.db")
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Anchor the dev SQLite file to backend/ so `uvicorn main:app` (cwd=backend)
+# and `python start_prod.py` (cwd=repo root) use the SAME database instead
+# of silently forking into two divergent copies.
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", f"sqlite:///{os.path.join(_BASE_DIR, 'question_bank.db')}"
+)
 
 is_postgres = False
 

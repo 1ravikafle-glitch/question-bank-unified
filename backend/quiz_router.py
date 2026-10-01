@@ -18,17 +18,20 @@ router = APIRouter(prefix="/quiz", tags=["quiz"])
 
 
 def _options_dict(raw):
-    """SQLite stores options as a JSON string; the review UI needs a dict."""
-    if isinstance(raw, dict):
-        return raw
-    if isinstance(raw, str):
-        try:
-            parsed = json.loads(raw)
-            if isinstance(parsed, dict):
-                return parsed
-        except Exception:
-            pass
-    return {}
+    """SQLite stores options as JSON (sometimes double-encoded); the review
+    UI needs a real dict, so parse until we get one."""
+    v = raw
+    for _ in range(3):
+        if isinstance(v, dict):
+            return v
+        if isinstance(v, str):
+            try:
+                v = json.loads(v)
+            except Exception:
+                break
+        else:
+            break
+    return v if isinstance(v, dict) else {}
 
 
 def _ensure_attempt_extra_columns():

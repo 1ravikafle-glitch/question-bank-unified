@@ -110,7 +110,8 @@ function AppShell() {
       </a>
 
       <Toaster
-        position="top-center"
+        position="bottom-center"
+        containerStyle={{ bottom: 76 }}
         toastOptions={{
           duration: 2000,
           style: {

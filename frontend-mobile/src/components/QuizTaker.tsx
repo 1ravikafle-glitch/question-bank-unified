@@ -152,7 +152,7 @@ function QuestionBox({
   return (
     <div
       ref={slotRef}
-      className={!locked ? 'quiz-qbox quiz-enter-' + dir + (folding ? ' is-exiting-' + dir : '') + (paper ? ' exam-paper' : '') : undefined}
+      className={!locked ? 'quiz-qbox quiz-enter-' + dir + (folding ? ' is-exiting-' + dir : '') + (paper ? ' exam-paper' : '') : 'quiz-preview-enter'}
       style={{
         position: 'relative',
         ...(enterX ? ({ '--enter-x': `${Math.round(enterX)}px` } as React.CSSProperties) : null),
@@ -1857,6 +1857,7 @@ const QuizTaker: React.FC = () => {
           {nextQ && (
             <div className="desktop-640-block" ref={nextSlotRef}>
               <QuestionBox
+                key={`preview-${(nextQ as any)._rawId ?? (nextQ as any).id ?? currentIndex + 1}`}
                 role="next"
                 question={nextQ}
                 index={currentIndex + 1}
