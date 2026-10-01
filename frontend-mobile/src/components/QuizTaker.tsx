@@ -1696,7 +1696,7 @@ const QuizTaker: React.FC = () => {
             examPaper={isExamMode}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
-          {nextQ && !isExamMode && (
+          {nextQ && (
             <div className="desktop-640-block">
               <QuestionBox
                 role="next"
