@@ -25,9 +25,9 @@ export const examMinutesFor = (count: number) =>
   EXAM_MINUTES[count] ?? Math.max(1, Math.ceil(count * 0.9));
 
 const PRESETS: Preset[] = [
-  { title: 'Full Mock', count: 100, minutes: examMinutesFor(100), negative: 0.2, blurb: 'The real thing — full paper, real pressure.' },
+  { title: 'Full Mock', count: 100, minutes: examMinutesFor(100), negative: 0.2, blurb: 'The real thing. Full paper, real pressure.' },
   { title: 'Mini Mock', count: 50, minutes: examMinutesFor(50), negative: 0.2, blurb: 'Half paper for a focused session.' },
-  { title: 'Sprint', count: 30, minutes: examMinutesFor(30), negative: 0, blurb: 'Fast and clean — no penalty.' },
+  { title: 'Sprint', count: 30, minutes: examMinutesFor(30), negative: 0, blurb: 'Fast and clean. No penalty.' },
 ];
 
 const NEG_OPTIONS = [
@@ -39,7 +39,7 @@ const MockExam: React.FC = () => {
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
-  const { t } = useLang();
+  const { t, num } = useLang();
   const [categories, setCategories] = useState<string[]>([]);
   const [total, setTotal] = useState(0);
   const [category, setCategory] = useState('');
@@ -157,7 +157,7 @@ const MockExam: React.FC = () => {
                 className={`qpill lvl-${n}${on ? ' is-on' : ''}`}
                 aria-pressed={on}
               >
-                {n}
+                {num(n)}
               </button>
             );
           })}
@@ -180,7 +180,7 @@ const MockExam: React.FC = () => {
             Time · fixed
           </span>
           <span style={{ fontSize: '0.9375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'hsl(var(--foreground))' }}>
-            {minutes} min
+            {num(minutes)} min
           </span>
         </div>
 
@@ -207,7 +207,7 @@ const MockExam: React.FC = () => {
           whileTap={{ scale: 0.97 }}
           style={{ width: '100%' }}
         >
-          Start exam — {count} Qs · {minutes} min{negative > 0 ? ` · −${negative}/wrong` : ''}
+          Start exam · {num(count)} Qs · {num(minutes)} min{negative > 0 ? ` · −${num(negative)}/wrong` : ''}
         </motion.button>
         <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', margin: '0.75rem 0 0' }}>
           One countdown for the whole paper. Leaving mid-exam saves answered questions (5+).

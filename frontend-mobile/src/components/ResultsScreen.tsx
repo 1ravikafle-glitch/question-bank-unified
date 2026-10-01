@@ -2,9 +2,11 @@ import { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { type QuizResult } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
+import { useLang } from '@/context/LanguageContext';
 import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { getRandomScoreMessages, getRandomScoreMessage } from '@/utils/scoreMessages';
+import { scoreColor } from '@/utils/scoreColor';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
 interface AttemptAnalysis {
@@ -27,11 +29,7 @@ interface RecentAttempt {
   incorrect_questions: number[];
 }
 
-const percentColor = (pct: number) =>
-  pct >= 90 ? 'hsl(150 60% 38%)'
-  : pct >= 80 ? 'hsl(38 92% 50%)'
-  : pct >= 60 ? 'hsl(24 95% 53%)'
-  : 'hsl(0 84% 60%)';
+const percentColor = (pct: number) => scoreColor(pct);
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -54,6 +52,7 @@ const ResultsScreen: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
+  const { num } = useLang();
   const quizResult = (location.state as { quizResult?: QuizResult; highlightAttemptId?: number } | null)?.quizResult;
   const highlightAttemptId = (location.state as { highlightAttemptId?: number } | null)?.highlightAttemptId;
 
@@ -156,11 +155,11 @@ const ResultsScreen: React.FC = () => {
           role="status"
         >
           <span style={{ fontSize: '1.75rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
-            {quizResult.percentage}%
+            {num(quizResult.percentage)}%
           </span>
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: '0.875rem', fontWeight: 600, margin: 0 }}>
-              You scored {quizResult.score} / {quizResult.total_questions}
+              You scored {num(quizResult.score)} / {num(quizResult.total_questions)}
             </p>
             {(quizResult as any).negative_marking > 0 && (
               <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '2px 0 0', fontFamily: 'var(--font-mono)' }}>
@@ -169,7 +168,7 @@ const ResultsScreen: React.FC = () => {
             )}
             {(quizResult as any).offline && (
               <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '2px 0 0' }}>
-                Offline result — saved on this device, will sync automatically when you reconnect.
+                Offline result. Saved on this device, will sync automatically when you reconnect.
               </p>
             )}
           </div>
@@ -226,10 +225,10 @@ const ResultsScreen: React.FC = () => {
                   }}
                   aria-label={`Score: ${latestAttempt.percentage} percent`}
                 >
-                  {latestAttempt.percentage}%
+                  {num(latestAttempt.percentage)}%
                 </p>
                 <p style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))', marginTop: '0.2rem' }}>
-                  {latestAttempt.score} / {latestAttempt.total_questions}
+                  {num(latestAttempt.score)} / {num(latestAttempt.total_questions)}
                 </p>
               </div>
             </div>
@@ -291,11 +290,11 @@ const ResultsScreen: React.FC = () => {
           <span className="stat-tile-label">Total Attempts</span>
         </motion.div>
         <motion.div variants={staggerItem} className="stat-tile" style={{ textAlign: 'center', padding: '1.25rem 1rem', position: 'relative' }} whileHover={{ scale: 1.02, zIndex: 1 }} whileTap={{ scale: 0.98 }}>
-          <span className="stat-tile-value" style={{ color: percentColor(stats.accuracy) }}>{stats.accuracy}%</span>
+          <span className="stat-tile-value" style={{ color: percentColor(stats.accuracy) }}>{num(stats.accuracy)}%</span>
           <span className="stat-tile-label">Overall Accuracy</span>
         </motion.div>
         <motion.div variants={staggerItem} className="stat-tile" style={{ textAlign: 'center', padding: '1.25rem 1rem', position: 'relative' }} whileHover={{ scale: 1.02, zIndex: 1 }} whileTap={{ scale: 0.98 }}>
-          <span className="stat-tile-value">{stats.avgWrong}</span>
+          <span className="stat-tile-value">{num(stats.avgWrong)}</span>
           <span className="stat-tile-label">Avg. Wrong / Quiz</span>
         </motion.div>
       </motion.div>
@@ -400,17 +399,17 @@ const ResultsScreen: React.FC = () => {
                       </span>
                     </div>
                     <span style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))' }}>
-                      {a.score}/{a.total_questions}
+                      {num(a.score)}/{num(a.total_questions)}
                     </span>
                     {/* Mini progress bar */}
                     <div className="hidden sm:block" style={{ width: '60px', height: '4px', borderRadius: '2px', background: 'hsl(var(--muted))', overflow: 'hidden' }}>
                       <div style={{ width: `${a.percentage}%`, height: '100%', borderRadius: '2px', background: percentColor(a.percentage) }} />
                     </div>
                     <span style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: percentColor(a.percentage) }}>
-                      {a.percentage}%
+                      {num(a.percentage)}%
                     </span>
                     {wrongCount > 0 ? (
-                      <span className="badge badge-destructive" style={{ fontSize: '0.6875rem' }}>{wrongCount} wrong</span>
+                      <span className="badge badge-destructive" style={{ fontSize: '0.6875rem' }}>{num(wrongCount)} wrong</span>
                     ) : (
                       <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>Perfect</span>
                     )}
@@ -479,7 +478,7 @@ const ResultsScreen: React.FC = () => {
                                   whileTap={{ scale: 0.98 }}
                                   style={{ marginTop: '0.5rem' }}
                                 >
-                                  Re-practice {wrongCount} wrong →
+                                  Re-practice {num(wrongCount)} wrong →
                                 </motion.button>
                               )}
                               <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'hsl(var(--foreground))', paddingTop: '0.5rem' }}>

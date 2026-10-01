@@ -26,7 +26,7 @@ const OfflineBanner: React.FC = () => {
         const synced = await syncOutbox(submitQuiz, clearWrongQueue);
         if (synced > 0) toast.success(`Synced ${synced} offline quiz${synced > 1 ? 'zes' : ''}`);
       } catch {
-        toast.error('Some offline results could not sync yet — will retry.');
+        toast.error('Some offline results could not sync yet. Will retry.');
       }
       refresh();
     };
@@ -55,11 +55,11 @@ const OfflineBanner: React.FC = () => {
       if (!alive) return;
       if (res === 'downloaded') {
         refresh();
-        if (packToast) toast.success('Offline pack ready — practice works without internet', { id: packToast, duration: 3000 });
-        else toast.success('Offline pack ready — practice works without internet');
+        if (packToast) toast.success('Offline pack ready. Practice works without internet', { id: packToast, duration: 3000 });
+        else toast.success('Offline pack ready. Practice works without internet');
       } else if (res === 'failed') {
-        if (packToast) toast.error('Offline download failed — will retry', { id: packToast });
-        else toast.error('Offline download failed — will retry automatically.');
+        if (packToast) toast.error('Offline download failed. Will retry', { id: packToast });
+        else toast.error('Offline download failed. Will retry automatically.');
       } else if (packToast) {
         toast.dismiss(packToast);
       }
@@ -72,7 +72,7 @@ const OfflineBanner: React.FC = () => {
     };
     const onOffline = () => {
       setOnline(false);
-      toast('You are offline — practicing from the downloaded pack', { duration: 2000 });
+      toast('You are offline. Practicing from the downloaded pack', { duration: 2000 });
     };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
@@ -95,7 +95,7 @@ const OfflineBanner: React.FC = () => {
       if (n > 0) toast.success(`Synced ${n} offline quiz${n > 1 ? 'zes' : ''}`);
       setPending(await pendingCount());
     } catch {
-      toast.error('Sync failed — will retry automatically.');
+      toast.error('Sync failed. Will retry automatically.');
     }
   };
   return (
@@ -130,7 +130,7 @@ const OfflineBanner: React.FC = () => {
       }}
     >
       <span aria-hidden="true">{online ? '🔄' : '📴'}</span>
-      {!online && (hasPack ? 'Offline — practicing from downloaded pack' : 'Offline — connect to download practice pack')}
+      {!online && (hasPack ? 'Offline · practicing from downloaded pack' : 'Offline · connect to download practice pack')}
       {online && pending > 0 && `Syncing ${pending} offline result${pending > 1 ? 's' : ''}… tap to retry`}
     </div>
   );

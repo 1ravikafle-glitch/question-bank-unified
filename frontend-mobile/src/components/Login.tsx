@@ -300,7 +300,7 @@ const Login: React.FC = () => {
             lineHeight: 1.5,
           }}
         >
-          No registration needed — enter any username & password to get started.
+          No registration needed. Enter any username & password to get started.
         </p>
 
         {/* Live stats */}

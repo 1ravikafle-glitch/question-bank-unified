@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import NepaliDate from 'nepali-date-converter';
 import { useDayNight } from '@/hooks/useDayNight';
+import { getTithi, BS_MONTHS_NE } from '@/utils/tithi';
 import { useLang } from '@/context/LanguageContext';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -105,15 +106,25 @@ const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
   const p = nptParts(now);
   let bsMonthDay = '';
   let bsYear = '';
+  let bsMonthIdx = -1;
   try {
     const bs = new NepaliDate(new Date(p.year, p.month - 1, p.day)).getBS();
     bsMonthDay = `${bs.date} ${BS_MONTHS[bs.month] ?? ''}`;
     bsYear = `${bs.year} B.S.`;
+    bsMonthIdx = bs.month;
   } catch {
     bsMonthDay = '';
   }
   const bsLabel = bsMonthDay ? `${bsMonthDay}, ${bsYear}` : '';
   const adMonthDay = `${p.day} ${AD_SHORT[p.month - 1]}`;
+  // Lunar tithi at Kathmandu sunrise (pico-panchanga, ±1 near boundaries).
+  let tithiLabel = '';
+  try {
+    const t = getTithi(p.year, p.month, p.day);
+    tithiLabel = `${BS_MONTHS_NE[bsMonthIdx] ?? ''} ${t.paksha} ${t.name}`;
+  } catch {
+    tithiLabel = '';
+  }
   const adYear = `${p.year}`;
   const adLabel = `${adMonthDay}, ${adYear}`;
   // Weekday in Kathmandu (Nepali name when ne active); Sat + Sun are holidays.
@@ -151,6 +162,11 @@ const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
     >
       {!compact && (
         <span style={{ letterSpacing: '0.01em' }}>
+          {tithiLabel && (
+            <span style={{ color: 'hsl(var(--muted-foreground))' }}>
+              {tithiLabel},{' '}
+            </span>
+          )}
           {weekday && (
             <span style={{ fontWeight: 700, color: isHoliday ? 'hsl(var(--destructive))' : 'hsl(var(--foreground))' }}>
               {weekday},{' '}

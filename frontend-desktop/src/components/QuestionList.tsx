@@ -45,11 +45,12 @@ function relativeDate(iso: string) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' }).toUpperCase();
 }
 
-function timeOfDayGreeting() {
+function timeOfDayGreeting(t: (k: string) => string) {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 4 || h >= 21) return t('greet.night');
+  if (h < 12) return t('greet.morning');
+  if (h < 17) return t('greet.afternoon');
+  return t('greet.evening');
 }
 
 /* ── Category icons ─────────────────────────────────────────────── */
@@ -129,7 +130,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
-  const { t } = useLang();
+  const { t, num } = useLang();
 
   useEffect(() => {
     const loadData = async () => {
@@ -323,7 +324,19 @@ const Dashboard: React.FC = () => {
                   color: 'hsl(var(--muted-foreground))',
                 }}
               >
-                {timeOfDayGreeting()} — continue your Forestry PSC preparation.
+                {timeOfDayGreeting(t)} · {t('dash.continue')}
+              </p>
+              <p
+                style={{
+                  fontSize: '0.8125rem',
+                  fontStyle: 'italic',
+                  opacity: 0.75,
+                  marginTop: '0.25rem',
+                  marginBottom: 0,
+                  color: 'hsl(var(--muted-foreground))',
+                }}
+              >
+                “{quote}”
               </p>
             </div>
             <motion.button
@@ -417,11 +430,11 @@ const Dashboard: React.FC = () => {
             <div className="stats-row-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
               <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Total questions: ${total.toLocaleString()}`}>
                 <span className="stat-tile-label">Questions</span>
-                <span className="stat-tile-value">{total.toLocaleString()}</span>
+                <span className="stat-tile-value">{num(total.toLocaleString())}</span>
               </motion.div>
               <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Questions attempted: ${attempted.toLocaleString()}`}>
                 <span className="stat-tile-label">Attempted</span>
-                <span className="stat-tile-value">{attempted.toLocaleString()}</span>
+                <span className="stat-tile-value">{num(attempted.toLocaleString())}</span>
               </motion.div>
               <motion.div
                 className="stat-tile"
@@ -434,7 +447,7 @@ const Dashboard: React.FC = () => {
                   className="stat-tile-value"
                   style={{ color: accuracy !== null && attempted > 0 ? perfColor(accuracy) : 'hsl(var(--muted-foreground))' }}
                 >
-                  {accuracy !== null && attempted > 0 ? `${accuracy.toFixed(1)}%` : '—'}
+                  {accuracy !== null && attempted > 0 ? `${num(accuracy.toFixed(1))}%` : '—'}
                 </span>
                 {accuracy !== null && (
                   <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>

@@ -813,6 +813,50 @@
   }
 }
 
+/* ── Exam paper mode: real question-paper sheet, OMR-style options ── */
+.quiz-qbox.exam-paper {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 31px,
+      hsl(var(--foreground) / 0.05) 31px,
+      hsl(var(--foreground) / 0.05) 32px
+    ),
+    linear-gradient(180deg, hsl(48 60% 98%), hsl(48 45% 96%)) !important;
+  border: 1px solid hsl(45 30% 78%) !important;
+  border-top: 6px solid hsl(0 72% 44%) !important;
+}
+.dark .quiz-qbox.exam-paper {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 31px,
+      hsl(0 0% 100% / 0.045) 31px,
+      hsl(0 0% 100% / 0.045) 32px
+    ),
+    linear-gradient(180deg, hsl(220 18% 13%), hsl(220 20% 11%)) !important;
+  border: 1px solid hsl(220 15% 26%) !important;
+  border-top: 6px solid hsl(0 72% 44%) !important;
+}
+.quiz-qbox.exam-paper .exam-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+@media (min-width: 640px) {
+  .quiz-qbox.exam-paper .exam-opts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+.quiz-qbox.exam-paper .exam-opts > button:hover:not(:disabled) {
+  border-color: hsl(var(--primary) / 0.6);
+}
+
 .timer-badge.is-critical {
   border-color: hsl(var(--destructive));
   color: hsl(var(--destructive));

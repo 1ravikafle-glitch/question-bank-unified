@@ -36,6 +36,11 @@ const STRINGS: Record<string, { en: string; ne: string }> = {
   'group.study': { en: 'Study', ne: 'अध्ययन' },
   'group.review': { en: 'Review', ne: 'समीक्षा' },
   'group.system': { en: 'System', ne: 'प्रणाली' },
+  'greet.morning': { en: 'Good morning', ne: 'शुभ बिहान' },
+  'greet.afternoon': { en: 'Good afternoon', ne: 'शुभ दिउँसो' },
+  'greet.evening': { en: 'Good evening', ne: 'शुभ साँझ' },
+  'greet.night': { en: 'Good evening', ne: 'शुभ रात्री' },
+  'dash.continue': { en: 'continue your Forestry PSC preparation.', ne: 'आफ्नो फरेष्ट्री पिएससी तयारी जारी राख्नुहोस्।' },
   // buttons
   'btn.startPractice': { en: 'Start Practice', ne: 'अभ्यास सुरु' },
   'btn.startQuiz': { en: 'Start Quiz', ne: 'क्विज सुरु' },
@@ -54,7 +59,7 @@ const STRINGS: Record<string, { en: string; ne: string }> = {
   'login.password': { en: 'Password', ne: 'पासवर्ड' },
   'login.signin': { en: 'Sign in', ne: 'साइन इन' },
   'login.signing': { en: 'Signing in…', ne: 'साइन इन हुँदै…' },
-  'login.hint': { en: 'No registration needed — enter any username & password to get started.', ne: 'दर्ता आवश्यक छैन — सुरु गर्न कुनै प्रयोगकर्ता नाम र पासवर्ड राख्नुहोस्।' },
+  'login.hint': { en: 'No registration needed. Enter any username & password to get started.', ne: 'दर्ता आवश्यक छैन। सुरु गर्न कुनै प्रयोगकर्ता नाम र पासवर्ड राख्नुहोस्।' },
   // setup
   'setup.questions': { en: 'Questions', ne: 'प्रश्नहरू' },
   'setup.category': { en: 'Category', ne: 'श्रेणी' },

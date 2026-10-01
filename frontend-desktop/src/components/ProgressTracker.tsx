@@ -5,6 +5,7 @@ import { MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { scoreColor, scoreLabel } from '@/utils/scoreColor';
 import { toast } from 'react-hot-toast';
 import { AuthContext } from '@/context/AuthContext';
+import { useLang } from '@/context/LanguageContext';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
 interface CategoryStat {
@@ -79,6 +80,7 @@ const staggerItem: Variants = {
 const ProgressTracker: React.FC = () => {
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
+  const { num } = useLang();
   const [data, setData] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'weekly' | 'lifetime'>('lifetime');
@@ -251,7 +253,7 @@ const ProgressTracker: React.FC = () => {
       >
             <motion.div variants={staggerItem} className="stat-tile">
               <span className="stat-tile-value" style={{ color: currentAttempted > 0 ? percentColor(currentAccuracy) : 'hsl(var(--muted-foreground))' }}>
-                {currentAttempted > 0 ? `${currentAccuracy}%` : '—'}
+                {currentAttempted > 0 ? `${num(currentAccuracy)}%` : '—'}
               </span>
               <span className="stat-tile-label">Accuracy</span>
               <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
@@ -259,15 +261,15 @@ const ProgressTracker: React.FC = () => {
               </span>
             </motion.div>
             <motion.div variants={staggerItem} className="stat-tile">
-              <span className="stat-tile-value">{currentAttempted}</span>
+              <span className="stat-tile-value">{num(currentAttempted)}</span>
               <span className="stat-tile-label">Attempted</span>
             </motion.div>
             <motion.div variants={staggerItem} className="stat-tile">
-              <span className="stat-tile-value" style={{ color: 'hsl(var(--success))' }}>{currentCorrect}</span>
+              <span className="stat-tile-value" style={{ color: 'hsl(var(--success))' }}>{num(currentCorrect)}</span>
               <span className="stat-tile-label">Correct</span>
             </motion.div>
             <motion.div variants={staggerItem} className="stat-tile">
-              <span className="stat-tile-value" style={{ color: 'hsl(0 84% 60%)' }}>{currentAttempted - currentCorrect}</span>
+              <span className="stat-tile-value" style={{ color: 'hsl(0 84% 60%)' }}>{num(currentAttempted - currentCorrect)}</span>
               <span className="stat-tile-label">Wrong</span>
             </motion.div>
           </motion.div>
@@ -282,7 +284,7 @@ const ProgressTracker: React.FC = () => {
                 {weakestCategory.category}
               </p>
               <p style={{ fontSize: '1.25rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: percentColor(weakestCategory.accuracy), marginBottom: '0.75rem' }}>
-                {weakestCategory.accuracy}% — {performanceLabel(weakestCategory.accuracy)}
+                {num(weakestCategory.accuracy)}% · {performanceLabel(weakestCategory.accuracy)}
               </p>
               <motion.button
                 onClick={() => navigate(`/quiz?category=${encodeURIComponent(weakestCategory.category)}`)}
@@ -324,7 +326,7 @@ const ProgressTracker: React.FC = () => {
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.category}</span>
                       </span>
                       <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: percentColor(cat.accuracy), flexShrink: 0, marginLeft: '0.5rem' }}>
-                        {cat.accuracy}%
+                        {num(cat.accuracy)}%
                       </span>
                     </div>
                     <div style={{ height: '6px', borderRadius: 'var(--apple-radius-full)', background: 'hsl(var(--muted))', overflow: 'hidden' }}>
@@ -379,8 +381,8 @@ const ProgressTracker: React.FC = () => {
                           <span style={{ fontSize: '0.875rem', color: 'hsl(var(--foreground))', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             Attempt #{a.id || i + 1}
                           </span>
-                          <span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))' }}>{a.score}/{a.total_questions}</span>
-                          <span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)', fontWeight: 600, width: '3rem', textAlign: 'right', color: percentColor(a.percentage) }}>{a.percentage}%</span>
+                          <span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))' }}>{num(a.score)}/{num(a.total_questions)}</span>
+                          <span style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono)', fontWeight: 600, width: '3rem', textAlign: 'right', color: percentColor(a.percentage) }}>{num(a.percentage)}%</span>
                           <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>→</span>
                         </motion.div>
                         {i < sessions.length - 1 && <div style={{ borderBottom: '1px solid hsl(var(--border))' }} />}
@@ -405,8 +407,8 @@ const ProgressTracker: React.FC = () => {
               {weakestCategory.category}
             </p>
             <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0 0 1rem 0' }}>
-              {weakestCategory.accuracy}% accuracy · {weakestCategory.correct}/{weakestCategory.attempted} correct
-              {wrongQueueCount > 0 && ` · ${wrongQueueCount} in your review queue`}
+              {num(weakestCategory.accuracy)}% accuracy · {num(weakestCategory.correct)}/{num(weakestCategory.attempted)} correct
+              {wrongQueueCount > 0 && ` · ${num(wrongQueueCount)} in your review queue`}
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <motion.button

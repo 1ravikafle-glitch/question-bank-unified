@@ -16,6 +16,7 @@ import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
+import { useLang } from '@/context/LanguageContext';
 import { useSfx } from '@/hooks/useSfx';
 import toast from 'react-hot-toast';
 import { useDismiss } from '@/hooks/useDismiss';
@@ -106,6 +107,7 @@ function QuestionBox({
   revealed,
   onChoose,
   folding,
+  examPaper,
 }: {
   role: 'active' | 'next';
   question: any;
@@ -115,9 +117,11 @@ function QuestionBox({
   revealed: boolean;
   onChoose: (k: string) => void;
   folding: boolean;
+  examPaper?: boolean;
 }) {
   const locked = role === 'next';
   const showResult = role === 'active' && revealed;
+  const paper = role === 'active' && !!examPaper;
   // Normalize question shape: supports both {q, options:[{key,text}], correct} and our {question_text, options:Record, correct_answer}
   const qText = question.q ?? question.question_text ?? '';
   const qExplanation = (question.explanation || '').toString().trim();
@@ -128,7 +132,7 @@ function QuestionBox({
 
   return (
     <div
-      className={!locked ? 'quiz-qbox quiz-flow-in' + (folding ? ' is-folding' : '') : undefined}
+      className={!locked ? 'quiz-qbox quiz-flow-in' + (folding ? ' is-folding' : '') + (paper ? ' exam-paper' : '') : undefined}
       style={{
         position: 'relative',
         background: T.card,
@@ -184,7 +188,7 @@ function QuestionBox({
 
       {/* quiz-options-stack: column on portrait phones, 2-col grid in
           landscape (see the injected <style> in QuizTaker main view). */}
-      <div className="quiz-options-stack" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+      <div className={'quiz-options-stack' + (paper ? ' exam-opts' : '')} style={paper ? undefined : { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
         {qOptions.map((opt) => {
           const isSelected = selected === opt.key;
           const isCorrectOpt = opt.key === qCorrect;
@@ -210,6 +214,12 @@ function QuestionBox({
               textColor = T.textTertiary;
               badgeColor = T.textTertiary;
             }
+          } else if (paper && isSelected) {
+            // Exam sheet: marked like a bubbled OMR answer.
+            border = T.accent;
+            bg = T.accentTint;
+            badgeBg = T.accent;
+            badgeColor = '#fff';
           }            return (
             <button
               key={opt.key}
@@ -399,6 +409,7 @@ const QuizTaker: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { userId } = useContext(AuthContext);
+  const { num } = useLang();
   const { sfxSelect, sfxCorrect, sfxIncorrect, sfxSubmit, sfxClick, sfxWarning } = useSfx();
 
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -831,7 +842,7 @@ const QuizTaker: React.FC = () => {
       sfxWarning();
       try { navigator.vibrate?.([30, 60, 30, 60, 60]); } catch {}
       const mins = Math.max(1, Math.round(examWarnSecs / 60));
-      toast(`⏰ ${mins} minute${mins === 1 ? '' : 's'} left — wrap up!`, { duration: 4000 });
+      toast(`⏰ ${mins} minute${mins === 1 ? '' : 's'} left. Wrap up!`, { duration: 4000 });
       setAnnouncement(`${mins} minutes remaining in the exam.`);
     }
   }, [isExamMode, timeLeft, examWarnSecs, loading, submitting, questions.length, sfxWarning]);
@@ -1117,7 +1128,7 @@ const QuizTaker: React.FC = () => {
                   marginBottom: 16,
                 }}
               >
-                <span aria-hidden="true">▶</span> Continue — Question {resumeInfo.index + 1} of {resumeInfo.total}
+                <span aria-hidden="true">▶</span> Continue · Question {resumeInfo.index + 1} of {resumeInfo.total}
               </button>
             )}
 
@@ -1550,7 +1561,7 @@ const QuizTaker: React.FC = () => {
                 fontFamily: T.font,
               }}
             >
-              {currentIndex + 1}/{questions.length}
+              {num(currentIndex + 1)}/{num(questions.length)}
             </div>
             <TimerRing seconds={timeLeft} total={isExamMode ? examTotalSecs : SECONDS_PER_QUESTION} />
             {currentQuestion && (
@@ -1682,9 +1693,10 @@ const QuizTaker: React.FC = () => {
             revealed={isLocked}
             onChoose={handleSelect}
             folding={folding}
+            examPaper={isExamMode}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
-          {nextQ && (
+          {nextQ && !isExamMode && (
             <div className="desktop-640-block">
               <QuestionBox
                 role="next"
@@ -1745,7 +1757,7 @@ const QuizTaker: React.FC = () => {
               }}
             >
               <span style={{ fontSize: 13, fontWeight: 700, color: T.success, fontFamily: T.font }}>
-                Correct : {activeCorrectKey} — {activeBoxQ.options.find((o: any) => o.key === activeCorrectKey)?.text || activeOptionsMap[activeCorrectKey] || ''}
+                Correct : {activeCorrectKey} · {activeBoxQ.options.find((o: any) => o.key === activeCorrectKey)?.text || activeOptionsMap[activeCorrectKey] || ''}
               </span>
               <button
                 onClick={handleNext}
@@ -1784,7 +1796,7 @@ const QuizTaker: React.FC = () => {
             }}
           >
             <div style={{ fontSize: 15, fontWeight: 600, color: T.accent, fontFamily: T.font }}>
-              Quiz complete — {score} / {questions.length} correct
+              Quiz complete · {score} / {questions.length} correct
             </div>
             <button
               onClick={() => submitQuizRequest(selected)}

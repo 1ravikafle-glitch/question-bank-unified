@@ -87,6 +87,22 @@ Test user `design-audit-tmp` deleted from local SQLite (backup:
 `/tmp/opencode/qb-backup-pre-cleanup.db`). Verified via 20 re-renders.
 NOT touched: backend, API, auth, scoring, routes, SEO, SW, data.
 
+## Follow-up batch (2026-10-01, tsc 0 errors, both `dist/` rebuilt)
+CLOSED: tithi widget (verified vs refs: 2025-09-07→15,
+2025-09-21→30, 2025-01-13→15, 2026-09-30→Krishna Chaturthi; ±1 at
+boundaries as documented) + deduped BS conversion · mobile greeting i18n
+(`greet.*`, `dash.continue`) + quote line restored on both heroes ·
+mobile ResultsScreen → `scoreColor` (P1-8 done) · `num()` Nepali numerals
+wired on dashboard/progress/results/mock/quiz-counter (both apps;
+category names, questions, user ids untouched) · exam-paper mode
+(paper texture + OMR-marked options + 2-col options ≥640px, both apps;
+next preview hidden in exams) · mobile `vite.config` vendor split
+(index 444→90KB, parity with desktop) · em-dash cleanup of visible UI
+strings (placeholders, quotes, aria-labels, comments kept) · P2-16
+`.dark .beast-arena` flat calm (no glow/animation) · P2-17 one-time
+"Sound effects are ON" hint · verified: `/desktop` 200, `/mobile` 200,
+`/questions/count/` → 2162.
+
 ## Constraints (do not break)
 
 Backend, API, auth, scoring, categories, routes, SEO (`seo_pages.py`,

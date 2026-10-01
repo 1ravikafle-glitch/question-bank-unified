@@ -108,6 +108,7 @@ function QuestionBox({
   revealed,
   onChoose,
   folding,
+  examPaper,
 }: {
   role: 'active' | 'next';
   question: any;
@@ -117,9 +118,11 @@ function QuestionBox({
   revealed: boolean;
   onChoose: (k: string) => void;
   folding: boolean;
+  examPaper?: boolean;
 }) {
   const locked = role === 'next';
   const showResult = role === 'active' && revealed;
+  const paper = role === 'active' && !!examPaper;
   // Normalize question shape: supports both {q, options:[{key,text}], correct} and our {question_text, options:Record, correct_answer}
   const qText = question.q ?? question.question_text ?? '';
   const qExplanation = (question.explanation || '').toString().trim();
@@ -134,7 +137,8 @@ function QuestionBox({
         'quiz-qbox' +
         (locked ? ' is-next' : ' quiz-flow-in') +
         (!locked && folding ? ' is-folding' : '') +
-        (!locked && selected ? ' is-selected' : '')
+        (!locked && selected ? ' is-selected' : '') +
+        (paper ? ' exam-paper' : '')
       }
       aria-hidden={locked || undefined}
     >
@@ -166,7 +170,10 @@ function QuestionBox({
         {qText}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+      <div
+        className={paper ? 'exam-opts' : undefined}
+        style={paper ? undefined : { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}
+      >
         {qOptions.map((opt) => {
           const isSelected = selected === opt.key;
           const isCorrectOpt = opt.key === qCorrect;
@@ -192,6 +199,12 @@ function QuestionBox({
               textColor = T.textTertiary;
               badgeColor = T.textTertiary;
             }
+          } else if (paper && isSelected) {
+            // Exam sheet: marked like a bubbled OMR answer.
+            border = T.accent;
+            bg = T.accentTint;
+            badgeBg = T.accent;
+            badgeColor = '#fff';
           }
           return (
             <button
@@ -365,7 +378,7 @@ const QuizTaker: React.FC = () => {
   const location = useLocation();
   const { userId } = useContext(AuthContext);
   const { sfxSelect, sfxCorrect, sfxIncorrect, sfxSubmit, sfxClick, sfxWarning } = useSfx();
-  const { t } = useLang();
+  const { t, num } = useLang();
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selected, setSelected] = useState<Record<number, string>>({});
@@ -842,7 +855,7 @@ const QuizTaker: React.FC = () => {
       sfxWarning();
       try { navigator.vibrate?.([30, 60, 30, 60, 60]); } catch {}
       const mins = Math.max(1, Math.round(examWarnSecs / 60));
-      toast(`⏰ ${mins} minute${mins === 1 ? '' : 's'} left — wrap up!`, { duration: 4000 });
+      toast(`⏰ ${mins} minute${mins === 1 ? '' : 's'} left. Wrap up!`, { duration: 4000 });
       setAnnouncement(`${mins} minutes remaining in the exam.`);
     }
   }, [isExamMode, timeLeft, examWarnSecs, loading, submitting, questions.length, sfxWarning]);
@@ -1091,7 +1104,7 @@ const QuizTaker: React.FC = () => {
               {wrongTotal === null
                 ? 'Checking your review queue…'
                 : wrongTotal > 0
-                  ? `${filteredWrongCount ?? wrongTotal} question${(filteredWrongCount ?? wrongTotal) !== 1 ? 's need' : ' needs'} another look. Ready when you are — nothing starts until you say so.`
+                  ? `${filteredWrongCount ?? wrongTotal} question${(filteredWrongCount ?? wrongTotal) !== 1 ? 's need' : ' needs'} another look. Ready when you are. Nothing starts until you say so.`
                   : 'All caught up! No wrong questions waiting for review.'}
             </p>
             {wrongCats.length > 1 && wrongTotal !== null && wrongTotal > 0 && (
@@ -1132,7 +1145,7 @@ const QuizTaker: React.FC = () => {
                   boxShadow: '0 3px 12px rgba(34,197,94,.3)',
                 }}
               >
-                Start Review — {filteredWrongCount ?? wrongTotal} question{(filteredWrongCount ?? wrongTotal) !== 1 ? 's' : ''}
+                Start Review · {filteredWrongCount ?? wrongTotal} question{(filteredWrongCount ?? wrongTotal) !== 1 ? 's' : ''}
                 {wrongCategory ? ` · ${wrongCategory}` : ''}
               </button>
             )}
@@ -1236,7 +1249,7 @@ const QuizTaker: React.FC = () => {
                   marginBottom: 16,
                 }}
               >
-                <span aria-hidden="true">▶</span> Continue — Question {resumeInfo.index + 1} of {resumeInfo.total}
+                <span aria-hidden="true">▶</span> Continue · Question {resumeInfo.index + 1} of {resumeInfo.total}
               </button>
             )}
               </>
@@ -1362,7 +1375,7 @@ const QuizTaker: React.FC = () => {
                 fontFamily: T.font,
               }}
             >
-              {currentIndex + 1}/{questions.length}
+              {num(currentIndex + 1)}/{num(questions.length)}
             </div>
             <TimerRing seconds={timeLeft} total={isExamMode ? examTotalSecs : SECONDS_PER_QUESTION} />
             {currentQuestion && (
@@ -1491,9 +1504,10 @@ const QuizTaker: React.FC = () => {
             revealed={isLocked}
             onChoose={handleSelect}
             folding={folding}
+            examPaper={isExamMode}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
-          {nextQ && (
+          {nextQ && !isExamMode && (
             <div className="hidden sm:block">
               <QuestionBox
                 role="next"
@@ -1552,7 +1566,7 @@ const QuizTaker: React.FC = () => {
               }}
             >
               <span style={{ fontSize: 13, fontWeight: 700, color: T.success, fontFamily: T.font }}>
-                Correct : {activeCorrectKey} — {activeBoxQ.options.find((o: any) => o.key === activeCorrectKey)?.text || activeOptionsMap[activeCorrectKey] || ''}
+                Correct : {activeCorrectKey} · {activeBoxQ.options.find((o: any) => o.key === activeCorrectKey)?.text || activeOptionsMap[activeCorrectKey] || ''}
                 {isPracticeWrongMode && (
                   <span style={{ display: 'block', fontSize: 11, fontWeight: 500, color: T.success, opacity: 0.85, marginTop: 2 }}>
                     ✓ Removed from your review queue
@@ -1596,7 +1610,7 @@ const QuizTaker: React.FC = () => {
             }}
           >
             <div style={{ fontSize: 15, fontWeight: 600, color: T.accent, fontFamily: T.font }}>
-              Quiz complete — {score} / {questions.length} correct
+              Quiz complete · {score} / {questions.length} correct
             </div>
             <button
               onClick={() => submitQuizRequest(selected)}

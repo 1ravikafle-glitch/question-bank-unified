@@ -2,6 +2,7 @@ import { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { type QuizResult, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
+import { useLang } from '@/context/LanguageContext';
 import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { getRandomScoreMessage } from '@/utils/scoreMessages';
@@ -42,6 +43,7 @@ const ResultsScreen: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
+  const { num } = useLang();
   const quizResult = (location.state as { quizResult?: QuizResult; highlightAttemptId?: number } | null)?.quizResult;
   const highlightAttemptId = (location.state as { highlightAttemptId?: number } | null)?.highlightAttemptId;
 
@@ -242,10 +244,10 @@ const ResultsScreen: React.FC = () => {
                 }}
                 aria-label={`Score: ${Math.round(heroAttempt.percentage)} percent`}
               >
-                {displayPct}%
+                {num(displayPct)}%
               </p>
               <p style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>
-                {heroAttempt.score} / {heroAttempt.total_questions}
+                {num(heroAttempt.score)} / {num(heroAttempt.total_questions)}
               </p>
             </div>
           </div>
@@ -255,12 +257,12 @@ const ResultsScreen: React.FC = () => {
           </p>
           {heroPenalty > 0 && (
             <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '-0.75rem 0 1.25rem', fontFamily: 'var(--font-mono)' }}>
-              {heroAttempt.raw_score} correct − {heroPenalty} penalty ({heroAttempt.incorrect_questions.length} wrong × {heroAttempt.negative_marking}) = {heroAttempt.score}
+              {num(heroAttempt.raw_score)} correct − {num(heroPenalty)} penalty ({num(heroAttempt.incorrect_questions.length)} wrong × {num(heroAttempt.negative_marking)}) = {num(heroAttempt.score)}
             </p>
           )}
           {heroAttempt.offline && (
             <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '-0.75rem 0 1rem' }}>
-              Offline result — saved on this device, will sync automatically when you reconnect.
+              Offline result. Saved on this device, will sync automatically when you reconnect.
             </p>
           )}
 
@@ -278,7 +280,7 @@ const ResultsScreen: React.FC = () => {
             </div>
             <div>
               <p style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'hsl(0 84% 60%)', margin: 0, lineHeight: 1.2 }}>
-                {heroAttempt.total_questions - heroAttempt.score}
+                {num(heroAttempt.total_questions - heroAttempt.score)}
               </p>
               <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
                 Wrong
@@ -286,7 +288,7 @@ const ResultsScreen: React.FC = () => {
             </div>
             <div>
               <p style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: percentColor(heroAttempt.percentage), margin: 0, lineHeight: 1.2 }}>
-                {Math.round(heroAttempt.percentage)}%
+                {num(Math.round(heroAttempt.percentage))}%
               </p>
               <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
                 Accuracy
@@ -374,17 +376,17 @@ const ResultsScreen: React.FC = () => {
                       </span>
                     </div>
                     <span style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))' }}>
-                      {a.score}/{a.total_questions}
+                      {num(a.score)}/{num(a.total_questions)}
                     </span>
                     {/* Mini progress bar */}
                     <div className="hidden sm:block" style={{ width: '60px', height: '4px', borderRadius: '2px', background: 'hsl(var(--muted))', overflow: 'hidden' }}>
                       <div style={{ width: `${a.percentage}%`, height: '100%', borderRadius: '2px', background: percentColor(a.percentage) }} />
                     </div>
                     <span style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: percentColor(a.percentage) }}>
-                      {a.percentage}%
+                      {num(a.percentage)}%
                     </span>
                     {wrongCount > 0 ? (
-                      <span className="badge badge-destructive" style={{ fontSize: '0.6875rem' }}>{wrongCount} wrong</span>
+                      <span className="badge badge-destructive" style={{ fontSize: '0.6875rem' }}>{num(wrongCount)} wrong</span>
                     ) : (
                       <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>Perfect</span>
                     )}
@@ -453,7 +455,7 @@ const ResultsScreen: React.FC = () => {
                                   whileTap={{ scale: 0.98 }}
                                   style={{ marginTop: '0.5rem' }}
                                 >
-                                  Re-practice {wrongCount} wrong →
+                                  Re-practice {num(wrongCount)} wrong →
                                 </motion.button>
                               )}
                               <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'hsl(var(--foreground))', paddingTop: '0.5rem' }}>

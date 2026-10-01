@@ -123,15 +123,15 @@ const Contribute: React.FC = () => {
           {t('nav.contribute')}
         </h1>
         <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0', lineHeight: 1.55 }}>
-          Upload a PDF or DOCX question paper. Preview what was found, then import —
-          duplicates and answer-less questions are skipped automatically.
+          Upload a PDF or DOCX question paper. Preview what was found, then import.
+          Duplicates and answer-less questions are skipped automatically.
         </p>
       </div>
 
       <div className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
         <div>
           <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>
-            Category (optional — guessed from filename)
+            Category (optional, guessed from filename)
           </label>
           <select value={category} onChange={(e) => setCategory(e.target.value)} className="input" aria-label="Upload category">
             <option value="">Auto-detect</option>
@@ -225,7 +225,7 @@ const Contribute: React.FC = () => {
           )}
           {phase === 'done' && (
             <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'hsl(var(--primary))', margin: 0 }}>
-              ✓ Imported — thank you for contributing{userId ? `, ${userId}` : ''}!
+              ✓ Imported. Thank you for contributing{userId ? `, ${userId}` : ''}!
             </p>
           )}
         </div>

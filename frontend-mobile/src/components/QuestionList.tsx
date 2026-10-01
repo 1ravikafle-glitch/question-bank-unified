@@ -5,8 +5,10 @@ import { fetchQuestionsCount, fetchCategories, fetchUserProgress, fetchWrongQueu
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { useDismiss } from '@/hooks/useDismiss';
+import { useLang } from '@/context/LanguageContext';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji } from '@/utils/categoryEmoji';
+import { scoreColor, scoreLabel } from '@/utils/scoreColor';
 import { motion } from 'framer-motion';
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -26,20 +28,19 @@ const quotes = [
 ];
 
 function perfLabel(pct: number) {
-  if (pct >= 91) return 'Fabulous';
-  if (pct >= 81) return 'Excellent';
-  if (pct >= 61) return 'Good';
-  if (pct >= 41) return 'Fair';
-  if (pct >= 21) return 'Satisfactory';
-  return 'Poor';
+  return scoreLabel(pct);
 }
 
 function perfColor(pct: number) {
-  if (pct >= 81) return 'hsl(150 60% 32%)';
-  if (pct >= 61) return 'hsl(150 45% 38%)';
-  if (pct >= 41) return 'hsl(38 65% 42%)';
-  if (pct >= 21) return 'hsl(25 60% 48%)';
-  return 'hsl(6 55% 48%)';
+  return scoreColor(pct);
+}
+
+function timeOfDayGreeting(t: (k: string) => string) {
+  const h = new Date().getHours();
+  if (h < 4 || h >= 21) return t('greet.night');
+  if (h < 12) return t('greet.morning');
+  if (h < 17) return t('greet.afternoon');
+  return t('greet.evening');
 }
 
 function relativeDate(iso: string) {
@@ -132,6 +133,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
+  const { t, num } = useLang();
 
   useEffect(() => {
     const loadData = async () => {
@@ -322,7 +324,19 @@ const Dashboard: React.FC = () => {
                   color: 'hsl(var(--muted-foreground))',
                 }}
               >
-                {quote}
+                {timeOfDayGreeting(t)} · {t('dash.continue')}
+              </p>
+              <p
+                style={{
+                  fontSize: '0.8125rem',
+                  fontStyle: 'italic',
+                  opacity: 0.75,
+                  marginTop: '0.25rem',
+                  marginBottom: 0,
+                  color: 'hsl(var(--muted-foreground))',
+                }}
+              >
+                “{quote}”
               </p>
             </div>
             <motion.button
@@ -358,15 +372,15 @@ const Dashboard: React.FC = () => {
         <div className="stats-row-grid">
           <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Total questions: ${total.toLocaleString()}`}>
             <span className="stat-tile-label">Total Questions</span>
-            <span className="stat-tile-value">{total.toLocaleString()}</span>
+            <span className="stat-tile-value">{num(total.toLocaleString())}</span>
           </motion.div>
           <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Categories: ${categories.length}`}>
             <span className="stat-tile-label">Categories</span>
-            <span className="stat-tile-value">{categories.length}</span>
+            <span className="stat-tile-value">{num(categories.length)}</span>
           </motion.div>
           <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Questions attempted: ${attempted.toLocaleString()}`}>
             <span className="stat-tile-label">Attempted</span>
-            <span className="stat-tile-value">{attempted.toLocaleString()}</span>
+            <span className="stat-tile-value">{num(attempted.toLocaleString())}</span>
           </motion.div>
           <motion.div
             className="stat-tile"
@@ -379,7 +393,7 @@ const Dashboard: React.FC = () => {
               className="stat-tile-value"
               style={{ color: accuracy !== null && attempted > 0 ? perfColor(accuracy) : 'hsl(var(--muted-foreground))' }}
             >
-              {accuracy !== null && attempted > 0 ? `${accuracy.toFixed(1)}%` : '—'}
+              {accuracy !== null && attempted > 0 ? `${num(accuracy.toFixed(1))}%` : '—'}
             </span>
             {accuracy !== null && (
               <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>

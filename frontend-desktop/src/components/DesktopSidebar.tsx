@@ -205,7 +205,7 @@ const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, 
           const w = window.open(gisHref(), '_blank', 'noopener,noreferrer');
           if (w) w.opener = null;
         }}
-        title={`${item.label} — opens in a new tab`}
+        title={`${item.label} · opens in a new tab`}
         className="relative flex items-center gap-3 rounded-[10px] font-medium transition-all duration-200"
         style={{
           fontSize: '0.9375rem',
