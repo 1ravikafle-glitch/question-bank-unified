@@ -109,6 +109,7 @@ function QuestionBox({
   onChoose,
   folding,
   examPaper,
+  slideDir,
 }: {
   role: 'active' | 'next';
   question: any;
@@ -119,10 +120,12 @@ function QuestionBox({
   onChoose: (k: string) => void;
   folding: boolean;
   examPaper?: boolean;
+  slideDir?: 'left' | 'right';
 }) {
   const locked = role === 'next';
   const showResult = role === 'active' && revealed;
   const paper = role === 'active' && !!examPaper;
+  const dir = slideDir ?? 'left';
   // Normalize question shape: supports both {q, options:[{key,text}], correct} and our {question_text, options:Record, correct_answer}
   const qText = question.q ?? question.question_text ?? '';
   const qExplanation = (question.explanation || '').toString().trim();
@@ -135,8 +138,8 @@ function QuestionBox({
     <div
       className={
         'quiz-qbox' +
-        (locked ? ' is-next' : ' quiz-flow-in') +
-        (!locked && folding ? ' is-folding' : '') +
+        (locked ? ' is-next' : ` quiz-enter-${dir}`) +
+        (!locked && folding ? ` is-exiting-${dir}` : '') +
         (!locked && selected ? ' is-selected' : '') +
         (paper ? ' exam-paper' : '')
       }
@@ -899,9 +902,15 @@ const QuizTaker: React.FC = () => {
     [currentQuestion, isLocked, sfxSelect],
   );
 
-  // Fold-flow navigation: the outgoing card folds up into its progress
-  // dot (which pops green/red), then the next card flows in fresh.
-  const goTo = useCallback((next: number, answeredIdx: number | null) => {
+  // Directional slide navigation: the outgoing card glides out toward
+  // the travel direction while the incoming card sweeps in from the
+  // opposite side. Answered cards also pop their progress dot.
+  const [slideDir, setSlideDir] = useState<'left' | 'right'>('left');
+  const slidingRef = useRef(false);
+  const goTo = useCallback((next: number, answeredIdx: number | null, dir: 'left' | 'right') => {
+    if (slidingRef.current) return;
+    slidingRef.current = true;
+    setSlideDir(dir);
     setFolding(true);
     if (answeredIdx !== null) {
       setPopDot(answeredIdx);
@@ -910,13 +919,14 @@ const QuizTaker: React.FC = () => {
     setTimeout(() => {
       setCurrentIndex(next);
       setFolding(false);
-    }, 260);
+      slidingRef.current = false;
+    }, 280);
   }, []);
 
   const handleNext = useCallback(() => {
     try { navigator.vibrate?.(8); } catch {}
     if (currentIndex < questions.length - 1) {
-      goTo(currentIndex + 1, isLocked ? currentIndex : null);
+      goTo(currentIndex + 1, isLocked ? currentIndex : null, 'left');
       sfxClick();
     } else {
       submitQuizRequest(selected);
@@ -927,7 +937,7 @@ const QuizTaker: React.FC = () => {
     if (currentIndex > 0) {
       try { navigator.vibrate?.(8); } catch {}
       sfxClick();
-      goTo(currentIndex - 1, null);
+      goTo(currentIndex - 1, null, 'right');
     }
   }, [currentIndex, sfxClick, goTo]);
 
@@ -1505,6 +1515,7 @@ const QuizTaker: React.FC = () => {
             onChoose={handleSelect}
             folding={folding}
             examPaper={isExamMode}
+            slideDir={slideDir}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
           {nextQ && (

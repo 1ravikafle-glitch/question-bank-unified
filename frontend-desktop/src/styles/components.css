@@ -813,22 +813,37 @@
 }
 
 /* ─── Quiz question box (Apple quiet surface; replaces inline styles) ─── */
-/* ── Quiz fold-flow: answered cards fold up into their progress dot,
-   which pops — then the next card flows in. No more blink-swap. ── */
-.quiz-qbox.quiz-flow-in {
-  animation: quizFlowIn 0.32s var(--ease-spring);
+/* ── Quiz slide-flow: the outgoing card glides out toward the travel
+   direction while the incoming card sweeps in from the opposite side —
+   answered cards pop their progress dot on the way out. Butter-smooth
+   Apple-style easing; height stays stable so the page never jumps. ── */
+.quiz-qbox.quiz-enter-left {
+  animation: quizEnterLeft 0.42s cubic-bezier(0.32, 0.72, 0, 1);
 }
-@keyframes quizFlowIn {
-  from { opacity: 0; transform: translateY(18px) scale(0.99); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+.quiz-qbox.quiz-enter-right {
+  animation: quizEnterRight 0.42s cubic-bezier(0.32, 0.72, 0, 1);
 }
-.quiz-qbox.is-folding {
-  animation: quizFoldOut 0.26s var(--ease-standard) forwards;
-  transform-origin: top center;
+@keyframes quizEnterLeft {
+  from { opacity: 0; transform: translateX(72px) scale(0.985); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes quizEnterRight {
+  from { opacity: 0; transform: translateX(-72px) scale(0.985); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+.quiz-qbox.is-exiting-left {
+  animation: quizExitLeft 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   pointer-events: none;
 }
-@keyframes quizFoldOut {
-  to { opacity: 0; transform: translateY(-26px) scaleY(0.6) scale(0.98); }
+.quiz-qbox.is-exiting-right {
+  animation: quizExitRight 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  pointer-events: none;
+}
+@keyframes quizExitLeft {
+  to { opacity: 0; transform: translateX(-72px) scale(0.985); }
+}
+@keyframes quizExitRight {
+  to { opacity: 0; transform: translateX(72px) scale(0.985); }
 }
 .dot-pop {
   animation: dotPop 0.5s var(--ease-spring);
@@ -839,8 +854,10 @@
   100% { transform: scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .quiz-qbox.quiz-flow-in,
-  .quiz-qbox.is-folding,
+  .quiz-qbox.quiz-enter-left,
+  .quiz-qbox.quiz-enter-right,
+  .quiz-qbox.is-exiting-left,
+  .quiz-qbox.is-exiting-right,
   .dot-pop {
     animation: none !important;
   }
