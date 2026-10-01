@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { useSound } from '../context/SoundContext';
 
 function createAudioCtx(): AudioContext | null {
@@ -130,5 +130,11 @@ export function useSfx() {
     ]);
   }, [playSequence]);
 
-  return { sfxSelect, sfxCorrect, sfxIncorrect, sfxClick, sfxSubmit, sfxTick, sfxWarning };
+  // Memoized: every callback above is already stable, so this object only
+  // changes when one of them does. Without it the object identity changes on
+  // every render and can never be used as a memo prop or effect dependency.
+  return useMemo(
+    () => ({ sfxSelect, sfxCorrect, sfxIncorrect, sfxClick, sfxSubmit, sfxTick, sfxWarning }),
+    [sfxSelect, sfxCorrect, sfxIncorrect, sfxClick, sfxSubmit, sfxTick, sfxWarning]
+  );
 }

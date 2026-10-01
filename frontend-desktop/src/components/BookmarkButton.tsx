@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 
 interface BookmarkButtonProps {
@@ -7,7 +8,7 @@ interface BookmarkButtonProps {
 }
 
 /** Small save/star toggle for questions. Gold when saved, quiet when not. */
-const BookmarkButton: React.FC<BookmarkButtonProps> = ({ marked, onToggle, label }) => (
+const BookmarkButton = memo(({ marked, onToggle, label }: BookmarkButtonProps) => (
   <motion.button
     type="button"
     onClick={(e) => {
@@ -56,6 +57,6 @@ const BookmarkButton: React.FC<BookmarkButtonProps> = ({ marked, onToggle, label
       🔖
     </motion.span>
   </motion.button>
-);
+));
 
 export default BookmarkButton;

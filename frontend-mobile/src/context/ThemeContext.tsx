@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useDayNight } from '@/hooks/useDayNight';
 
 export type ThemeMode = 'light' | 'dark' | 'auto';
@@ -63,8 +63,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  // Memoized so a re-render of this provider (e.g. the day/night poll) does not
+  // hand every consumer a brand-new object and re-render the whole tree.
+  const value = useMemo(() => ({ mode, setMode, resolved }), [mode, setMode, resolved]);
+
   return (
-    <ThemeContext.Provider value={{ mode, setMode, resolved }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

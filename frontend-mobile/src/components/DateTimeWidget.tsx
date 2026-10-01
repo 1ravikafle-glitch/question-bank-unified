@@ -14,9 +14,50 @@ const BS_MONTHS = [
 ];
 const AD_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
 
+/* Weekday formatters, built once per language. */
+const WEEKDAY_FMT: Record<string, Intl.DateTimeFormat> = {};
+function weekdayFmt(lang: string) {
+  const key = lang === 'ne' ? 'ne-NP' : 'en-US';
+  let f = WEEKDAY_FMT[key];
+  if (!f) {
+    f = new Intl.DateTimeFormat(key, { weekday: 'long', timeZone: 'Asia/Kathmandu' });
+    WEEKDAY_FMT[key] = f;
+  }
+  return f;
+}
+const WEEKDAY_SHORT_FMT = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  timeZone: 'Asia/Kathmandu',
+});
+
+/* Calendar-day-derived display text, memoized per Kathmandu date. */
+const DERIVED_CACHE = new Map<string, {
+  bsMonthDay: string;
+  bsYear: string;
+  bsLabel: string;
+  adMonthDay: string;
+  adYear: string;
+  adLabel: string;
+  weekday: string;
+  isHoliday: boolean;
+  tithiLabel: string;
+}>();
+
+/* Formatters are built once per process. Intl.DateTimeFormat construction is
+   one of the most expensive operations in JS, and the clock used to build
+   eight of them every single second. */
+const NPT_FMT: Record<string, Intl.DateTimeFormat> = {};
+function nptFmt(key: string, opts: Intl.DateTimeFormatOptions) {
+  let f = NPT_FMT[key];
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', ...opts });
+    NPT_FMT[key] = f;
+  }
+  return f;
+}
+
 function nptParts(now: Date) {
-  const fmt = (o: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', ...o }).format(now);
+  const fmt = (o: Intl.DateTimeFormatOptions) => nptFmt(JSON.stringify(o), o).format(now);
   // NOTE: minute/second formatted alone are NOT zero-padded by ICU
   // ("3" instead of "03") — pad explicitly for a stable hh:mm:ss readout.
   const pad2 = (s: string) => s.padStart(2, '0');
@@ -104,42 +145,61 @@ const DateTimeWidget: React.FC<{ compact?: boolean }> = ({ compact }) => {
   }, []);
 
   const p = nptParts(now);
-  let bsMonthDay = '';
-  let bsYear = '';
-  let bsMonthIdx = -1;
-  try {
-    const bs = new NepaliDate(new Date(p.year, p.month - 1, p.day)).getBS();
-    bsMonthDay = `${bs.date} ${BS_MONTHS[bs.month] ?? ''}`;
-    bsYear = `${bs.year} B.S.`;
-    bsMonthIdx = bs.month;
-  } catch {
-    bsMonthDay = '';
+
+  /* Everything below is a function of the Kathmandu calendar day, not of the
+     second. It used to be recomputed on every tick, which meant a full
+     solar+lunar longitude solve (Newton iterations plus perturbation terms)
+     ran 60 times a minute to produce a string that changes once a day. */
+  const dayKey = `${p.year}-${p.month}-${p.day}`;
+  let derived = DERIVED_CACHE.get(dayKey);
+  if (!derived) {
+    let bsMonthDay = '';
+    let bsYear = '';
+    let bsMonthIdx = -1;
+    try {
+      const bs = new NepaliDate(new Date(p.year, p.month - 1, p.day)).getBS();
+      bsMonthDay = `${bs.date} ${BS_MONTHS[bs.month] ?? ''}`;
+      bsYear = `${bs.year} B.S.`;
+      bsMonthIdx = bs.month;
+    } catch {
+      bsMonthDay = '';
+    }
+    const adMonthDay = `${p.day} ${AD_SHORT[p.month - 1]}`;
+    // Lunar tithi at Kathmandu sunrise (pico-panchanga, ±1 near boundaries).
+    let tithiLabel = '';
+    try {
+      const t = getTithi(p.year, p.month, p.day);
+      tithiLabel = `${BS_MONTHS_NE[bsMonthIdx] ?? ''} ${t.paksha} ${t.name}`;
+    } catch {
+      tithiLabel = '';
+    }
+    const adYear = `${p.year}`;
+    // Weekday in Kathmandu (Nepali name when ne active); Sat + Sun are holidays.
+    let weekday = '';
+    let isHoliday = false;
+    try {
+      weekday = weekdayFmt(lang).format(now);
+      const short = WEEKDAY_SHORT_FMT.format(now);
+      isHoliday = short === 'Sun' || short === 'Sat';
+    } catch {
+      weekday = '';
+    }
+    derived = {
+      bsMonthDay,
+      bsYear,
+      bsLabel: bsMonthDay ? `${bsMonthDay}, ${bsYear}` : '',
+      adMonthDay,
+      adYear,
+      adLabel: `${adMonthDay}, ${adYear}`,
+      weekday,
+      isHoliday,
+      tithiLabel,
+    };
+    // Bounded: a long-lived tab would otherwise grow this forever.
+    if (DERIVED_CACHE.size > 40) DERIVED_CACHE.clear();
+    DERIVED_CACHE.set(dayKey, derived);
   }
-  const bsLabel = bsMonthDay ? `${bsMonthDay}, ${bsYear}` : '';
-  const adMonthDay = `${p.day} ${AD_SHORT[p.month - 1]}`;
-  // Lunar tithi at Kathmandu sunrise (pico-panchanga, ±1 near boundaries).
-  let tithiLabel = '';
-  try {
-    const t = getTithi(p.year, p.month, p.day);
-    tithiLabel = `${BS_MONTHS_NE[bsMonthIdx] ?? ''} ${t.paksha} ${t.name}`;
-  } catch {
-    tithiLabel = '';
-  }
-  const adYear = `${p.year}`;
-  const adLabel = `${adMonthDay}, ${adYear}`;
-  // Weekday in Kathmandu (Nepali name when ne active); Sat + Sun are holidays.
-  let weekday = '';
-  let isHoliday = false;
-  try {
-    weekday = new Intl.DateTimeFormat(lang === 'ne' ? 'ne-NP' : 'en-US', {
-      weekday: 'long',
-      timeZone: 'Asia/Kathmandu',
-    }).format(now);
-    const short = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Kathmandu' }).format(now);
-    isHoliday = short === 'Sun' || short === 'Sat';
-  } catch {
-    weekday = '';
-  }
+  const { bsMonthDay, bsYear, bsLabel, adMonthDay, adYear, adLabel, weekday, isHoliday, tithiLabel } = derived;
   const h12 = String(p.hour24 % 12 === 0 ? 12 : p.hour24 % 12).padStart(2, '0');
   const suffix = p.hour24 < 12 ? 'A.M.' : 'P.M.';
   // Sun/moon come from the shared day/night signal (viewer location,

@@ -138,6 +138,10 @@ export interface DayNight {
 export function useDayNight(): DayNight {
   const [now, setNow] = useState(() => new Date());
   const [loc, setLoc] = useState<ViewerLoc | null>(null);
+  // The last verdict we published. The 60s tick exists to catch sunrise and
+  // sunset, so re-rendering on every tick when the answer has not changed is
+  // pure waste: it re-renders every theme consumer for nothing.
+  const [verdict, setVerdict] = useState<{ isDay: boolean; source: 'geo' | 'ktm'; label: string } | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60000);
@@ -156,8 +160,42 @@ export function useDayNight(): DayNight {
     };
   }, []);
 
-  if (!loc) {
-    // Unresolved: Kathmandu rule so first paint is never wrong-side.
+  // Publish the verdict only when it actually changes. This is what keeps the
+  // 60s tick from re-rendering the whole theme tree.
+  useEffect(() => {
+    let next: { isDay: boolean; source: 'geo' | 'ktm'; label: string };
+    if (!loc) {
+      // Unresolved: Kathmandu rule so first paint is never wrong-side.
+      let h = 12;
+      try {
+        h = Number(
+          new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', hour: 'numeric', hour12: false }).format(now)
+        );
+      } catch {}
+      next = { isDay: h >= 6 && h < 18, source: 'ktm', label: 'Kathmandu' };
+    } else {
+      try {
+        const off = tzOffsetMinutes(loc.tz, now);
+        if (off == null) throw new Error('tz');
+        const here = new Date(now.getTime() + off * 60000);
+        const h = here.getUTCHours() + here.getUTCMinutes() / 60;
+        const sun = sunHours(loc.lat, loc.lon, here.getUTCFullYear(), here.getUTCMonth() + 1, here.getUTCDate(), off);
+        next = sun
+          ? { isDay: h >= sun.rise && h < sun.set, source: 'geo', label: loc.label }
+          : { isDay: h >= 6 && h < 18, source: 'geo', label: loc.label };
+      } catch {
+        next = { isDay: true, source: 'geo', label: loc.label };
+      }
+    }
+    setVerdict((prev) =>
+      prev && prev.isDay === next.isDay && prev.source === next.source && prev.label === next.label
+        ? prev
+        : next
+    );
+  }, [now, loc]);
+
+  if (!verdict) {
+    // First paint before the effect runs: Kathmandu rule, never wrong-side.
     let h = 12;
     try {
       h = Number(
@@ -166,15 +204,5 @@ export function useDayNight(): DayNight {
     } catch {}
     return { isDay: h >= 6 && h < 18, source: 'ktm', label: 'Kathmandu' };
   }
-  try {
-    const off = tzOffsetMinutes(loc.tz, now);
-    if (off == null) throw new Error('tz');
-    const here = new Date(now.getTime() + off * 60000);
-    const h = here.getUTCHours() + here.getUTCMinutes() / 60;
-    const sun = sunHours(loc.lat, loc.lon, here.getUTCFullYear(), here.getUTCMonth() + 1, here.getUTCDate(), off);
-    if (!sun) return { isDay: h >= 6 && h < 18, source: 'geo', label: loc.label };
-    return { isDay: h >= sun.rise && h < sun.set, source: 'geo', label: loc.label };
-  } catch {
-    return { isDay: true, source: 'geo', label: loc.label };
-  }
+  return verdict;
 }

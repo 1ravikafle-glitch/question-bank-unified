@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 
 interface NoteButtonProps {
@@ -7,7 +8,7 @@ interface NoteButtonProps {
 }
 
 /** Small personal-note toggle for questions. Blue when a note exists. */
-const NoteButton: React.FC<NoteButtonProps> = ({ hasNote, onOpen, label }) => (
+const NoteButton = memo(({ hasNote, onOpen, label }: NoteButtonProps) => (
   <motion.button
     type="button"
     onClick={(e) => {
@@ -56,6 +57,6 @@ const NoteButton: React.FC<NoteButtonProps> = ({ hasNote, onOpen, label }) => (
       📝
     </motion.span>
   </motion.button>
-);
+));
 
 export default NoteButton;

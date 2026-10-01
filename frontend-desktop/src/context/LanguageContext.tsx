@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { tr, num as numFmt, type Lang } from '@/shared/strings';
 export type { Lang };
 
@@ -41,7 +41,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [lang]);
   const t = useCallback((key: string) => tr(lang, key), [lang]);
   const num = useCallback((value: number | string) => numFmt(lang, value), [lang]);
-  return <LanguageContext.Provider value={{ lang, setLang, t, num }}>{children}</LanguageContext.Provider>;
+  // Memoized: `t`/`num` are already keyed on [lang], so this only changes when
+  // the language actually changes.
+  const value = useMemo(() => ({ lang, setLang, t, num }), [lang, setLang, t, num]);
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
 export const useLang = () => useContext(LanguageContext);

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { toast } from 'react-hot-toast';
 
 interface SoundContextValue {
@@ -54,8 +54,9 @@ export function SoundProvider({ children }: { children: ReactNode }) {
 
   const toggle = useCallback(() => setEnabled((prev) => !prev), []);
 
+  const value = useMemo(() => ({ enabled, toggle }), [enabled, toggle]);
   return (
-    <SoundContext.Provider value={{ enabled, toggle }}>
+    <SoundContext.Provider value={value}>
       {children}
     </SoundContext.Provider>
   );

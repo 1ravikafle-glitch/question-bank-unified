@@ -1,5 +1,5 @@
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { useContext, useEffect, useState, Fragment } from 'react';
+import { memo, useContext, useEffect, useState, Fragment } from 'react';
 import { AuthContext } from '@/context/AuthContext';
 import { fetchBookmarkIds } from '@/services/api';
 import { useSfx } from '@/hooks/useSfx';
@@ -178,8 +178,18 @@ const navSections: NavSectionDef[] = [
   },
 ];
 
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* matchMedia is a synchronous layout read. It was being called ~17 times per
+   render (once per nav row and per variant), so it is now read once per
+   process and cached. */
+let _reducedMotion: boolean | null = null;
+const prefersReducedMotion = () => {
+  if (_reducedMotion === null) {
+    _reducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  return _reducedMotion;
+};
 
 const navItemVariants = {
   initial: { opacity: 0, x: -8 },
@@ -199,7 +209,22 @@ const RowDivider: React.FC = () => (
   <div aria-hidden="true" style={{ height: 1, background: 'hsl(var(--border) / 0.5)', margin: '0 4px' }} />
 );
 
-const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, onNavigate }) => {
+interface NavRowProps {
+  item: NavItemDef;
+  onNavigate: () => void;
+}
+
+/* The bookmarks row is the only one whose props change over time (its badge
+   count). Folding the badge into the item object here, once per render, keeps
+   the other 13 rows on the stable module-level constant so memo can bail out. */
+const navItemFor = (item: NavItemDef, bmCount: number): NavItemDef =>
+  item.to === '/bookmarks' ? { ...item, badge: bmCount } : item;
+
+/* Memoized: 13 of 14 rows receive a stable `item` (from the module-level
+   navSections constant) and a stable `onNavigate`, so they can skip re-rendering
+   when the sidebar re-renders on every navigation. Only the bookmarks row
+   changes, because its badge count is folded into the item object. */
+const NavRow = memo<NavRowProps>(({ item, onNavigate }) => {
   const { t } = useLang();
   if (item.external) {
     return (
@@ -296,7 +321,7 @@ const NavRow: React.FC<{ item: NavItemDef; onNavigate: () => void }> = ({ item, 
       )}
     </NavLink>
   );
-};
+});
 
 const DesktopSidebar: React.FC = () => {
   const { userId } = useContext(AuthContext);
@@ -397,10 +422,7 @@ const DesktopSidebar: React.FC = () => {
                   <Fragment key={item.to}>
                     {ii > 0 && <div className="nav-row-divider" aria-hidden="true" />}
                     <motion.div variants={prefersReducedMotion() ? undefined : navItemVariants}>
-                      <NavRow
-                        item={item.to === '/bookmarks' ? { ...item, badge: bmCount } : item}
-                        onNavigate={sfxClick}
-                      />
+                      <NavRow item={navItemFor(item, bmCount)} onNavigate={sfxClick} />
                     </motion.div>
                   </Fragment>
                 ))}

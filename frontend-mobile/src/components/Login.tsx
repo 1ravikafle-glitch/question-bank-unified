@@ -367,6 +367,7 @@ const Login: React.FC = () => {
         >
           No registration needed. Enter any username & password to get started.
         </p>
+        }
 
         {/* Live stats */}
         <p

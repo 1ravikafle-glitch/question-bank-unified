@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, useCallback, useMemo } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { Toaster, toast } from 'react-hot-toast';
 
@@ -67,29 +67,38 @@ function AppShell() {
   const isQuiz = location.pathname.startsWith('/quiz');
   const showLayout = userId && !isLogin;
 
-  const logout = () => {
+  // Stable identities. AppShell re-renders on every route change, and an
+  // unstable `logout` used to invalidate every useCallback that depended on it.
+  const logout = useCallback(() => {
     localStorage.removeItem('userId');
     localStorage.removeItem('password');
     localStorage.removeItem('fpsc-session');
     localStorage.removeItem('fpsc-sso-token');
     setUserId('');
     setSessionTokenState('');
-  };
+  }, []);
 
-  const handleSetUserId = (id: string) => {
+  const handleSetUserId = useCallback((id: string) => {
     setUserId(id);
     if (id) localStorage.setItem('userId', id);
     else localStorage.removeItem('userId');
-  };
+  }, []);
 
-  const handleSetSessionToken = (token: string) => {
+  const handleSetSessionToken = useCallback((token: string) => {
     setSessionTokenState(token);
     if (token) localStorage.setItem('fpsc-session', token);
     else localStorage.removeItem('fpsc-session');
-  };
+  }, []);
+
+  // Memoized so a route change (which re-renders AppShell) does not hand all 15
+  // consumers a new object when none of the fields actually changed.
+  const authValue = useMemo(
+    () => ({ userId, sessionToken, setUserId: handleSetUserId, setSessionToken: handleSetSessionToken, logout }),
+    [userId, sessionToken, handleSetUserId, handleSetSessionToken, logout]
+  );
 
   return (
-    <AuthContext.Provider value={{ userId, sessionToken, setUserId: handleSetUserId, setSessionToken: handleSetSessionToken, logout }}>
+    <AuthContext.Provider value={authValue}>
       {/* Skip navigation link */}
       <a href="#main-content" className="skip-link">
         Skip to main content

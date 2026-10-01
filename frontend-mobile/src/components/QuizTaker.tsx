@@ -865,6 +865,16 @@ const QuizTaker: React.FC = () => {
   }, [questions.length, submitQuizRequest, selected]);
 
   const currentQuestion = questions[currentIndex];
+
+  /* Stable across the 1Hz countdown: these depend on the current question,
+     which does not change once per second, so memo can bail out. */
+  const handleBmToggleHere = useCallback(
+    () => {
+      if (currentQuestion) handleBmToggle(currentQuestion.id);
+    },
+    [currentQuestion, handleBmToggle]
+  );
+  const toggleNoteOpen = useCallback(() => setNoteOpen((v) => !v), []);
   const isLastQuestion = currentIndex === questions.length - 1;
   const currentSelected = currentQuestion ? selected[currentQuestion.id] : undefined;
   const isLocked = currentSelected !== undefined;
@@ -1797,13 +1807,13 @@ const QuizTaker: React.FC = () => {
             {currentQuestion && (
               <BookmarkButton
                 marked={bmIds.has(currentQuestion.id)}
-                onToggle={() => handleBmToggle(currentQuestion.id)}
+                onToggle={handleBmToggleHere}
               />
             )}
             {currentQuestion && userId && (
               <NoteButton
                 hasNote={!!noteMap[currentQuestion.id]}
-                onOpen={() => setNoteOpen((v) => !v)}
+                onOpen={toggleNoteOpen}
               />
             )}
             <button
