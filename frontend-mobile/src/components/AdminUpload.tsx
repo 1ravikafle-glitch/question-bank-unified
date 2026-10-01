@@ -18,6 +18,25 @@ interface FileResult {
 
 const EDIT_PAGE_SIZE = 15;
 
+// Fetch EVERY question by paging until a short page.
+//
+// The list used to be one call with a hardcoded limit: 1000, so with ~3,300
+// questions the admin page silently showed only the first thousand and its
+// search box could only find within those. The count endpoint kept reporting
+// the true total, which is why "not all questions" looked like a database
+// problem. Paging keeps the payload per request reasonable and never
+// truncates. Do not revert to a single hardcoded limit.
+const fetchAllQuestions = async (): Promise<Question[]> => {
+  const PAGE = 1000;
+  const out: Question[] = [];
+  for (let i = 0; i < 50; i++) {
+    const page = await fetchQuestions({ skip: out.length, limit: PAGE });
+    out.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return out;
+};
+
 const AdminUpload: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [category, setCategory] = useState('');
@@ -70,7 +89,7 @@ const AdminUpload: React.FC = () => {
     try {
       const [cats, qsRaw, countData, adminCats] = await Promise.all([
         fetchCategories(),
-        fetchQuestions({ limit: 1000 }),
+        fetchAllQuestions(),
         fetchQuestionsCount({}),
         fetchAdminCategories(),
       ]);

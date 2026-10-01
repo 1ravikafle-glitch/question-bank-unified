@@ -120,7 +120,14 @@ def get_questions(
     if difficulty:
         query = query.filter(models.Question.difficulty == difficulty)
 
-    questions = query.offset(skip).limit(limit).all()
+    # ORDER BY is not cosmetic here. Without it Postgres may return rows in a
+    # different order on every execution, and skip/limit paging then silently
+    # DROPS rows between pages - measured on production: three pages of 1000
+    # returned 2,999 of 3,298 rows. Any paged consumer (the admin manage list,
+    # the library, offline sync) needs a deterministic order. Do not revert.
+    questions = (
+        query.order_by(models.Question.id).offset(skip).limit(limit).all()
+    )
     return _normalize_options([q for q in questions if models.is_usable_question(q)])
 
 
