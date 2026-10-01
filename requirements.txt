@@ -7,3 +7,8 @@ python-docx==1.1.2
 pypdf==6.19.0
 bcrypt==4.2.0
 psycopg2-binary==2.9.9
+# Verifies Google Sign-In ID tokens against Google's rotating JWKS.
+# Free: Google Cloud's free tier needs no billing card for the OAuth consent
+# screen. Without this the backend cannot check a credential's signature and
+# the feature stays disabled (the login screen hides the button).
+PyJWT[crypto]==2.7.0

@@ -2,10 +2,10 @@ import io
 import os
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header, Query, Path
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 import models
 import database
@@ -164,7 +164,10 @@ async def upload_docx(
 
 
 @router.get("/categories")
-def list_categories(db: Session = Depends(database.get_db)):
+def list_categories(
+    db: Session = Depends(database.get_db),
+    admin_user: str = Depends(session.require_admin),
+):
     rows = (
         db.query(models.Question.category, func.count(models.Question.id))
         .group_by(models.Question.category)
@@ -309,7 +312,7 @@ def list_all_questions_for_admin(
 
 
 @router.put("/questions/{question_id}")
-def update_question(question_id: int, payload: dict, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
+def update_question(payload: dict, question_id: int = Path(..., ge=1, le=9223372036854775807), db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if question is None:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -345,7 +348,7 @@ def update_question(question_id: int, payload: dict, db: Session = Depends(datab
 # bypass review entirely use /admin/upload-docx or /uploads/import (unlimited).
 
 class ReviewRequest(BaseModel):
-    note: Optional[str] = None
+    note: Optional[str] = Field(default=None, max_length=2000)
 
 
 def _serialize_request(r: models.ContributionRequest, include_payload: bool = False):
@@ -424,10 +427,17 @@ def approve_contribution(
     if row.status != "pending":
         raise HTTPException(status_code=409, detail=f"Already {row.status}")
 
-    imported = skipped_dup = skipped_no_answer = 0
+    imported = skipped_dup = skipped_no_answer = skipped_unusable = 0
     for q in row.payload or []:
         if not q.get("correct_answer"):
             skipped_no_answer += 1
+            continue
+        # Never insert an unanswerable question. The bank is expected to hold
+        # only rows that models.is_usable_question() accepts (>=2 options);
+        # this path used to insert options={} rows that every read endpoint
+        # then filtered out. Do not revert.
+        if len(models.usable_options(q.get("options"))) < 2:
+            skipped_unusable += 1
             continue
         exists = (
             db.query(models.Question)
@@ -457,10 +467,20 @@ def approve_contribution(
     row.admin_note = body.note or None
     row.reviewed_by = admin_user
     row.reviewed_at = func.now()
+    # Only PENDING requests need their parsed questions. Keeping the blob on a
+    # decided row grows the table forever. Do not revert.
+    # NOTE: a JSON column serialises Python None to the JSON literal 'null',
+    # not SQL NULL, so clear it with an explicit UPDATE.
+    # A JSON bind processor turns Python None into the JSON literal 'null',
+    # so a Query.update() still stores text. Use literal SQL for a true NULL.
+    db.execute(
+        text("UPDATE contribution_requests SET payload = NULL WHERE id = :rid"),
+        {"rid": row.id},
+    )
     try:
         db.commit()
         app_cache.delete_prefix("q:")
-    except Exception:
+    except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail="Database commit failed")
 
@@ -470,6 +490,7 @@ def approve_contribution(
         "imported": imported,
         "skipped_duplicate": skipped_dup,
         "skipped_no_answer": skipped_no_answer,
+        "skipped_unusable": skipped_unusable,
     }
 
 
@@ -490,9 +511,26 @@ def reject_contribution(
     if row.status != "pending":
         raise HTTPException(status_code=409, detail=f"Already {row.status}")
 
+    # A rejection the contributor cannot understand is not a rejection. The UI
+    # enforced this, but the endpoint did not, so any API call produced a bare
+    # "rejected" with no explanation. Enforced server-side now.
+    note = (body.note or "").strip()
+    if not note:
+        raise HTTPException(status_code=400, detail="A reason is required to reject an upload.")
+
     row.status = "rejected"
-    row.admin_note = body.note or None
+    row.admin_note = note[:2000]
     row.reviewed_by = admin_user
     row.reviewed_at = func.now()
-    db.commit()
+    # A JSON bind processor turns Python None into the JSON literal 'null',
+    # so a Query.update() still stores text. Use literal SQL for a true NULL.
+    db.execute(
+        text("UPDATE contribution_requests SET payload = NULL WHERE id = :rid"),
+        {"rid": row.id},
+    )
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Database commit failed")
     return {"id": row.id, "status": "rejected"}

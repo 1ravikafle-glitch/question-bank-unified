@@ -58,18 +58,71 @@ def session_secret() -> bytes:
     return _secret
 
 
+def _password_epoch(username: str) -> Optional[int]:
+    """The user's current session-version counter, or None if unknown."""
+    try:
+        import database
+        import models
+
+        db = database.SessionLocal()
+        try:
+            row = (
+                db.query(models.User.sessions_valid_from)
+                .filter(models.User.username == username)
+                .first()
+            )
+        finally:
+            db.close()
+        return int(row[0]) if row is not None and row[0] is not None else None
+    except Exception:
+        return None
+
+
 def mint_session(username: str, is_admin: bool = False) -> Optional[str]:
+    """Mint a session token, stamped with the user's session version.
+
+    The "v" claim is the user's sessions_valid_from counter at mint time. A
+    password reset increments that counter, retiring every token carrying the
+    older value. Always stamp it (0 when never changed) so those tokens stay
+    revocable.
+    """
     return sso.mint_for(
         username,
         is_admin=is_admin,
         audience=SESSION_AUDIENCE,
         ttl=SESSION_TTL_SECONDS,
         secret=session_secret(),
+        extra={"v": _password_epoch(username) or 0},
     )
 
 
 def verify_session(token: str) -> Optional[dict]:
     return sso.verify_for(token, audience=SESSION_AUDIENCE, secret=session_secret())
+
+
+def _issued_before_password_change(username: str, payload: dict) -> bool:
+    """True when this token was minted before the user's last password change.
+
+    Session tokens are stateless, so a password reset has no other way to
+    revoke them. The user's sessions_valid_from counter is bumped on every
+    reset/change and copied into each token as "v"; a token whose "v" is behind
+    the current counter is retired.
+
+    A counter, not a timestamp: signing in and resetting within the same second
+    is the common case, and any `issued_at < now` comparison would leave that
+    stolen session alive -- exactly the session the reset must kill.
+
+    Returns False (do not block) when the lookup fails, because a transient DB
+    error must not lock everyone out.
+    """
+    try:
+        version = int(payload.get("v") or 0)
+    except (TypeError, ValueError):
+        return False
+    current = _password_epoch(username)
+    if current is None:
+        return False  # no counter: nothing to enforce against
+    return version < current
 
 
 def identity_from_header(authorization: Optional[str]) -> Tuple[Optional[str], bool]:
@@ -88,7 +141,10 @@ def identity_from_header(authorization: Optional[str]) -> Tuple[Optional[str], b
         return None, False
     if not payload:
         return None, False
-    return str(payload.get("u") or ""), bool(payload.get("a"))
+    username = str(payload.get("u") or "")
+    if _issued_before_password_change(username, payload):
+        return None, False
+    return username, bool(payload.get("a"))
 
 
 async def current_user(

@@ -42,7 +42,35 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(100), unique=True, nullable=False, index=True)
-    password = Column(String(100), nullable=False)
+    # Nullable: an account created through Google sign-in has no password.
+    # Local accounts carry a bcrypt hash; Google-only accounts carry the
+    # NO_PASSWORD sentinel so no code path can ever match an empty string.
+    password = Column(String(100), nullable=True)
+    # Google's stable account id (the token's "sub" claim). Set once, then
+    # trusted as the identity key so a renamed Google account still maps back.
+    google_sub = Column(String(64), nullable=True, index=True)
+    email = Column(String(255), nullable=True)
+    # Epoch seconds. Bumped on password reset/change; session tokens minted
+    # before this instant stop verifying, which is what makes a reset actually
+    # revoke every device.
+    sessions_valid_from = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PasswordResetToken(Base):
+    """One-shot password reset codes.
+
+    Only the SHA-256 of the code is stored, so a database leak does not hand an
+    attacker working reset links. Used_at makes every code single-use.
+    """
+
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_identifier = Column(String(100), nullable=False, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(Integer, nullable=False)
+    used_at = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

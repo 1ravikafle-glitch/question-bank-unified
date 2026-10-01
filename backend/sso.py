@@ -68,8 +68,14 @@ def mint_for(
     audience: str = AUDIENCE,
     ttl: int = TOKEN_TTL_SECONDS,
     secret: Optional[bytes] = None,
+    extra: Optional[dict] = None,
 ) -> Optional[str]:
-    """Mint a signed token with an explicit audience, TTL and secret."""
+    """Mint a signed token with an explicit audience, TTL and secret.
+
+    ``extra`` adds caller-chosen claims. The session layer uses it for the
+    password-epoch ("v") so a password reset can invalidate stateless tokens;
+    keys that would shadow the built-in claims are ignored.
+    """
     secret = secret if secret is not None else _secret()
     if secret is None or not username:
         return None
@@ -80,6 +86,10 @@ def mint_for(
         "iat": int(time.time()),
         "exp": int(time.time()) + ttl,
     }
+    if extra:
+        for k, v in extra.items():
+            if k not in payload:
+                payload[k] = v
     body = _b64e(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     sig = _b64e(hmac.new(secret, body.encode("ascii"), hashlib.sha256).digest())
     return f"{body}.{sig}"

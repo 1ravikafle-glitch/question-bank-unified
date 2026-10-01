@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Tuple
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import List
 import models
@@ -12,18 +12,25 @@ router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 
 class ToggleRequest(BaseModel):
     user_identifier: str
-    question_id: int
+    question_id: int = Field(..., ge=1, le=9223372036854775807)
 
 
-def _username(caller: Tuple[None, bool], supplied: str) -> str:
-    return caller[0] or (supplied or "anonymous")
+def _username(caller: Tuple[str, bool], supplied: str) -> str:
+    """Own data only.
+
+    This used to be `caller[0] or (supplied or "anonymous")`, and every route
+    below depended on session.current_user (which NEVER raises). An anonymous
+    caller could therefore read, write and DELETE any named user's bookmarks just by
+    putting their name in the path/body. Do not revert.
+    """
+    return caller[0]
 
 
 @router.get("/{user_identifier}")
 def list_bookmarks(
     user_identifier: str,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
     """Bookmarked questions, newest first, with total count."""
     user_identifier = _username(caller, user_identifier)
@@ -48,7 +55,7 @@ def list_bookmarks(
 def bookmark_ids(
     user_identifier: str,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
     """Lightweight id set for marking bookmarked state in lists."""
     user_identifier = _username(caller, user_identifier)
@@ -64,7 +71,7 @@ def bookmark_ids(
 def toggle_bookmark(
     payload: ToggleRequest,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
     user_identifier = _username(caller, payload.user_identifier)
     existing = (
@@ -121,7 +128,7 @@ def toggle_bookmark(
 def clear_bookmarks(
     user_identifier: str,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
     """Remove all bookmarks for a user (unbookmark-all)."""
     user_identifier = _username(caller, user_identifier)

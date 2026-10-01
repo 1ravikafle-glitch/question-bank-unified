@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Tuple
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional
 import models
@@ -12,19 +12,26 @@ router = APIRouter(prefix="/notes", tags=["notes"])
 
 class NoteUpsert(BaseModel):
     user_identifier: str
-    question_id: int
+    question_id: int = Field(..., ge=1, le=9223372036854775807)
     text: str = ""
 
 
-def _username(caller: Tuple[None, bool], supplied: str) -> str:
-    return caller[0] or (supplied or "anonymous")
+def _username(caller: Tuple[str, bool], supplied: str) -> str:
+    """Own data only.
+
+    This used to be `caller[0] or (supplied or "anonymous")`, and every route
+    below depended on session.current_user (which NEVER raises). An anonymous
+    caller could therefore read, write and DELETE any named user's notes just by
+    putting their name in the path/body. Do not revert.
+    """
+    return caller[0]
 
 
 @router.get("/{user_identifier}")
 def list_notes(
     user_identifier: str,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
     """All personal notes as {question_id: text} (empty text rows omitted)."""
     user_identifier = _username(caller, user_identifier)
@@ -43,7 +50,7 @@ def list_notes(
 def upsert_note(
     payload: NoteUpsert,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
     """Save (or clear, when text is empty) a personal note on a question."""
     user_identifier = _username(caller, payload.user_identifier)

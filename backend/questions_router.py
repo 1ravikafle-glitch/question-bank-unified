@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Annotated, List, Optional
 import models
 import database
 import schemas
@@ -32,11 +32,11 @@ def _normalize_options(questions):
 
 
 class QuestionIdsRequest(BaseModel):
-    question_ids: List[int]
+    question_ids: List[Annotated[int, Field(ge=1, le=9223372036854775807)]]
 
 
 class DeltaSyncRequest(BaseModel):
-    known_ids: List[int] = []
+    known_ids: List[Annotated[int, Field(ge=1, le=9223372036854775807)]] = []
     last_sync: Optional[str] = None
     limit: int = 500
 
@@ -183,7 +183,7 @@ def get_category_counts(db: Session = Depends(database.get_db)):
 
 
 @router.get("/{question_id}", response_model=schemas.Question)
-def get_question(question_id: int, db: Session = Depends(database.get_db)):
+def get_question(question_id: int = Path(..., ge=1, le=9223372036854775807), db: Session = Depends(database.get_db)):
     question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if question is None:
         raise HTTPException(status_code=404, detail="Question not found")

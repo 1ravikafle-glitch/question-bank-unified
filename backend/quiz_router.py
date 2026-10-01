@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Tuple
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Optional
 from datetime import datetime, timezone, timedelta
 import models
 import database
@@ -122,14 +122,18 @@ def _resolve_answer_key(selected: str, options: dict) -> str:
 def submit_quiz(
     submission: schemas.QuizSubmission,
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
     if not submission.answers:
         raise HTTPException(status_code=400, detail="No answers provided")
 
-    # A valid session token is authoritative; otherwise preserve the
-    # historical anonymous/client-supplied behavior.
-    username = caller[0] or (submission.username if submission.username else "anonymous")
+    # Session required. This used to be
+    # `caller[0] or (submission.username or "anonymous")` behind
+    # session.current_user (which never raises), so an ANONYMOUS caller could
+    # write progress rows, wrong-queue entries and an attempt for ANY named
+    # user by putting their name in the body. The app auto-registers on first
+    # login, so a real user always has a session. Do not revert.
+    username = caller[0]
     answers = _normalize_answers(submission.answers)
     # Clamp the penalty into a sane range; anything else is plain practice.
     try:
@@ -264,10 +268,14 @@ def submit_quiz(
 
 
 def _calc_stats(progress_rows, questions_by_id: Dict[int, models.Question]):
-    attempted_qids = {r.question_id for r in progress_rows}
-    attempted = len(attempted_qids)
+    # All three numbers describe the SAME population (one row per answer
+    # given). `attempted` used to be a DISTINCT-question count while
+    # `correct`/`accuracy` were row-based, so retaking questions produced
+    # "12 correct" next to "10 attempted", and the per-category parts summed
+    # to a different total than the headline. Do not revert.
+    attempted = len(progress_rows)
     correct = sum(1 for r in progress_rows if r.is_correct)
-    accuracy = int((correct / len(progress_rows) * 100)) if progress_rows else 0
+    accuracy = int((correct / attempted * 100)) if attempted else 0
 
     cat_stats: Dict[str, Dict[str, int]] = {}
     for r in progress_rows:
@@ -527,7 +535,7 @@ def get_wrong_queue(
 
 class ClearQueueRequest(BaseModel):
     user_identifier: str
-    question_ids: List[int]
+    question_ids: List[Annotated[int, Field(ge=1, le=9223372036854775807)]] = []
 
 
 @router.post("/wrong-queue/clear")

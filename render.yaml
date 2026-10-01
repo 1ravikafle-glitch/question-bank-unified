@@ -16,3 +16,24 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
+      # ── Optional sign-in options. Both are free; each stays OFF until set.
+      #
+      # Google Sign-In: create a Web OAuth client in Google Cloud Console
+      # (APIs & Services -> Credentials), paste the Client ID here. Do NOT put
+      # the client secret anywhere: the browser only ever sends an ID token
+      # and the backend verifies it against Google's public keys.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      # Password-reset email. A Gmail app password with an @gmail.com account
+      # allows 500 messages/day free. Unset => the reset link is written to the
+      # service log instead of emailed, so recovery still works.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
