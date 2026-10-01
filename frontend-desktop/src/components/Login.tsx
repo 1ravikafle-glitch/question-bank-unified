@@ -1,12 +1,14 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
-import { fetchQuestionsCount, fetchCategories, authLogin } from '../services/api';
+import { fetchQuestionsCount, fetchCategories, authLogin, authGoogle, authProviders } from '../services/api';
 import { ForestryLogo } from '@/components/ForestryLogo';
 import ThemeSegmented from '@/components/ThemeSegmented';
 import { useLang } from '@/context/LanguageContext';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
+import { RegisterView, ResetPasswordView } from '@/components/AuthViews';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -18,6 +20,9 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const { setUserId, setSessionToken } = useContext(AuthContext);
 
+  // 'login' | 'register' | 'forgot'
+  const [view, setView] = useState<'login' | 'register' | 'forgot'>('login');
+  const [googleOn, setGoogleOn] = useState(false);
   const [totalQuestions, setTotalQuestions] = useState<number | null>(null);
   const [totalCategories, setTotalCategories] = useState<number | null>(null);
 
@@ -35,7 +40,29 @@ const Login: React.FC = () => {
       }
     };
     loadStats();
+    authProviders()
+      .then((p) => setGoogleOn(!!p.google))
+      .catch(() => setGoogleOn(false));
   }, []);
+
+  const handleGoogle = useCallback(async (credential: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await authGoogle(credential);
+      setUserId(result.user_identifier);
+      setSessionToken(result.session_token || '');
+      try { localStorage.removeItem('password'); } catch { /* already gone */ }
+      toast.success(result.is_new ? `Welcome, ${result.user_identifier}!` : `Welcome back, ${result.user_identifier}!`);
+      navigate('/');
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Google sign-in failed.';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [setUserId, setSessionToken, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +158,11 @@ const Login: React.FC = () => {
         </p>
 
         {/* Form */}
+        {view === 'register' ? (
+          <RegisterView onDone={() => setView('login')} onSwitchToLogin={() => setView('login')} />
+        ) : view === 'forgot' ? (
+          <ResetPasswordView onDone={() => setView('login')} />
+        ) : (
         <form onSubmit={handleSubmit} aria-label="Login form">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
@@ -284,9 +316,42 @@ const Login: React.FC = () => {
             </motion.button>
           </div>
         </form>
+        )}
 
-        {/* No-registration hint */}
-        <p
+        {/* Google sign-in + account recovery, password form only */}
+        {view === 'login' && (
+          <>
+            {googleOn && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
+                  <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
+                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>or</span>
+                  <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
+                </div>
+                <GoogleSignInButton onCredential={handleGoogle} />
+              </>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => { setView('forgot'); setError(''); }}
+                style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Forgot password?
+              </button>
+              <button
+                type="button"
+                onClick={() => { setView('register'); setError(''); }}
+                style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.8125rem', color: 'hsl(var(--primary))', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Create account
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Sign-in hint, login view only (registration has its own copy) */}
+        {view === 'login' && <p
           style={{
             fontSize: '0.75rem',
             color: 'hsl(var(--muted-foreground))',
@@ -296,7 +361,7 @@ const Login: React.FC = () => {
           }}
         >
           {t('login.hint')}
-        </p>
+        </p>}
 
         {/* Appearance — Light / Dark / System */}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>

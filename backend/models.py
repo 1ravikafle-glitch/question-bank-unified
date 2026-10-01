@@ -54,6 +54,18 @@ class User(Base):
     # before this instant stop verifying, which is what makes a reset actually
     # revoke every device.
     sessions_valid_from = Column(Integer, nullable=True)
+    # Public member number, e.g. "FR-1042". Distinct from `username`: this is
+    # an identifier you can show someone or write on paper, and it never
+    # changes. Login accepts either one. Assigned at registration when the
+    # user leaves it blank. Do not treat it as a secret.
+    user_id = Column(String(20), nullable=True, unique=True, index=True)
+    # Manual registration NEVER verifies the address - by design. The address
+    # is only used later to deliver a password-reset code, and possession of an
+    # unverified address grants no access to an existing account because the
+    # code has to be read from the mailbox. Kept as a column so that a verified
+    # flow can be added later without a migration. Do not "fix" this by
+    # requiring verification; see AUDIT.md.
+    email_verified = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -70,6 +82,13 @@ class PasswordResetToken(Base):
     user_identifier = Column(String(100), nullable=False, index=True)
     token_hash = Column(String(64), unique=True, nullable=False, index=True)
     expires_at = Column(Integer, nullable=False)
+    # Short numeric/alpha code the user types, hashed the same way. Optional:
+    # rows with code_hash set are OTP challenges, rows without are the
+    # high-entropy reset token minted after a code is verified.
+    code_hash = Column(String(64), nullable=True, index=True)
+    # Failed code submissions. Hard-capped so a short code cannot be brute
+    # forced; the cap invalidates the challenge rather than just refusing.
+    attempts = Column(Integer, nullable=False, default=0, server_default="0")
     used_at = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

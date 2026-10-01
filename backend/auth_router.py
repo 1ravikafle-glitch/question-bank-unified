@@ -8,6 +8,7 @@ import os
 import secrets
 import sys
 import time
+import auth_flow
 import auth_migrations
 import database
 import models
@@ -20,6 +21,7 @@ import sso
 # Patch pre-existing databases before any request is served, so the first
 # Google sign-in on an old deployment does not hit a missing column.
 auth_migrations.ensure_user_columns()
+auth_migrations.ensure_reset_token_columns()
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -195,8 +197,12 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
                 session_token=session.mint_session(ADMIN_USERNAME, is_admin=True),
             )
 
-        # Regular user login
-        existing = db.query(models.User).filter(models.User.username == username).first()
+        # Regular user login. Accepts the username OR the member number, so a
+        # user never has to remember which one they registered with.
+        existing = (
+            db.query(models.User).filter(models.User.username == username).first()
+            or db.query(models.User).filter(models.User.user_id == username).first()
+        )
 
         if existing and existing.password == NO_PASSWORD:
             # Google-only account: signing in with a typed password is not a
@@ -220,22 +226,23 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
                 db.commit()
                 _bump_sessions(existing, db)
             _throttle_reset(_login_key(username))
+            # Report the canonical username even when they signed in with their
+            # member number, so the client stores one consistent identity.
+            name = existing.username
             return AuthResponse(
-                user_identifier=username,
+                user_identifier=name,
                 is_new=False,
-                sso_token=sso.mint(username),
-                session_token=session.mint_session(username),
+                sso_token=sso.mint(name),
+                session_token=session.mint_session(name),
             )
 
-        # New user — auto-create
-        new_user = models.User(username=username, password=hash_password(password))
-        db.add(new_user)
-        db.commit()
-        return AuthResponse(
-            user_identifier=username,
-            is_new=True,
-            sso_token=sso.mint(username),
-            session_token=session.mint_session(username),
+        # Unknown account. This used to silently CREATE one, which made
+        # /register meaningless and is how junk rows like
+        # "definitely_no_such_user_zzz" accumulated. Do not revert.
+        _throttle_fail(_login_key(username))
+        raise HTTPException(
+            status_code=401,
+            detail="No account with that username or member ID. Register first.",
         )
 
     except HTTPException:
@@ -617,3 +624,7 @@ def delete_user(username: str, db: Session = Depends(database.get_db), admin_use
         raise HTTPException(status_code=500, detail="Failed to delete user")
 
     return {"deleted": username}
+
+# Registration + OTP reset live in auth_flow (kept out of this file for
+# readability). Mounted on the same /auth prefix.
+router.include_router(auth_flow.router)

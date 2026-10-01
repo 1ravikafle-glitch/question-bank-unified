@@ -61,7 +61,7 @@ const STRINGS: Record<string, { en: string; ne: string }> = {
   'login.signin': { en: 'Sign in', ne: 'साइन इन' },
   'login.signing': { en: 'Signing in…', ne: 'साइन इन हुँदै…' },
   'login.appearance': { en: 'Appearance', ne: 'देखावट' },
-  'login.hint': { en: 'No registration needed. Enter any username & password to get started.', ne: 'दर्ता आवश्यक छैन। सुरु गर्न कुनै प्रयोगकर्ता नाम र पासवर्ड राख्नुहोस्।' },
+  'login.hint': { en: 'Sign in with your username, member ID, or Google.', ne: 'आफ्नो प्रयोगकर्ता नाम, सदस्य ID, वा Google मार्फत साइन इन गर्नुहोस्।' },
   // setup
   'setup.questions': { en: 'Questions', ne: 'प्रश्नहरू' },
   'setup.category': { en: 'Category', ne: 'श्रेणी' },

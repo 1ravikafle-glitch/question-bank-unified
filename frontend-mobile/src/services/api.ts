@@ -568,3 +568,70 @@ export const saveNote = async (
     return { saved: !!clean, cleared: !clean };
   }
 };
+
+// ── Registration + OTP password reset ────────────────────────────────────────
+// The email address is stored but never verified: possession of an unverified
+// address grants no account access, because a reset code has to be read out of
+// the mailbox. It exists only to deliver that code.
+
+export const authRegister = async (body: {
+  username: string;
+  password: string;
+  gmail: string;
+  user_id?: string;
+}) => {
+  const response = await api.post<{ ok: boolean; user_id: string; message: string }>(
+    '/auth/register',
+    body
+  );
+  return response.data;
+};
+
+/** Ask for a reset code. The reply is deliberately the same whether or not the
+ *  account exists, so it cannot be used to discover who has one. */
+export const authForgotPasswordOtp = async (identifier: string) => {
+  const response = await api.post<{ message: string; email_delivery: boolean }>(
+    '/auth/forgot-password-otp',
+    { identifier }
+  );
+  return response.data;
+};
+
+/** Exchange a correct code for a high-entropy reset token. Only that token can
+ *  change the password, so a short typed code is never what authorises it. */
+export const authVerifyResetCode = async (identifier: string, code: string) => {
+  const response = await api.post<{ reset_token: string; expires_in_minutes: number }>(
+    '/auth/verify-reset-code',
+    { identifier, code }
+  );
+  return response.data;
+};
+
+export const authResetPasswordWithToken = async (resetToken: string, newPassword: string) => {
+  const response = await api.post<{ ok: boolean; message: string }>(
+    '/auth/reset-password-with-token',
+    { reset_token: resetToken, new_password: newPassword }
+  );
+  return response.data;
+};
+
+/** Which sign-in methods this deployment has enabled. */
+export const authProviders = async () => {
+  const response = await api.get<{
+    password: boolean;
+    google: boolean;
+    email_delivery: boolean;
+  }>('/auth/providers');
+  return response.data;
+};
+
+/** Exchange a Google ID token for a session. */
+export const authGoogle = async (credential: string) => {
+  const response = await api.post<{
+    user_identifier: string;
+    is_new: boolean;
+    sso_token?: string | null;
+    session_token?: string | null;
+  }>('/auth/google', { credential });
+  return response.data;
+};
