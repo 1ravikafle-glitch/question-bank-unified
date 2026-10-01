@@ -73,9 +73,19 @@ async def parse_upload(
     files: List[UploadFile] = File(...),
     category: Optional[str] = Form(None),
     db: Session = Depends(database.get_db),
-    caller: Tuple[None, bool] = Depends(session.current_user),
+    caller: Tuple[str, bool] = Depends(session.require_user),
 ):
-    """Parse-only preview: counts + first questions, nothing saved."""
+    """Parse-only preview: counts + first questions, nothing saved.
+
+    Requires a session. This depended on session.current_user (which never
+    raises), so ANY anonymous caller could make the server do unbounded
+    parsing work — 30 files took 5.7s. Do not revert.
+    """
+    if len(files) > MAX_FILES_PER_REQUEST:
+        raise HTTPException(
+            status_code=400,
+            detail=f"At most {MAX_FILES_PER_REQUEST} files per request (got {len(files)}).",
+        )
     out = []
     for upload in files:
         raw = await upload.read()

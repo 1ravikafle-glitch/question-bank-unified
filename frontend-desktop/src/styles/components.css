@@ -872,6 +872,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .quiz-qbox.quiz-enter-left,
+  .quiz-preview-enter,
   .quiz-qbox.quiz-enter-right,
   .quiz-qbox.is-exiting-left,
   .quiz-qbox.is-exiting-right,

@@ -60,6 +60,7 @@ const STRINGS: Record<string, { en: string; ne: string }> = {
   'login.password': { en: 'Password', ne: 'पासवर्ड' },
   'login.signin': { en: 'Sign in', ne: 'साइन इन' },
   'login.signing': { en: 'Signing in…', ne: 'साइन इन हुँदै…' },
+  'login.appearance': { en: 'Appearance', ne: 'देखावट' },
   'login.hint': { en: 'No registration needed. Enter any username & password to get started.', ne: 'दर्ता आवश्यक छैन। सुरु गर्न कुनै प्रयोगकर्ता नाम र पासवर्ड राख्नुहोस्।' },
   // setup
   'setup.questions': { en: 'Questions', ne: 'प्रश्नहरू' },

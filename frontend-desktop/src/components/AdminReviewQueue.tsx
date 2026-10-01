@@ -257,10 +257,14 @@ const AdminReviewQueue: React.FC = () => {
                 whileTap={busy ? undefined : { scale: 0.97 }}
                 style={{
                   fontSize: '0.78rem',
+                  fontWeight: 600,
                   padding: '0.45rem 0.8rem',
                   opacity: busy ? 0.6 : 1,
+                  // 3.65:1 failed AA at this size; --destructive is a fill
+                  // colour, not a text colour. Keep the destructive border for
+                  // the affordance and use readable foreground text.
                   borderColor: 'hsl(var(--destructive))',
-                  color: 'hsl(var(--destructive))',
+                  color: 'hsl(var(--foreground))',
                 }}
               >
                 Reject

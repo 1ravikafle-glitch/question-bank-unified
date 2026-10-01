@@ -1186,11 +1186,15 @@ const QuizTaker: React.FC = () => {
     });
     if (Object.keys(answersPayload).length < MIN_QUESTIONS_FOR_HISTORY) return;
     try {
-      await submitQuiz(answersPayload, userId || 'anonymous');
+      // Exam papers must keep their penalty. This used to omit
+      // examConfig.negative, so the server default (0.0) applied and leaving a
+      // -0.2 mock exam mid-way banked it as an UNPENALISED attempt — the
+      // paper's own scoring rule silently changed on exit. Do not revert.
+      await submitQuiz(answersPayload, userId || 'anonymous', examConfig?.negative ?? 0);
     } catch {
       /* best effort — offline attempts are queued inside submitQuiz */
     }
-  }, [questions, selected, userId]);
+  }, [questions, selected, userId, examConfig]);
 
   const confirmExit = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
@@ -2006,7 +2010,7 @@ const QuizTaker: React.FC = () => {
                 cursor: 'pointer',
               }}
             >
-              View results
+              Submit
             </button>
           </div>
         )}

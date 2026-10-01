@@ -170,7 +170,7 @@ const ProgressTracker: React.FC = () => {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', color: 'hsl(var(--foreground))' }} className="text-5xl font-bold">Your Progress</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', color: 'hsl(var(--foreground))' }} className="text-2xl font-bold">Your Progress</h1>
           <p style={{ color: 'hsl(var(--muted-foreground))', marginTop: '0.5rem' }}>See how your practice is improving over time.</p>
         </div>
         <div className="card" style={{ padding: '5rem 2rem', textAlign: 'center' }}>
@@ -196,7 +196,7 @@ const ProgressTracker: React.FC = () => {
     >
       {/* Header */}
       <div>
-        <h1 style={{ fontFamily: 'var(--font-display)', color: 'hsl(var(--foreground))' }} className="text-5xl font-bold">Your Progress</h1>
+        <h1 style={{ fontFamily: 'var(--font-display)', color: 'hsl(var(--foreground))' }} className="text-2xl font-bold">Your Progress</h1>
         <p style={{ color: 'hsl(var(--muted-foreground))', marginTop: '0.5rem' }}>See how your practice is improving over time.</p>
       </div>
 

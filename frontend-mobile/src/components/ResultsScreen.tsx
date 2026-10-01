@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { type QuizResult } from '@/shared/types';
+import { type QuizResult, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useLang } from '@/context/LanguageContext';
 import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue } from '../services/api';
@@ -103,7 +103,8 @@ const ResultsScreen: React.FC = () => {
   }, [highlightAttemptId, loadingHistory, pastAttempts]);
 
   const stats = useMemo(() => {
-    const all = pastAttempts;
+    // Same display-level filter desktop applies (see shared/types.ts).
+    const all = pastAttempts.filter((a) => (a.total_questions || 0) >= MIN_QUESTIONS_FOR_HISTORY);
     const total = all.length;
     const totalCorrect = all.reduce((sum, a) => sum + a.score, 0);
     const totalQuestions = all.reduce((sum, a) => sum + a.total_questions, 0);

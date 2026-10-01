@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { MotionConfig } from 'framer-motion';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 
 // Route-level code splitting: each screen ships in its own chunk and loads
 // on demand, so the first paint only downloads the auth shell. Layout
@@ -95,6 +95,7 @@ function AppShell() {
         Skip to main content
       </a>
 
+      <SessionExpiryListener />
       <Toaster
         position="bottom-center"
         containerStyle={{ bottom: 76 }}
@@ -228,3 +229,15 @@ function App() {
 }
 
 export default App;
+
+/* A 401/403 from the API means the stored session is dead. The interceptor in
+   services/api clears it and emits this event; we tell the user instead of
+   leaving them on a silently empty page. */
+function SessionExpiryListener() {
+  useEffect(() => {
+    const onExpired = () => toast('Your session expired. Please sign in again.', { duration: 4000 });
+    window.addEventListener('fpsc-session-expired', onExpired);
+    return () => window.removeEventListener('fpsc-session-expired', onExpired);
+  }, []);
+  return null;
+}

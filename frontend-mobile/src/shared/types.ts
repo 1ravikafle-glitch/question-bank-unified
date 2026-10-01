@@ -82,3 +82,12 @@ export interface QuizParams {
   category?: string;
   difficulty?: string;
 }
+
+/**
+ * Attempts with fewer questions never surface in Results history or
+ * Progress activity (too small to mean anything). This constant previously
+ * existed ONLY in the desktop app, so mobile showed sub-5-question attempts
+ * that desktop hid - the two apps disagreed about what an attempt is.
+ * Mirrors backend MIN_QUESTIONS_FOR_TRACKING. Do not revert.
+ */
+export const MIN_QUESTIONS_FOR_HISTORY = 5;

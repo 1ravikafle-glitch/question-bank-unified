@@ -28,6 +28,32 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// An expired or tampered token used to 401 silently: the app rendered a normal
+// page with zeroed stats and never cleared the stale identity, so the user saw
+// an empty dashboard with no explanation. Clear the dead session and say so.
+api.interceptors.response.use(
+  (r) => r,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401 || status === 403) {
+      try {
+        const hadToken = !!localStorage.getItem(SESSION_TOKEN_KEY);
+        localStorage.removeItem(SESSION_TOKEN_KEY);
+        localStorage.removeItem('userId');
+        if (hadToken && window.location.pathname !== '/login') {
+          // Let the SPA settle first so we do not fight the router.
+          window.setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('fpsc-session-expired'));
+          }, 0);
+        }
+      } catch {
+        /* private mode */
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ── Tiny stale-while-revalidate cache for hot read-only metadata ──
 // First view downloads from the network; every later view (or revisit)
 // renders instantly from memory while a background revalidate refreshes it.

@@ -2153,7 +2153,7 @@ const QuizTaker: React.FC = () => {
                 cursor: 'pointer',
               }}
             >
-              View results
+              Submit
             </button>
           </div>
         )}

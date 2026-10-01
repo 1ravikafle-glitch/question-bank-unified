@@ -50,6 +50,11 @@ const routeTitles: Record<string, ReactNode> = {
       About
     </span>
   ),
+  '/mock': <span>Mock Exam</span>,
+  '/notes': <span>My Notes</span>,
+  '/bookmarks': <span>Bookmarks</span>,
+  '/settings': <span>Settings</span>,
+  '/contribute': <span>Contribute</span>,
 };
 
 const prefersReducedMotion = () =>

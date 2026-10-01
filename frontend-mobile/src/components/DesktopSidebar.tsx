@@ -110,7 +110,10 @@ const ChevronUpIcon = () => (
   </svg>
 );
 
-const navSections = [
+const navSections: {
+  section: string;
+  items: { to: string; label: string; end: boolean; icon: React.ReactNode; adminOnly?: boolean }[];
+}[] = [
   {
     section: 'LEARN',
     items: [
@@ -125,6 +128,14 @@ const navSections = [
     items: [
       { to: '/results', label: 'Results', end: false, icon: <BarChartIcon /> },
       { to: '/progress', label: 'Progress', end: false, icon: <TrendingUpIcon /> },
+    ],
+  },
+  {
+    // Mobile had an /admin ROUTE but no nav link, so the contributor review
+    // queue could never be opened here. Admin-gated, same as desktop.
+    section: 'ADMIN',
+    items: [
+      { to: '/admin', label: 'Admin', end: false, icon: <UploadIcon />, adminOnly: true },
     ],
   },
 ];
@@ -265,7 +276,7 @@ const DesktopSidebar: React.FC = () => {
               initial="initial"
               animate="animate"
             >
-              {section.items.map((item) => (
+              {section.items.filter((i) => !i.adminOnly || isAdmin(userId)).map((item) => (
                 <motion.div key={item.to} variants={navItemVariants}>
                   <NavLink
                     to={item.to}
