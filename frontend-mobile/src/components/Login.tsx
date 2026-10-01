@@ -84,12 +84,7 @@ const Login: React.FC = () => {
       setSessionToken(result.session_token || '');
       try { localStorage.removeItem('password'); } catch { /* already gone */ }
 
-      if (result.is_new) {
-        toast.success(`Welcome! New account created for "${result.user_identifier}"`);
-      } else {
-        toast.success(`Welcome back, ${result.user_identifier}!`);
-      }
-
+      toast.success(`Welcome back, ${result.user_identifier}!`);
       navigate('/');
     } catch (err: any) {
       const msg =
@@ -114,7 +109,7 @@ const Login: React.FC = () => {
         justifyContent: 'center',
         padding: '16px',
         background:
-          'radial-gradient(circle at 50% 40%, hsl(142 71% 45% / 0.06), transparent 70%), hsl(var(--background))',
+          'radial-gradient(circle at 50% 40%, hsl(var(--primary) / 0.06), transparent 70%), hsl(var(--background))',
       }}
     >
       {/* CSS animation instead of framer-motion: the login screen is the

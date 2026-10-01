@@ -30,8 +30,8 @@ const NoteButton: React.FC<NoteButtonProps> = ({ hasNote, onOpen, label }) => (
       flexShrink: 0,
       fontSize: '1rem',
       lineHeight: 1,
-      color: hasNote ? 'hsl(210 90% 50%)' : 'hsl(var(--muted-foreground) / 0.55)',
-      background: hasNote ? 'hsl(210 90% 50% / 0.14)' : 'transparent',
+      color: hasNote ? 'hsl(var(--info))' : 'hsl(var(--muted-foreground) / 0.55)',
+      background: hasNote ? 'hsl(var(--info) / 0.14)' : 'transparent',
       transition: 'background-color 150ms ease, color 150ms ease, transform 100ms ease-out',
     }}
     onMouseEnter={(e) => {

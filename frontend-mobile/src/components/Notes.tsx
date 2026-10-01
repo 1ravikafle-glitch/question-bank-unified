@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchNotes, fetchQuestionsByIds } from '../services/api';
+import { fetchNotes, fetchQuestionsByIds, saveNote } from '../services/api';
 import { sortCategories } from '@/utils/categorySort';
 import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
@@ -8,6 +8,7 @@ import { useSfx } from '@/hooks/useSfx';
 import { motion } from 'framer-motion';
 import { useLang } from '@/context/LanguageContext';
 import NoteEditor from './NoteEditor';
+import toast from 'react-hot-toast';
 
 /* Personal notes: every noted question with its note, editable inline. */
 const Notes: React.FC = () => {
@@ -20,6 +21,7 @@ const Notes: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [catFilter, setCatFilter] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
 
   const cats = sortCategories([...new Set(questions.map((q) => q.category).filter((c): c is string => Boolean(c)))]);
   const visible = catFilter ? questions.filter((q) => q.category === catFilter) : questions;
@@ -63,6 +65,41 @@ const Notes: React.FC = () => {
     []
   );
 
+  const handleDeleteNote = useCallback(
+    async (qid: number) => {
+      if (!userId) return;
+      try {
+        await saveNote(userId, qid, '');
+        setNotes((prev) => {
+          const next = { ...prev };
+          delete next[qid];
+          return next;
+        });
+        setQuestions((prev) => prev.filter((q) => q.id !== qid));
+        toast.success('Note removed', { duration: 1500 });
+      } catch {
+        toast.error('Could not remove note');
+      }
+      setEditingId(null);
+    },
+    [userId]
+  );
+
+  const handleDeleteAll = useCallback(async () => {
+    if (!userId) return;
+    const ids = Object.keys(notes).map(Number);
+    if (ids.length === 0) return;
+    try {
+      await Promise.all(ids.map((qid) => saveNote(userId, qid, '')));
+      setNotes({});
+      setQuestions([]);
+      toast.success('All notes cleared', { duration: 1500 });
+      setShowDeleteAll(false);
+    } catch {
+      toast.error('Could not clear all notes');
+    }
+  }, [userId, notes]);
+
   const practiceAll = useCallback(() => {
     const list = visible;
     if (list.length === 0) return;
@@ -102,14 +139,25 @@ const Notes: React.FC = () => {
           </p>
         </div>
         {questions.length > 0 && (
-          <motion.button
-            onClick={practiceAll}
-            className="btn btn-primary"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            Practice{catFilter ? ` ${catFilter}` : ' all'} ({num(visible.length)})
-          </motion.button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <motion.button
+              onClick={practiceAll}
+              className="btn btn-primary"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              Practice{catFilter ? ` ${catFilter}` : ' all'} ({num(visible.length)})
+            </motion.button>
+            <button
+              type="button"
+              onClick={() => setShowDeleteAll(true)}
+              className="btn btn-sm btn-ghost"
+              style={{ color: 'hsl(var(--destructive))', borderColor: 'hsl(var(--destructive))' }}
+              title="Delete all notes"
+            >
+              🗑️ Clear all
+            </button>
+          </div>
         )}
       </div>
 
@@ -155,6 +203,18 @@ const Notes: React.FC = () => {
               >
                 {editingId === q.id ? 'Close' : notes[q.id] ? 'Edit note' : 'Add note'}
               </button>
+              {notes[q.id] && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => handleDeleteNote(q.id)}
+                  style={{ color: 'hsl(var(--destructive))', borderColor: 'hsl(var(--destructive))' }}
+                  title="Delete this note"
+                  aria-label="Delete note"
+                >
+                  🗑️
+                </button>
+              )}
               <button
                 type="button"
                 className="btn btn-sm btn-outline"
@@ -170,7 +230,7 @@ const Notes: React.FC = () => {
           {notes[q.id] && editingId !== q.id && (
             <p style={{
               fontSize: '0.8125rem', lineHeight: 1.6, color: 'hsl(var(--foreground))',
-              background: 'hsl(210 90% 50% / 0.07)', borderLeft: '3px solid hsl(210 90% 50%)',
+              background: 'hsl(var(--info) / 0.07)', borderLeft: '3px solid hsl(var(--info))',
               borderRadius: '0 8px 8px 0', padding: '0.5rem 0.75rem', margin: 0,
               whiteSpace: 'pre-wrap',
             }}>
@@ -188,6 +248,51 @@ const Notes: React.FC = () => {
           )}
         </div>
       ))}
+      {showDeleteAll && questions.length > 0 && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.5)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => setShowDeleteAll(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+              background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))',
+              borderRadius: 16, padding: '1.5rem', maxWidth: 400, width: '90%',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.125rem', fontWeight: 600, color: 'hsl(var(--foreground))' }}>
+              Clear all notes?
+            </h3>
+            <p style={{ margin: '0 0 1.25rem', fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
+              This will delete all {questions.length} note{questions.length === 1 ? '' : 's'} permanently. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setShowDeleteAll(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ background: 'hsl(var(--destructive))', borderColor: 'hsl(var(--destructive))' }}
+                onClick={handleDeleteAll}
+              >
+                Delete all
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 };

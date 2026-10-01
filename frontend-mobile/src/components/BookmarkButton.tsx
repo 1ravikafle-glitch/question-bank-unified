@@ -30,8 +30,8 @@ const BookmarkButton: React.FC<BookmarkButtonProps> = ({ marked, onToggle, label
       flexShrink: 0,
       fontSize: '1rem',
       lineHeight: 1,
-      color: marked ? 'hsl(38 92% 45%)' : 'hsl(var(--muted-foreground) / 0.55)',
-      background: marked ? 'hsl(38 92% 50% / 0.14)' : 'transparent',
+      color: marked ? 'hsl(var(--bookmark))' : 'hsl(var(--muted-foreground) / 0.55)',
+      background: marked ? 'hsl(var(--bookmark) / 0.14)' : 'transparent',
       transition: 'background-color 150ms ease, color 150ms ease, transform 100ms ease-out',
     }}
     onMouseEnter={(e) => {

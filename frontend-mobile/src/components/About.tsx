@@ -61,10 +61,113 @@ const features = [
 ];
 
 const steps = [
-  { step: '1', title: 'Sign in', desc: 'Enter any username and password. Your account is created instantly.' },
+  { step: '1', title: 'Create account', desc: 'Pick a username and password once. Sign-in never creates accounts — it only opens ones that already exist.' },
   { step: '2', title: 'Practice', desc: 'Take timed quizzes filtered by category with a 2-minute timer.' },
   { step: '3', title: 'Review', desc: 'See instant feedback. Wrong questions go to your re-practice queue.' },
   { step: '4', title: 'Improve', desc: 'Track weekly and lifetime progress. Re-practice past mistakes.' },
+];
+
+/* The full user guide. Every entry is a real screen: `where` names where the
+   control lives so the guide stays navigable when the sidebar is collapsed. */
+const guideSections: { title: string; icon: string; items: { where: string; what: string }[] }[] = [
+  {
+    title: 'Study modes — what each one is for',
+    icon: '🎯',
+    items: [
+      {
+        where: 'Practice',
+        what: 'Short, low-pressure drilling. Pick categories, a question count and a 2-minute countdown per set. Answers are marked as you go, so you learn the topic instead of just being scored.',
+      },
+      {
+        where: 'Mock Exam',
+        what: 'Full exam simulation: the whole paper at once, one shared wall-clock deadline (shown at the top and refreshed whenever you switch tabs), negative marking, and a review-your-answers screen before you submit. This is what you use to rehearse the real test.',
+      },
+      {
+        where: 'Questions',
+        what: 'The full question bank, browsable without a timer. Open any question to read its explanation, bookmark it, or attach a note.',
+      },
+      {
+        where: 'Wrong Questions',
+        what: 'Your personal re-practice queue. Everything you have answered incorrectly lands here automatically — clearing it means you have genuinely mastered those questions.',
+      },
+    ],
+  },
+  {
+    title: 'Review tools — how to actually use them',
+    icon: '🔁',
+    items: [
+      {
+        where: 'Results',
+        what: 'Every past attempt, with the score broken down (correct, wrong, skipped, and the exact penalty formula). Reopen any attempt to see each question, or delete an attempt to clear it from your history.',
+      },
+      {
+        where: 'Bookmarks',
+        what: 'Star a question anywhere — the paper, the bank, or a result — and it is kept here. The sidebar shows a live count so you can see how many you have saved.',
+      },
+      {
+        where: 'My Notes',
+        what: 'Write your own explanation next to any question. Notes and bookmarks are independent: keep a question without a note, or a note without bookmarking it. Delete a single note or clear them all from this page. The sidebar shows a live count here too.',
+      },
+      {
+        where: 'Progress',
+        what: 'Weekly and lifetime accuracy, category strengths, and where you are trending. Use this to decide which categories to practise next.',
+      },
+    ],
+  },
+  {
+    title: 'Answering — what the controls do',
+    icon: '✍️',
+    items: [
+      {
+        where: 'Mock exam → the paper',
+        what: 'Tap an option to select it; tapping a different one replaces your choice — a question never holds two answers. Hovering a question lights up its own A/B/C/D bubbles in the answer sheet, so you can answer from either side. Your answers are marked immediately.',
+      },
+      {
+        where: 'Mock exam → answer sheet',
+        what: 'A compact A/B/C/D grid for every question. Clicking a number jumps you to that question; clicking a letter answers it. Colours show answered, unanswered, flagged and current.',
+      },
+      {
+        where: 'Mock exam → review before submit',
+        what: 'The exam lets you review and change any answer first. Nothing is scored until you press submit.',
+      },
+    ],
+  },
+  {
+    title: 'Account & settings',
+    icon: '⚙️',
+    items: [
+      {
+        where: 'Create account (sign-in screen)',
+        what: 'Username, password, and optionally an email. The email is optional — you can sign up with none and add one later.',
+      },
+      {
+        where: 'Settings → Email',
+        what: 'Add, change or clear the email on your account at any time. Password-reset links go there, so adding one is worth doing.',
+      },
+      {
+        where: 'Settings',
+        what: 'Change your password, toggle sound and motion, and switch language. On mobile the panel slides up from the bottom and can be dismissed with the ✕ or by tapping outside it.',
+      },
+      {
+        where: 'Offline',
+        what: 'Bookmarks, notes and answers made without a connection are queued on your device and sync automatically the next time you are online.',
+      },
+    ],
+  },
+  {
+    title: 'Contributing — past question papers',
+    icon: '📤',
+    items: [
+      {
+        where: 'Past Papers',
+        what: 'A public library of every approved submission. Open one to read it in the browser, or download it as a DOCX. No account is needed to read or download.',
+      },
+      {
+        where: 'Past Papers → Contribute',
+        what: 'Upload your own PDF or DOCX. Say whether it is a complete past question paper or a loose set of questions — both go through exactly the same admin review before anything reaches the question bank. You can keep up to five uploads waiting for review, and any rejection tells you why.',
+      },
+    ],
+  },
 ];
 
 const whatWeDo = [
@@ -99,13 +202,16 @@ const About: React.FC = () => {
       animate="animate"
     >
       {/* ── Hero ─────────────────────────────────────────────── */}
+      {/* Hero banner is a fixed dark surface by design: it carries its own
+          light text and white-alpha glass cards, so it is the one block that
+          intentionally does not follow --background. */}
       <section
         className="rounded-2xl overflow-hidden"
         style={{ background: 'linear-gradient(135deg, hsl(160 30% 14%), hsl(142 35% 18%))' }}
       >
         <div className="relative" style={{ padding: '1.75rem' }}>
           <div className="absolute top-0 right-0 w-72 h-72 -translate-y-1/3 translate-x-1/4 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(var(--moss-600) / 0.10), transparent 70%)' }} aria-hidden="true" />
-          <div className="absolute bottom-0 left-0 w-56 h-56 translate-y-1/3 -translate-x-1/4 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(142 40% 40% / 0.08), transparent 70%)' }} aria-hidden="true" />
+          <div className="absolute bottom-0 left-0 w-56 h-56 translate-y-1/3 -translate-x-1/4 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(var(--primary) / 0.08), transparent 70%)' }} aria-hidden="true" />
 
           <div className="about-hero">
             <div className="text-center">
@@ -315,6 +421,71 @@ const About: React.FC = () => {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Full guide ──────────────────────────────────────── */}
+      <section>
+        <Card>
+          <CardContent style={{ padding: '1.5rem' }}>
+            <h2
+              className="text-xl font-semibold text-foreground mb-1 text-center"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              How to use this app
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6 text-center leading-relaxed">
+              A complete walkthrough of every mode, what it is for, and where its controls live.
+            </p>
+
+            <motion.div
+              className="flex flex-col gap-5"
+              variants={prefersReducedMotion() ? undefined : staggerContainer}
+              initial="initial"
+              animate="animate"
+            >
+              {guideSections.map((section) => (
+                <div
+                  key={section.title}
+                  className="rounded-xl border"
+                  style={{ background: 'hsl(var(--muted))', borderColor: 'hsl(var(--border))', padding: '1rem 1.1rem' }}
+                >
+                  <h3
+                    className="text-sm font-bold text-foreground mb-3 flex items-center gap-2"
+                    style={{ fontFamily: 'var(--font-display)' }}
+                  >
+                    <span aria-hidden="true">{section.icon}</span>
+                    {section.title}
+                  </h3>
+
+                  <dl className="flex flex-col gap-2.5">
+                    {section.items.map((item) => (
+                      <motion.div
+                        key={item.where}
+                        variants={prefersReducedMotion() ? undefined : fadeUp}
+                        className="flex flex-col gap-0.5 sm:flex-row sm:gap-3"
+                      >
+                        <dt
+                          className="text-xs font-semibold text-foreground shrink-0 sm:w-48"
+                          style={{ lineHeight: 1.5 }}
+                        >
+                          {item.where}
+                        </dt>
+                        <dd className="text-[0.8rem] text-muted-foreground leading-relaxed m-0">
+                          {item.what}
+                        </dd>
+                      </motion.div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+            </motion.div>
+
+            <p className="text-xs text-muted-foreground text-center mt-5 leading-relaxed">
+              Everything above works the same on desktop and mobile. Only the navigation differs:
+              the sidebar on desktop, the bottom bar and menu on mobile.
+            </p>
           </CardContent>
         </Card>
       </section>

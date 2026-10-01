@@ -250,6 +250,10 @@ class ContributionRequest(Base):
     with_answer = Column(Integer, nullable=False, default=0)
     # Parsed questions, held until approved.
     payload = Column(JSONType)
+    # What the contributor said this file is: "past_paper" (a complete past
+    # question paper) or "questions" (a loose set of MCQs). Presentation only —
+    # admin review is identical for both. NULL on rows predating the column.
+    kind = Column(String(20), nullable=True)
     # Shown to the contributor when status == 'rejected'.
     admin_note = Column(Text, nullable=True)
     reviewed_by = Column(String(100), nullable=True)

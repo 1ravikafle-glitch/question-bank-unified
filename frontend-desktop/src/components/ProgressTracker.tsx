@@ -269,7 +269,7 @@ const ProgressTracker: React.FC = () => {
               <span className="stat-tile-label">Correct</span>
             </motion.div>
             <motion.div variants={staggerItem} className="stat-tile">
-              <span className="stat-tile-value" style={{ color: 'hsl(0 84% 60%)' }}>{num(currentAttempted - currentCorrect)}</span>
+              <span className="stat-tile-value" style={{ color: 'hsl(var(--destructive))' }}>{num(currentAttempted - currentCorrect)}</span>
               <span className="stat-tile-label">Wrong</span>
             </motion.div>
           </motion.div>

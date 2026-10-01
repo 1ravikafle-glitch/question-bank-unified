@@ -55,20 +55,38 @@ def upsert_note(
     """Save (or clear, when text is empty) a personal note on a question."""
     user_identifier = _username(caller, payload.user_identifier)
     text = (payload.text or "").strip()
-    try:
-        row = (
-            db.query(models.QuestionNote)
-            .filter(
-                models.QuestionNote.user_identifier == user_identifier,
-                models.QuestionNote.question_id == payload.question_id,
-            )
-            .first()
+    # Clearing is allowed for an already-stored note even if the question was
+    # since deleted - otherwise the user could never get rid of the orphan.
+    row = (
+        db.query(models.QuestionNote)
+        .filter(
+            models.QuestionNote.user_identifier == user_identifier,
+            models.QuestionNote.question_id == payload.question_id,
         )
-        if not text:
-            if row:
+        .first()
+    )
+    if not text:
+        if row:
+            try:
                 db.delete(row)
-            db.commit()
-            return {"saved": False, "cleared": True}
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise HTTPException(status_code=500, detail="Failed to clear note")
+        return {"saved": False, "cleared": True}
+
+    # Writing a note for a question that does not exist creates data nothing
+    # can ever display or attach to, and it stays in the user's note count
+    # forever. Mirrors the 404 that /bookmarks/toggle already returns.
+    question_exists = (
+        db.query(models.Question.id)
+        .filter(models.Question.id == payload.question_id)
+        .first()
+    )
+    if not question_exists:
+        raise HTTPException(status_code=404, detail="Question not found")
+
+    try:
         if row:
             row.text = text
         else:

@@ -338,7 +338,8 @@ def get_user_progress(
 
     recent_attempts = db.query(models.QuizAttempt).filter(
         models.QuizAttempt.user_identifier == user_identifier
-    ).order_by(models.QuizAttempt.completed_at.desc()).limit(10).all()
+    # id tie-break avoids 1-second-resolution ties on rapid attempts.
+    ).order_by(models.QuizAttempt.completed_at.desc(), models.QuizAttempt.id.desc()).limit(10).all()
 
     result = {
         "total_questions": total_questions,
@@ -503,6 +504,32 @@ def get_attempt_detail(
         "completed_at": attempt.completed_at.isoformat() if attempt.completed_at else None,
         "analysis": analysis,
     }
+
+
+@router.delete("/attempts/{attempt_id}")
+def delete_attempt(
+    attempt_id: int,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_user),
+):
+    """Delete one of the caller's own quiz attempts.
+
+    Only the attempt row is removed. Per-question progress rows are left
+    alone: they are the lifetime accuracy record, and deleting one attempt
+    should not rewrite the user's history for questions answered elsewhere.
+    """
+    attempt = db.query(models.QuizAttempt).filter(models.QuizAttempt.id == attempt_id).first()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+    if caller[0] != attempt.user_identifier:
+        raise HTTPException(status_code=403, detail="Not your attempt")
+
+    db.delete(attempt)
+    db.commit()
+    # The cached progress payload embeds recent_attempts, so it must be dropped
+    # or the deleted attempt keeps showing until the TTL expires.
+    _progress_drop(caller[0])
+    return {"deleted": attempt_id}
 
 
 @router.get("/wrong-queue/{user_identifier}")

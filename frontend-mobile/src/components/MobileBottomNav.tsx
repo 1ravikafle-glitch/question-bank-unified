@@ -5,6 +5,8 @@ import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useLang } from '@/context/LanguageContext';
 import { useSound } from '@/context/SoundContext';
 import { gisHref } from '@/components/DesktopSidebar';
+import { authMe, authUpdateEmail } from '@/services/api';
+import toast from 'react-hot-toast';
 
 /* ── Haptic feedback ─────────────────────────────────────────── */
 function haptic(ms = 10) {
@@ -24,20 +26,25 @@ function useReducedMotion() {
   return reduced;
 }
 
-const navItems = [
-  { to: '/', label: 'nav.home', end: true, icon: (
+/* `tone` mirrors the desktop sidebar's three groups so the mobile bar and the
+   desktop rail agree about which section you are in: Study = moss,
+   Review = sky, System = violet. */
+type Tone = 'study' | 'review' | 'system';
+
+const navItems: { to: string; label: string; end: boolean; tone: Tone; icon: React.ReactNode }[] = [
+  { to: '/', label: 'nav.home', end: true, tone: 'study', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
   )},
-  { to: '/quiz', label: 'nav.practice', end: false, icon: (
+  { to: '/quiz', label: 'nav.practice', end: false, tone: 'study', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
   )},
-  { to: '/questions', label: 'nav.questions', end: false, icon: (
+  { to: '/questions', label: 'nav.questions', end: false, tone: 'study', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
   )},
-  { to: '/results', label: 'nav.results', end: false, icon: (
+  { to: '/results', label: 'nav.results', end: false, tone: 'review', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
   )},
-  { to: '/progress', label: 'nav.progress', end: false, icon: (
+  { to: '/progress', label: 'nav.progress', end: false, tone: 'review', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
   )},
 ];
@@ -53,6 +60,39 @@ const MobileBottomNav: React.FC = () => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef(0);
   const dragCurrentY = useRef(0);
+
+  /* Email is optional at signup; this is where it gets added afterwards. */
+  const [email, setEmail] = useState<string | null>(null);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [showEmailEdit, setShowEmailEdit] = useState(false);
+
+  useEffect(() => {
+    if (!showSheet) return;
+    authMe()
+      .then((m) => { setEmail(m.email); setEmailDraft(m.email || ''); })
+      .catch(() => {});
+  }, [showSheet]);
+
+  const saveEmail = useCallback(async () => {
+    const next = emailDraft.trim();
+    if (next && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(next)) {
+      toast.error('That does not look like an email address.');
+      return;
+    }
+    setEmailBusy(true);
+    try {
+      const r = await authUpdateEmail(next);
+      setEmail(r.email);
+      setEmailDraft(r.email || '');
+      setShowEmailEdit(false);
+      toast.success(r.email ? 'Email saved' : 'Email removed', { duration: 1500 });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Could not save the email.');
+    } finally {
+      setEmailBusy(false);
+    }
+  }, [emailDraft]);
 
   const cycleTheme = useCallback(() => {
     haptic(8);
@@ -106,8 +146,9 @@ const MobileBottomNav: React.FC = () => {
     }
   }, [showSheet]);
 
-  const activeColor = 'hsl(142 40% 50%)';
-  const inactiveColor = 'hsl(0 0% 55%)';
+  const inactiveColor = 'hsl(var(--muted-foreground))';
+  /* Settings/More belongs to the System group, so it wears violet here too. */
+  const settingsActive = 'hsl(var(--tone-system))';
 
   return (
     <>
@@ -145,7 +186,7 @@ const MobileBottomNav: React.FC = () => {
           {/* Sheet panel */}
           <div
             ref={sheetRef}
-            className="absolute bottom-0 left-0 right-0"
+            className="absolute bottom-0 left-0 right-0 flex flex-col"
             style={{
               background: 'hsl(var(--card))',
               borderTopLeftRadius: 20,
@@ -154,6 +195,10 @@ const MobileBottomNav: React.FC = () => {
               animation: reducedMotion ? 'none' : 'sheetSlideUp 380ms cubic-bezier(0.32, 0.72, 0, 1) forwards',
               transform: reducedMotion ? 'none' : undefined,
               boxShadow: '0 -8px 40px rgba(0,0,0,0.12)',
+              /* Half the screen, never all of it: the sheet used to grow with
+                 its content until it covered the page and hid the scrim, so
+                 there was nothing left to tap to get out. */
+              maxHeight: 'min(62vh, 560px)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -177,21 +222,40 @@ const MobileBottomNav: React.FC = () => {
               />
             </div>
 
-            {/* Sheet title */}
+            {/* Sheet title + close */}
             <div
-              className="px-5 pb-3"
+              className="px-5 pb-3 flex items-center gap-3"
               style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: '1.125rem',
-                fontWeight: 'var(--font-weight-semibold)',
                 color: 'hsl(var(--foreground))',
               }}
             >
-              Settings
+              <span style={{ fontSize: '1.125rem', fontWeight: 'var(--font-weight-semibold)', flex: 1 }}>
+                Settings
+              </span>
+              <button
+                type="button"
+                onClick={() => { haptic(8); setShowSheet(false); }}
+                aria-label="Close settings"
+                className="flex items-center justify-center"
+                style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: 'hsl(var(--muted))',
+                  color: 'hsl(var(--muted-foreground))',
+                  border: 'none', cursor: 'pointer', flexShrink: 0,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
             {/* Divider */}
             <div className="h-px mx-5" style={{ background: 'hsl(var(--border))' }} />
+
+            {/* Scrollable body */}
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: '1 1 auto', minHeight: 0 }}>
 
             {/* Options */}
             <div className="p-3">
@@ -248,14 +312,83 @@ const MobileBottomNav: React.FC = () => {
                 <span
                   className="text-sm px-2.5 py-1 rounded-full"
                   style={{
-                    background: sfxEnabled ? 'hsl(142 40% 50% / 0.12)' : 'hsl(var(--muted))',
-                    color: sfxEnabled ? 'hsl(142 40% 50%)' : 'hsl(var(--muted-foreground))',
+                    background: sfxEnabled ? 'hsl(var(--primary) / 0.14)' : 'hsl(var(--muted))',
+                    color: sfxEnabled ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
                     fontSize: '0.8125rem',
                   }}
                 >
                   {sfxEnabled ? 'On' : 'Off'}
                 </span>
               </button>
+
+              {/* Recovery email — optional at signup, added here */}
+              <div
+                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl"
+                style={{ background: 'hsl(var(--muted) / 0.5)' }}
+              >
+                <span className="text-xl w-8 text-center">✉️</span>
+                <span
+                  className="flex-1 text-left"
+                  style={{ fontSize: 15, fontWeight: 600, color: 'hsl(var(--foreground))', minWidth: 0 }}
+                >
+                  {showEmailEdit ? (
+                    <input
+                      type="email"
+                      value={emailDraft}
+                      onChange={(e) => setEmailDraft(e.target.value)}
+                      placeholder="you@gmail.com"
+                      autoComplete="email"
+                      aria-label="Recovery email"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === 'Enter') saveEmail(); if (e.key === 'Escape') setShowEmailEdit(false); }}
+                      style={{
+                        width: '100%', padding: '8px 10px', borderRadius: 10,
+                        border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))',
+                        color: 'hsl(var(--foreground))', fontSize: 14, fontFamily: 'inherit',
+                      }}
+                    />
+                  ) : (
+                    <span style={{ display: 'block', minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 500, color: 'hsl(var(--muted-foreground))' }}>
+                        Recovery email
+                      </span>
+                      <span style={{ display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {email || 'Not added yet'}
+                      </span>
+                    </span>
+                  )}
+                </span>
+                {showEmailEdit ? (
+                  <span style={{ display: 'inline-flex', gap: 6, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => { haptic(8); setShowEmailEdit(false); setEmailDraft(email || ''); }}
+                      aria-label="Cancel"
+                      style={{ padding: '7px 11px', borderRadius: 999, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--muted-foreground))', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      ✕
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { haptic(8); saveEmail(); }}
+                      disabled={emailBusy}
+                      aria-label="Save email"
+                      style={{ padding: '7px 13px', borderRadius: 999, border: 'none', background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: emailBusy ? 0.7 : 1 }}
+                    >
+                      {emailBusy ? '…' : 'Save'}
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { haptic(8); setShowEmailEdit(true); }}
+                    className="text-sm px-2.5 py-1 rounded-full"
+                    style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))', fontSize: '0.8125rem', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    {email ? 'Change' : 'Add'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Divider */}
@@ -375,8 +508,9 @@ const MobileBottomNav: React.FC = () => {
               </button>
             </div>
 
+            </div>
             {/* Safe area bottom padding */}
-            <div style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
+            <div style={{ height: 'env(safe-area-inset-bottom, 0px)', flexShrink: 0 }} />
           </div>
         </div>
       )}
@@ -400,11 +534,9 @@ const MobileBottomNav: React.FC = () => {
             to={item.to}
             end={item.end}
             onClick={() => haptic(8)}
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center py-1.5 relative`
-            }
+            className="flex-1 flex flex-col items-center justify-center py-1.5 relative"
             style={({ isActive }) => ({
-              color: isActive ? activeColor : inactiveColor,
+              color: isActive ? `hsl(var(--tone-${item.tone}))` : inactiveColor,
               transition: 'transform 80ms ease-out, color 150ms ease',
             })}
           >
@@ -414,7 +546,12 @@ const MobileBottomNav: React.FC = () => {
                   className="flex-shrink-0"
                   style={{
                     transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                    transition: 'transform 250ms cubic-bezier(0.32, 0.72, 0, 1)',
+                    transition:
+                      'transform 250ms cubic-bezier(0.32, 0.72, 0, 1), background-color 180ms ease',
+                    /* Padding is constant so toggling the pill cannot reflow the bar. */
+                    padding: '3px 11px',
+                    borderRadius: 13,
+                    background: isActive ? `hsl(var(--tone-${item.tone}) / 0.18)` : 'transparent',
                   }}
                 >
                   {item.icon}
@@ -430,7 +567,7 @@ const MobileBottomNav: React.FC = () => {
                     width: isActive ? '16px' : '0px',
                     height: '2.5px',
                     borderRadius: '2px',
-                    background: activeColor,
+                    background: `hsl(var(--tone-${item.tone}))`,
                     transition: 'width 280ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease',
                     opacity: isActive ? 1 : 0,
                   }}
@@ -445,7 +582,7 @@ const MobileBottomNav: React.FC = () => {
           onClick={() => { haptic(8); setShowSheet(!showSheet); }}
           className="flex-1 flex flex-col items-center justify-center py-1.5"
           style={{
-            color: showSheet ? activeColor : inactiveColor,
+            color: showSheet ? settingsActive : inactiveColor,
             transition: 'transform 80ms ease-out, color 150ms ease',
           }}
           aria-label="Settings"

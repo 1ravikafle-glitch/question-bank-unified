@@ -568,7 +568,13 @@ const QuizTaker: React.FC = () => {
         else next.delete(qid);
         return next;
       });
-      toast(res.bookmarked ? '🔖 Bookmark added' : 'Bookmark removed', { duration: 1000 });
+      // Stable id so rapid add/remove swaps the same toast instead of stacking;
+      // long enough to actually read (the global 2000ms default, stated here
+      // so it cannot silently drift back to a flash).
+      toast(res.bookmarked ? '🔖 Bookmark added' : 'Bookmark removed', {
+        id: 'bm-toggle',
+        duration: 2200,
+      });
     },
     [userId]
   );
@@ -1029,25 +1035,51 @@ const QuizTaker: React.FC = () => {
 
   const [timeLeft, setTimeLeft] = useState(SECONDS_PER_QUESTION);
   // Exam mode: one countdown for the whole paper, auto-submit at zero.
+  //
+  // Derived from an absolute wall-clock deadline, NOT from counting ticks. A
+  // tick counter quietly hands out extra time: browsers throttle setInterval in
+  // background tabs (1/min in most engines) and suspend it entirely on mobile
+  // when the screen locks, so a candidate who switches tabs or pockets the
+  // phone effectively gets a longer paper. The deadline is captured once, when
+  // the paper actually appears, and every tick recomputes from Date.now().
   useEffect(() => {
     if (!isExamMode || loading || questions.length === 0 || submitting) return;
     warnedRef.current = false;
-    setTimeLeft(examTotalSecs);
+    const deadline = Date.now() + examTotalSecs * 1000;
+    const sync = () => {
+      const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      return remaining;
+    };
+    if (sync() <= 0) {
+      submitQuizRequest(selected, { force: true });
+      return;
+    }
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = window.setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) window.clearInterval(timerRef.current);
-          // Time is up: the paper is graded as-is. The 25% gate applies to
-          // deliberate submits, never to an expired clock.
-          submitQuizRequest(selected, { force: true });
-          return 0;
-        }
-        return prev - 1;
-      });
+      if (sync() <= 0) {
+        if (timerRef.current) window.clearInterval(timerRef.current);
+        // Time is up: the paper is graded as-is. The 25% gate applies to
+        // deliberate submits, never to an expired clock.
+        submitQuizRequest(selected, { force: true });
+      }
     }, 1000);
+    // A backgrounded tab can have its timer frozen for minutes. Re-sync on
+    // return so the displayed clock matches real remaining time immediately
+    // instead of resuming from a stale value.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (sync() <= 0) {
+        if (timerRef.current) window.clearInterval(timerRef.current);
+        submitQuizRequest(selected, { force: true });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExamMode, loading, questions.length, submitting]);
@@ -1608,7 +1640,7 @@ const QuizTaker: React.FC = () => {
         {/* Header row — Practice quiz + controls */}
         <div className="lg:mb-5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 13, color: bookmarkIds.length > 0 ? 'hsl(38 92% 45%)' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
+            <div style={{ fontSize: 13, color: bookmarkIds.length > 0 ? 'hsl(var(--bookmark))' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
               {examConfig
                 ? `📝 ${examConfig.title}${examConfig.negative > 0 ? ` · −${examConfig.negative}/wrong` : ''}`
                 : bookmarkIds.length > 0 ? `🔖 Bookmark review · ${questions.length}` : 'Practice quiz'}

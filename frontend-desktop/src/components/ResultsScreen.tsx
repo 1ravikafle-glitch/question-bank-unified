@@ -4,7 +4,7 @@ import { type QuizResult, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useLang } from '@/context/LanguageContext';
 import { useSfx } from '@/hooks/useSfx';
-import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue } from '../services/api';
+import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue, deleteAttempt } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { getRandomScoreMessage } from '@/utils/scoreMessages';
 import { scoreColor } from '@/utils/scoreColor';
@@ -116,6 +116,41 @@ const ResultsScreen: React.FC = () => {
     }
   }, [expandedAttemptId]);
 
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const handleDeleteAttempt = useCallback(async (attempt: RecentAttempt) => {
+    if (!attempt.id) return;
+    if (!window.confirm(`Delete attempt #${attempt.id}? This cannot be undone.`)) return;
+    setDeletingId(attempt.id);
+    try {
+      await deleteAttempt(attempt.id);
+      toast.success(`Attempt #${attempt.id} deleted.`);
+      // Reload history so the list and stats reflect the removal.
+      setLoadingHistory(true);
+      try {
+        const progress = await fetchUserProgress(userId);
+        const rawAttempts = progress.recent_attempts || [];
+        setPastAttempts(rawAttempts.map((a: any) => ({
+          ...a,
+          incorrect_questions: Array.isArray(a.incorrect_questions) ? a.incorrect_questions : [],
+          skipped_questions: Array.isArray(a.skipped_questions) ? a.skipped_questions : [],
+        })).sort((a: any, b: any) => {
+          const da = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+          const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+          return db - da;
+        }));
+      } catch {
+        // Non-fatal: the list refreshes on next mount.
+      } finally {
+        setLoadingHistory(false);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || 'Could not delete the attempt.');
+    } finally {
+      setDeletingId(null);
+    }
+  }, [userId]);
+
   const latestAttempt = pastAttempts[0];
   // A deep-link from Recent Activity / Progress (highlightAttemptId) must
   // show THAT attempt as the hero — never the latest one.
@@ -157,10 +192,20 @@ const ResultsScreen: React.FC = () => {
             offline: false,
           }
         : null;
+  // The penalty is wrong × negative, computed from the inputs. Deriving it as
+  // (raw − score) reproduced the ROUNDED score, so a 0.6 result displayed a
+  // whole "2" beside "(12 wrong × 0.2)" — the equation contradicted itself.
   const heroPenalty =
     heroAttempt && heroAttempt.negative_marking > 0
-      ? Math.max(0, Math.round((heroAttempt.raw_score - heroAttempt.score) * 100) / 100)
+      ? Math.min(
+          heroAttempt.raw_score,
+          Math.round(heroAttempt.incorrect_questions.length * heroAttempt.negative_marking * 100) / 100
+        )
       : 0;
+  // 3 − 2.4 = 0.6 but the attempt stores 1 (whole marks). Show that rounding
+  // step rather than implying 3 − 2 = 1.
+  const heroPreRound = heroAttempt ? heroAttempt.raw_score - heroPenalty : 0;
+  const heroWasRounded = heroAttempt != null && Math.abs(heroPreRound - heroAttempt.score) > 0.001;
   const heroMessage = useMemo(
     () => (heroAttempt ? getRandomScoreMessage(heroAttempt.percentage) : ''),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -263,7 +308,8 @@ const ResultsScreen: React.FC = () => {
           </p>
           {heroPenalty > 0 && (
             <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '-0.75rem 0 1.25rem', fontFamily: 'var(--font-mono)' }}>
-              {num(heroAttempt.raw_score)} correct − {num(heroPenalty)} penalty ({num(heroAttempt.incorrect_questions.length)} wrong × {num(heroAttempt.negative_marking)}) = {num(heroAttempt.score)}
+              {num(heroAttempt.raw_score)} correct − {num(heroPenalty)} penalty ({num(heroAttempt.incorrect_questions.length)} wrong × {num(heroAttempt.negative_marking)}) = {num(Math.round(heroPreRound * 100) / 100)}
+              {heroWasRounded ? ` → ${num(heroAttempt.score)} after rounding` : ''}
             </p>
           )}
           {heroAttempt.offline && (
@@ -277,7 +323,7 @@ const ResultsScreen: React.FC = () => {
           {/* Correct | Wrong | Accuracy */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <div>
-              <p style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'hsl(150 60% 38%)', margin: 0, lineHeight: 1.2 }}>
+              <p style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'hsl(var(--success))', margin: 0, lineHeight: 1.2 }}>
                 {heroAttempt.score}
               </p>
               <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
@@ -285,8 +331,13 @@ const ResultsScreen: React.FC = () => {
               </p>
             </div>
             <div>
-              <p style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'hsl(0 84% 60%)', margin: 0, lineHeight: 1.2 }}>
-                {num(heroAttempt.total_questions - heroAttempt.score)}
+              <p style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'hsl(var(--destructive))', margin: 0, lineHeight: 1.2 }}>
+                {/* incorrect.length only. NOT total − score — with negative
+                    marking score is already reduced by the penalty, so a
+                    15-question sheet scoring 1 would claim 14 wrong. The array
+                    is normalized to [] at heroAttempt construction above, so
+                    there is no absent case to fall back to. */}
+                {num(heroAttempt.incorrect_questions.length)}
               </p>
               <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0' }}>
                 Wrong
@@ -422,6 +473,16 @@ const ResultsScreen: React.FC = () => {
                       aria-expanded={isExpanded}
                     >
                       {isExpanded ? 'Hide review' : 'Review attempt'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteAttempt(a); }}
+                      disabled={deletingId === a.id}
+                      aria-label={`Delete attempt ${a.id}`}
+                      title="Delete this attempt"
+                    >
+                      {deletingId === a.id ? 'Deleting…' : 'Delete'}
                     </button>
                   </motion.div>
 

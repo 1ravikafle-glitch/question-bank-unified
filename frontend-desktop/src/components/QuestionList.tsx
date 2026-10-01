@@ -215,7 +215,7 @@ const Dashboard: React.FC = () => {
           style={{
             borderRadius: 'var(--apple-radius-xl)',
             padding: '2rem',
-            background: 'linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 35%))',
+            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
             marginBottom: '2rem',
           }}
         >

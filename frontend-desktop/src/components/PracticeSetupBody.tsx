@@ -9,7 +9,7 @@ import { useLang } from '@/context/LanguageContext';
  * start button. Callers keep their own card container + slots.
  */
 
-const BFX_CSS = `.bfx{position:relative;overflow:hidden}.bfx-armed{animation:bfxGlow 1.6s ease-in-out infinite}@keyframes bfxGlow{0%,100%{box-shadow:0 0 20px 2px hsl(0 84% 60%/.45),0 4px 14px hsl(0 84% 60%/.35)}50%{box-shadow:0 0 28px 5px hsl(0 84% 60%/.65),0 4px 18px hsl(0 84% 60%/.5)}}.bfx-shake{animation:bfxShake .45s ease,bfxGlow 1.6s ease-in-out .45s infinite}@keyframes bfxShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}.bfx-ember{position:absolute;bottom:-3px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle,#fde68a 0%,#f59e0b 55%,rgba(245,158,11,0) 100%);pointer-events:none;animation:bfxRise 1.5s linear infinite}@keyframes bfxRise{0%{transform:translateY(0) scale(1);opacity:0}15%{opacity:1}100%{transform:translateY(-30px) scale(.25);opacity:0}}.bfx-spark{position:absolute;top:50%;left:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:radial-gradient(circle,#fff7ed 0%,#fb923c 60%,rgba(251,146,60,0) 100%);pointer-events:none;animation:bfxBurst .7s ease-out forwards}@keyframes bfxBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.1);opacity:0}}.bfx-dragon{position:absolute;top:1px;left:0;font-size:13px;line-height:1;pointer-events:none;animation:bfxFly 1.9s linear forwards}@keyframes bfxFly{0%{transform:translateX(-30px);opacity:0}8%{opacity:1}92%{opacity:1}100%{transform:translateX(420px);opacity:0}}@media (prefers-reduced-motion:reduce){.bfx-armed,.bfx-shake,.bfx-ember,.bfx-spark,.bfx-dragon{animation:none!important}}`;
+const BFX_CSS = `.bfx{position:relative;overflow:hidden}.bfx-armed{animation:bfxGlow 1.6s ease-in-out infinite}@keyframes bfxGlow{0%,100%{box-shadow:0 0 20px 2px hsl(var(--destructive)/.45),0 4px 14px hsl(var(--destructive)/.35)}50%{box-shadow:0 0 28px 5px hsl(var(--destructive)/.65),0 4px 18px hsl(var(--destructive)/.5)}}.bfx-shake{animation:bfxShake .45s ease,bfxGlow 1.6s ease-in-out .45s infinite}@keyframes bfxShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}.bfx-ember{position:absolute;bottom:-3px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle,#fde68a 0%,#f59e0b 55%,rgba(245,158,11,0) 100%);pointer-events:none;animation:bfxRise 1.5s linear infinite}@keyframes bfxRise{0%{transform:translateY(0) scale(1);opacity:0}15%{opacity:1}100%{transform:translateY(-30px) scale(.25);opacity:0}}.bfx-spark{position:absolute;top:50%;left:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:radial-gradient(circle,#fff7ed 0%,#fb923c 60%,rgba(251,146,60,0) 100%);pointer-events:none;animation:bfxBurst .7s ease-out forwards}@keyframes bfxBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.1);opacity:0}}.bfx-dragon{position:absolute;top:1px;left:0;font-size:13px;line-height:1;pointer-events:none;animation:bfxFly 1.9s linear forwards}@keyframes bfxFly{0%{transform:translateX(-30px);opacity:0}8%{opacity:1}92%{opacity:1}100%{transform:translateX(420px);opacity:0}}@media (prefers-reduced-motion:reduce){.bfx-armed,.bfx-shake,.bfx-ember,.bfx-spark,.bfx-dragon{animation:none!important}}`;
 
 export interface PracticeSetupBodyProps {
   total: number;
@@ -136,7 +136,7 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
             whileTap={{ scale: 0.9 }}
             animate={
               beastMode
-                ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(0 84% 55%)' }
+                ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(var(--destructive))' }
                 : { scale: 1, backgroundColor: 'hsl(var(--muted))' }
             }
             transition={{ type: 'spring', stiffness: 400, damping: 15 }}
@@ -148,10 +148,10 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
               fontSize: '0.8125rem',
               fontWeight: 600,
               color: beastMode ? 'white' : 'hsl(var(--muted-foreground))',
-              border: beastMode ? '1px solid hsl(0 84% 55%)' : '1px solid hsl(var(--border))',
+              border: beastMode ? '1px solid hsl(var(--destructive))' : '1px solid hsl(var(--border))',
               cursor: 'pointer',
               boxShadow: beastMode
-                ? '0 0 20px 2px hsl(0 84% 60% / 0.55), 0 4px 14px hsl(0 84% 60% / 0.4)'
+                ? '0 0 20px 2px hsl(var(--destructive) / 0.55), 0 4px 14px hsl(var(--destructive) / 0.4)'
                 : '0 1px 3px hsl(var(--foreground) / 0.06)',
             }}
             aria-label="Beast Mode: practice all questions"
@@ -320,9 +320,9 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
               borderRadius: 'var(--apple-radius-md)',
               fontSize: '0.8125rem',
               fontWeight: 600,
-              color: 'hsl(38 92% 40%)',
-              background: 'hsl(38 92% 50% / 0.12)',
-              border: '1px solid hsl(38 92% 50% / 0.35)',
+              color: 'hsl(var(--bookmark))',
+              background: 'hsl(var(--bookmark) / 0.12)',
+              border: '1px solid hsl(var(--bookmark) / 0.35)',
               cursor: 'pointer',
             }}
           >

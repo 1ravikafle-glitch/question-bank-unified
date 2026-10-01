@@ -514,7 +514,13 @@ const QuizTaker: React.FC = () => {
         else next.delete(qid);
         return next;
       });
-      toast(res.bookmarked ? '🔖 Bookmark added' : 'Bookmark removed', { duration: 1000 });
+      // Stable id so rapid add/remove swaps the same toast instead of stacking;
+      // long enough to actually read (the global 2000ms default, stated here
+      // so it cannot silently drift back to a flash).
+      toast(res.bookmarked ? '🔖 Bookmark added' : 'Bookmark removed', {
+        id: 'bm-toggle',
+        duration: 2200,
+      });
     },
     [userId]
   );
@@ -934,25 +940,50 @@ const QuizTaker: React.FC = () => {
 
   const [timeLeft, setTimeLeft] = useState(SECONDS_PER_QUESTION);
   // Exam mode: one countdown for the whole paper, auto-submit at zero.
+  //
+  // Derived from an absolute wall-clock deadline, NOT from counting ticks. A
+  // tick counter quietly hands out extra time: browsers throttle setInterval in
+  // background tabs and suspend it entirely when a phone screen locks, so a
+  // candidate who switches apps or pockets the phone effectively gets a
+  // longer paper. The deadline is captured once, when the paper actually
+  // appears, and every tick recomputes from Date.now().
   useEffect(() => {
     if (!isExamMode || loading || questions.length === 0 || submitting) return;
     warnedRef.current = false;
-    setTimeLeft(examTotalSecs);
+    const deadline = Date.now() + examTotalSecs * 1000;
+    const sync = () => {
+      const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      return remaining;
+    };
+    if (sync() <= 0) {
+      submitQuizRequest(selected, { force: true });
+      return;
+    }
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = window.setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) window.clearInterval(timerRef.current);
-          // Time is up: the paper is graded as-is. The 25% gate applies to
-          // deliberate submits, never to an expired clock.
-          submitQuizRequest(selected, { force: true });
-          return 0;
-        }
-        return prev - 1;
-      });
+      if (sync() <= 0) {
+        if (timerRef.current) window.clearInterval(timerRef.current);
+        // Time is up: the paper is graded as-is. The 25% gate applies to
+        // deliberate submits, never to an expired clock.
+        submitQuizRequest(selected, { force: true });
+      }
     }, 1000);
+    // A backgrounded app can have its timer frozen for minutes. Re-sync on
+    // return so the clock shown matches real remaining time immediately.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (sync() <= 0) {
+        if (timerRef.current) window.clearInterval(timerRef.current);
+        submitQuizRequest(selected, { force: true });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExamMode, loading, questions.length, submitting]);
@@ -1419,11 +1450,11 @@ const QuizTaker: React.FC = () => {
                     fontWeight: 700,
                     fontFamily: T.font,
                     color: setupBeastMode ? '#fff' : T.textSecondary,
-                    background: setupBeastMode ? 'hsl(0 84% 55%)' : 'hsl(var(--muted))',
-                    border: setupBeastMode ? '1px solid hsl(0 84% 55%)' : `1px solid ${T.border}`,
+                    background: setupBeastMode ? 'hsl(var(--destructive))' : 'hsl(var(--muted))',
+                    border: setupBeastMode ? '1px solid hsl(var(--destructive))' : `1px solid ${T.border}`,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
-                    boxShadow: setupBeastMode ? '0 0 20px 2px hsl(0 84% 60% / 0.55), 0 4px 14px hsl(0 84% 60% / 0.4)' : '0 1px 3px rgba(0,0,0,0.06)',
+                    boxShadow: setupBeastMode ? '0 0 20px 2px hsl(var(--destructive) / 0.55), 0 4px 14px hsl(var(--destructive) / 0.4)' : '0 1px 3px rgba(0,0,0,0.06)',
                   }}
                 >
                   {setupBeastMode ? '🔥 BEAST' : '🔥 Beast'}
@@ -1576,9 +1607,9 @@ const QuizTaker: React.FC = () => {
                     fontSize: 14,
                     fontWeight: 600,
                     fontFamily: T.font,
-                    color: 'hsl(38 92% 40%)',
-                    background: 'hsl(38 92% 50% / 0.12)',
-                    border: '1px solid hsl(38 92% 50% / 0.35)',
+                    color: 'hsl(var(--bookmark))',
+                    background: 'hsl(var(--bookmark) / 0.12)',
+                    border: '1px solid hsl(var(--bookmark) / 0.35)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
@@ -1722,12 +1753,12 @@ const QuizTaker: React.FC = () => {
         /* Sticky bar tints to the result: instant correct/incorrect signal
            visible even while the question card scrolls away. */
         .quiz-sticky-correct {
-          background: linear-gradient(to top, hsl(142 71% 45% / 0.14), hsl(142 71% 45% / 0.05)), var(--nav-glass-bg) !important;
-          border-top: 2px solid hsl(142 71% 45% / 0.55) !important;
+          background: linear-gradient(to top, hsl(var(--primary) / 0.14), hsl(var(--primary) / 0.05)), var(--nav-glass-bg) !important;
+          border-top: 2px solid hsl(var(--primary) / 0.55) !important;
         }
         .quiz-sticky-wrong {
-          background: linear-gradient(to top, hsl(0 84% 60% / 0.12), hsl(0 84% 60% / 0.04)), var(--nav-glass-bg) !important;
-          border-top: 2px solid hsl(0 84% 60% / 0.5) !important;
+          background: linear-gradient(to top, hsl(var(--destructive) / 0.12), hsl(var(--destructive) / 0.04)), var(--nav-glass-bg) !important;
+          border-top: 2px solid hsl(var(--destructive) / 0.5) !important;
         }
         /* Landscape: fit-mode bottom padding must match the SHORTER chrome
            (compact quiz bar + nav), not the portrait 61+56 values. */
@@ -1761,7 +1792,7 @@ const QuizTaker: React.FC = () => {
         {/* Header row — Practice quiz + controls */}
         <div className="quiz-hero-row lg:mb-5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 13, color: examConfig ? 'hsl(38 92% 45%)' : bookmarkIds.length > 0 ? 'hsl(38 92% 45%)' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
+            <div style={{ fontSize: 13, color: examConfig ? 'hsl(var(--bookmark))' : bookmarkIds.length > 0 ? 'hsl(var(--bookmark))' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
               {examConfig
                 ? `📝 ${examConfig.title}${examConfig.negative > 0 ? ` · −${examConfig.negative}/wrong` : ''}`
                 : bookmarkIds.length > 0 ? `🔖 Bookmark review · ${questions.length}` : 'Practice quiz'}

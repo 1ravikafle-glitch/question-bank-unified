@@ -360,6 +360,9 @@ def _serialize_request(r: models.ContributionRequest, include_payload: bool = Fa
         "status": r.status,
         "question_count": r.question_count,
         "with_answer": r.with_answer,
+        # NULL for rows written before the column existed; the UI treats that
+        # as the older default rather than failing to render.
+        "kind": r.kind,
         "admin_note": r.admin_note,
         "created_at": r.created_at.isoformat() if r.created_at else None,
         "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,

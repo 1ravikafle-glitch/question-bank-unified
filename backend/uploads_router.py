@@ -12,6 +12,7 @@ queue), tagged source=user:<admin> so admin content stays distinguishable
 from the curated bank. Same dedupe rules for both paths.
 """
 import io
+import sys
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -40,6 +41,39 @@ MAX_PENDING_CONTRIBUTIONS = 5
 # request and make the server do unbounded parsing work.
 MAX_FILES_PER_REQUEST = 5
 MAX_QUESTIONS_PER_UPLOAD = 2000
+
+
+def _ensure_contrib_kind_column():
+    """ADD COLUMN migration for contribution_requests.kind (idempotent).
+
+    create_all() only creates missing tables, so a deployment that already has
+    contribution_requests never gains the column. Guarded by a column check so
+    running it on every boot is safe on both SQLite and Postgres.
+    """
+    try:
+        from sqlalchemy import inspect, text as _text
+
+        insp = inspect(database.engine)
+        try:
+            cols = {c["name"] for c in insp.get_columns("contribution_requests")}
+        except Exception:
+            return  # table doesn't exist yet — create_all covers it
+        if "kind" not in cols:
+            with database.engine.begin() as conn:
+                conn.execute(
+                    _text("ALTER TABLE contribution_requests ADD COLUMN kind TEXT")
+                )
+            print("[UPLOAD] contribution_requests (+1 col: kind)", file=sys.stderr)
+    except Exception as e:
+        print(f"[UPLOAD] kind migration skipped: {e}", file=sys.stderr)
+
+
+_ensure_contrib_kind_column()
+
+# The two things a contributor can send. Anything else is coerced to the
+# default so a hand-crafted request can't smuggle an unknown value into the
+# admin review list.
+CONTRIB_KINDS = ("past_paper", "questions")
 
 
 def _parse_upload(filename: str, raw: bytes, category: Optional[str]):
@@ -205,7 +239,8 @@ def my_requests(
     rows = (
         db.query(models.ContributionRequest)
         .filter(models.ContributionRequest.user_identifier == caller[0])
-        .order_by(models.ContributionRequest.created_at.desc())
+        # id tie-break for same-second submissions.
+        .order_by(models.ContributionRequest.created_at.desc(), models.ContributionRequest.id.desc())
         .all()
     )
     pending = sum(1 for r in rows if r.status == "pending")
@@ -231,15 +266,149 @@ def my_requests(
     }
 
 
+# ── Public past papers list (approved contributions) ────────────────────────────
+@router.get("/past-papers")
+def list_past_papers(
+    db: Session = Depends(database.get_db),
+    # No auth required - public list of approved papers
+):
+    """List all approved contribution papers for viewing/downloading."""
+    rows = (
+        db.query(models.ContributionRequest)
+        .filter(models.ContributionRequest.status == "approved")
+        .order_by(models.ContributionRequest.reviewed_at.desc(), models.ContributionRequest.id.desc())
+        .all()
+    )
+    return {
+        "papers": [
+            {
+                "id": r.id,
+                "filename": r.filename,
+                "category": r.category,
+                "kind": r.kind or "questions",
+                "question_count": r.question_count,
+                "with_answer": r.with_answer,
+                "approved_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
+                "payload": r.payload,  # Full parsed questions for viewing
+            }
+            for r in rows
+        ],
+    }
+
+
+def _paper_docx(r: models.ContributionRequest) -> bytes:
+    """Rebuild a downloadable DOCX for an approved contribution.
+
+    The uploaded original is never stored - only the parsed questions are, so
+    that approving a contribution inserts exactly what was reviewed. The paper
+    is therefore re-rendered from that payload rather than replayed from disk.
+    """
+    from docx import Document
+    from docx.shared import Pt
+
+    doc = Document()
+    # Headings strip the extension: "report.docx" as a title reads wrong.
+    base = (r.filename or "").rsplit(".", 1)[0] or "Past question paper"
+    doc.add_heading(base, level=1)
+    meta = []
+    if r.category:
+        meta.append(f"Category: {r.category}")
+    meta.append(f"Questions: {r.question_count}")
+    meta.append(f"With answer: {'yes' if r.with_answer else 'no'}")
+    doc.add_paragraph("  |  ".join(meta))
+
+    rows = r.payload if isinstance(r.payload, list) else []
+    for i, q in enumerate(rows, 1):
+        if not isinstance(q, dict):
+            continue
+        # Bare "N. " rather than "Q1. ": docx_parser keys question starts off
+        # `^\d+\.\s`, so a paper someone downloads here can be re-uploaded here
+        # and still parse into the same three questions.
+        doc.add_paragraph(
+            f"{i}. {q.get('question_text') or q.get('question') or ''}".strip()
+        )
+        opts = q.get("options") or {}
+        if isinstance(opts, dict):
+            for key in sorted(opts):
+                line = opts[key]
+                if not line:
+                    continue
+                doc.add_paragraph(
+                    line if str(line).lower().startswith(f"{key}.") else f"{key}. {line}",
+                    style="List Bullet",
+                )
+        elif isinstance(opts, list):
+            for j, line in enumerate(opts):
+                if line:
+                    doc.add_paragraph(
+                        f"{chr(97 + j)}. {line}",
+                        style="List Bullet",
+                    )
+        ans = q.get("answer") or q.get("correct_answer") or q.get("correct")
+        if ans:
+            doc.add_paragraph(f"Answer: {ans}")
+        doc.add_paragraph("")
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+@router.get("/past-papers/{paper_id}/download")
+def download_past_paper(
+    paper_id: int,
+    db: Session = Depends(database.get_db),
+):
+    """Serve an approved paper as a DOCX built from its stored questions.
+
+    Public, like the list: these are already-approved papers. The filename
+    keeps the .docx suffix regardless of what the contributor originally sent,
+    because that is genuinely what this response contains.
+    """
+    from fastapi.responses import Response
+
+    row = (
+        db.query(models.ContributionRequest)
+        .filter(
+            models.ContributionRequest.id == paper_id,
+            models.ContributionRequest.status == "approved",
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="That paper is not available.")
+
+    data = _paper_docx(row)
+    base = (row.filename or f"past-paper-{paper_id}").rsplit(".", 1)[0]
+    # RFC 5987 form so a Nepali/Devanagari title survives the header intact.
+    from urllib.parse import quote
+
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition":
+                f"attachment; filename=\"{base}.docx\"; "
+                f"filename*=UTF-8''{quote(base)}.docx",
+            "Content-Length": str(len(data)),
+        },
+    )
+
+
 @router.post("/requests")
 async def submit_request(
     files: List[UploadFile] = File(...),
     category: Optional[str] = Form(None),
+    # What the file IS, not what it contains: a whole past paper, or a loose
+    # set of questions. Admin review is identical either way; the distinction
+    # is what the Past Papers page lists.
+    kind: Optional[str] = Form(None),
     db: Session = Depends(database.get_db),
     caller: Tuple[str, bool] = Depends(session.require_user),
 ):
     """Submit a PDF/DOCX for admin review. Writes nothing to the bank."""
     username = caller[0]
+    contrib_kind = kind if kind in CONTRIB_KINDS else "questions"
 
     def pending_count() -> int:
         return (
@@ -312,6 +481,7 @@ async def submit_request(
             filename=(upload.filename or "upload")[:255],
             category=cat,
             status="pending",
+            kind=contrib_kind,
             question_count=len(parsed),
             with_answer=with_answer,
             # Park the parsed questions; they only reach the bank on approval.

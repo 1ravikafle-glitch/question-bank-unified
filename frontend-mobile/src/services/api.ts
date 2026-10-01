@@ -577,13 +577,30 @@ export const saveNote = async (
 export const authRegister = async (body: {
   username: string;
   password: string;
-  gmail: string;
+  gmail?: string | null;
   user_id?: string;
 }) => {
   const response = await api.post<{ ok: boolean; user_id: string; message: string }>(
     '/auth/register',
     body
   );
+  return response.data;
+};
+
+/** The signed-in account's own profile. `email` is null until added. */
+export const authMe = async (): Promise<{
+  username: string;
+  user_id: string | null;
+  email: string | null;
+  is_admin: boolean;
+}> => {
+  const response = await api.get('/auth/me');
+  return response.data;
+};
+
+/** Add / change / clear the reset-address from Settings. */
+export const authUpdateEmail = async (email: string) => {
+  const response = await api.put<{ ok: boolean; email: string | null }>('/auth/email', { email });
   return response.data;
 };
 
@@ -633,5 +650,36 @@ export const authGoogle = async (credential: string) => {
     sso_token?: string | null;
     session_token?: string | null;
   }>('/auth/google', { credential });
+  return response.data;
+};
+
+/** Delete one of the caller's own quiz attempts. */
+export const deleteAttempt = async (attemptId: number) => {
+  const response = await api.delete<{ deleted: number }>(`/quiz/attempts/${attemptId}`);
+  return response.data;
+};
+
+/** Fetch all approved past papers for public viewing/downloading. */
+export const fetchPastPapers = async (): Promise<{
+  papers: Array<{
+    id: number;
+    filename: string;
+    category?: string;
+    kind: 'past_paper' | 'questions';
+    question_count: number;
+    with_answer: number;
+    approved_at?: string | null;
+    payload: any;
+  }>;
+}> => {
+  const response = await api.get('/uploads/past-papers');
+  return response.data;
+};
+
+/** Download a past paper as DOCX. */
+export const downloadPastPaper = async (paperId: number): Promise<Blob> => {
+  const response = await api.get(`/uploads/past-papers/${paperId}/download`, {
+    responseType: 'blob',
+  });
   return response.data;
 };

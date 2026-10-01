@@ -28,7 +28,7 @@ const STRINGS: Record<string, { en: string; ne: string }> = {
   'nav.wrong': { en: 'Wrong Questions', ne: 'गलत प्रश्नहरू' },
   'nav.results': { en: 'Results', ne: 'नतिजा' },
   'nav.progress': { en: 'Progress', ne: 'प्रगति' },
-  'nav.contribute': { en: 'Contribute', ne: 'योगदान' },
+  'nav.contribute': { en: 'Past Papers', ne: 'पुराना प्रश्नपत्र' },
   'nav.gis': { en: 'GIS Studio', ne: 'GIS स्टुडियो' },
   'nav.admin': { en: 'Admin', ne: 'एडमिन' },
   'nav.about': { en: 'About', ne: 'बारेमा' },

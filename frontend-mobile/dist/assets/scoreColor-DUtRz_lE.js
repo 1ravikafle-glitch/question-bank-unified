@@ -1,1 +1,0 @@
-function e(r){return r>=90?"hsl(150 60% 32%)":r>=80?"hsl(38 92% 45%)":r>=60?"hsl(24 95% 50%)":"hsl(0 84% 60%)"}function n(r){return r>=91?"Fabulous":r>=81?"Excellent":r>=61?"Good":r>=41?"Fair":r>=21?"Satisfactory":"Poor"}export{n as a,e as s};

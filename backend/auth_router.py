@@ -555,7 +555,7 @@ def get_user_progress(username: str, db: Session = Depends(database.get_db), adm
     attempts = (
         db.query(models.QuizAttempt)
         .filter(models.QuizAttempt.user_identifier == username)
-        .order_by(models.QuizAttempt.completed_at.desc())
+        .order_by(models.QuizAttempt.completed_at.desc(), models.QuizAttempt.id.desc())
         .all()
     )
 

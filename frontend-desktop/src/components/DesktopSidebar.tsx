@@ -1,7 +1,7 @@
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { memo, useContext, useEffect, useState, Fragment } from 'react';
 import { AuthContext } from '@/context/AuthContext';
-import { fetchBookmarkIds } from '@/services/api';
+import { fetchBookmarkIds, fetchNotes } from '@/services/api';
 import { useSfx } from '@/hooks/useSfx';
 import { useLang } from '@/context/LanguageContext';
 import { isAdmin } from '@/config/admin';
@@ -140,6 +140,11 @@ interface NavItemDef {
 
 interface NavSectionDef {
   section: string;
+  /* Which accent hue this group wears. Each group gets its own so the rail
+     reads as three destinations rather than one wall of identical green:
+     Study = moss, Review = sky, System = violet. The row CSS consumes it as
+     a custom property, which is why it is a token name and not a colour. */
+  tone: 'study' | 'review' | 'system';
   items: NavItemDef[];
 }
 
@@ -149,6 +154,7 @@ interface NavSectionDef {
 const navSections: NavSectionDef[] = [
   {
     section: 'group.study',
+    tone: 'study',
     items: [
       { to: '/', label: 'nav.home', end: true, icon: <HomeIcon /> },
       { to: '/quiz', label: 'nav.practice', end: false, icon: <ClockIcon /> },
@@ -158,6 +164,7 @@ const navSections: NavSectionDef[] = [
   },
   {
     section: 'group.review',
+    tone: 'review',
     items: [
       { to: '/quiz/practice-wrong', label: 'nav.wrong', end: false, icon: <RetryIcon /> },
       { to: '/results', label: 'nav.results', end: false, icon: <CheckCircleIcon /> },
@@ -168,6 +175,7 @@ const navSections: NavSectionDef[] = [
   },
   {
     section: 'group.system',
+    tone: 'system',
     items: [
       { to: '/contribute', label: 'nav.contribute', end: false, icon: <UploadIcon /> },
       { to: '/gis', label: 'nav.gis', end: false, icon: <GisIcon />, external: true },
@@ -217,8 +225,11 @@ interface NavRowProps {
 /* The bookmarks row is the only one whose props change over time (its badge
    count). Folding the badge into the item object here, once per render, keeps
    the other 13 rows on the stable module-level constant so memo can bail out. */
-const navItemFor = (item: NavItemDef, bmCount: number): NavItemDef =>
-  item.to === '/bookmarks' ? { ...item, badge: bmCount } : item;
+const navItemFor = (item: NavItemDef, bmCount: number, notesCount: number): NavItemDef => {
+  if (item.to === '/bookmarks') return { ...item, badge: bmCount };
+  if (item.to === '/notes') return { ...item, badge: notesCount };
+  return item;
+};
 
 /* Memoized: 13 of 14 rows receive a stable `item` (from the module-level
    navSections constant) and a stable `onNavigate`, so they can skip re-rendering
@@ -239,14 +250,8 @@ const NavRow = memo<NavRowProps>(({ item, onNavigate }) => {
           if (w) w.opener = null;
         }}
         title={`${item.label} · opens in a new tab`}
-        className="relative flex items-center gap-3 rounded-[10px] font-medium transition-all duration-200"
-        style={{
-          fontSize: '0.9375rem',
-          padding: '10px 12px',
-          color: 'hsl(var(--primary))',
-          background: 'hsl(var(--primary) / 0.07)',
-          textDecoration: 'none',
-        }}
+        className="nav-row is-external"
+        style={{ fontSize: '0.9375rem', textDecoration: 'none' }}
       >
         <span className="flex-shrink-0" style={{ transform: 'scale(1.1)' }}>
           {item.icon}
@@ -265,20 +270,8 @@ const NavRow = memo<NavRowProps>(({ item, onNavigate }) => {
       end={item.end}
       onClick={onNavigate}
       title={t(item.label)}
-      className={({ isActive }) =>
-        `relative flex items-center gap-3 rounded-[10px] font-medium ${
-          isActive
-            ? 'text-[hsl(var(--primary))]'
-            : 'text-[hsl(var(--foreground) / 0.7)] hover:text-foreground hover:bg-[hsl(var(--muted))]'
-        }`
-      }
-      style={({ isActive }) => ({
-        fontSize: '0.9375rem',
-        fontWeight: isActive ? 700 : 500,
-        padding: '10px 12px',
-        transition:
-          'color 180ms cubic-bezier(.25,.1,.25,1), background-color 180ms cubic-bezier(.25,.1,.25,1), transform 180ms cubic-bezier(.25,.1,.25,1)',
-      })}
+      className={({ isActive }) => `nav-row${isActive ? ' is-active' : ''}`}
+      style={{ fontSize: '0.9375rem' }}
     >
       {({ isActive }) => (
         <>
@@ -290,7 +283,7 @@ const NavRow = memo<NavRowProps>(({ item, onNavigate }) => {
                 position: 'absolute',
                 inset: 0,
                 borderRadius: 10,
-                background: 'hsl(var(--primary) / 0.12)',
+                background: 'hsl(var(--tone) / 0.13)',
               }}
               aria-hidden="true"
             />
@@ -307,8 +300,8 @@ const NavRow = memo<NavRowProps>(({ item, onNavigate }) => {
                 fontSize: '0.6875rem',
                 fontWeight: 700,
                 fontFamily: 'var(--font-mono)',
-                color: 'hsl(var(--primary))',
-                background: 'hsl(var(--primary) / 0.12)',
+                color: 'hsl(var(--tone))',
+                background: 'hsl(var(--tone) / 0.15)',
                 borderRadius: 999,
                 padding: '1px 8px',
                 flexShrink: 0,
@@ -329,14 +322,17 @@ const DesktopSidebar: React.FC = () => {
   const { sfxClick } = useSfx();
   const location = useLocation();
   const [bmCount, setBmCount] = useState(0);
+  const [notesCount, setNotesCount] = useState(0);
 
   // Live bookmark count badge (refreshes on navigation + login change).
   useEffect(() => {
     if (!userId) {
       setBmCount(0);
+      setNotesCount(0);
       return;
     }
     fetchBookmarkIds(userId).then((r) => setBmCount(r.count)).catch(() => {});
+    fetchNotes(userId).then((r) => setNotesCount(r.count)).catch(() => {});
   }, [userId, location.pathname]);
   return (
     <aside
@@ -361,7 +357,7 @@ const DesktopSidebar: React.FC = () => {
       {/* Dark mode override + hairline between groups */}
       <style>{`
         .dark .sidebar-material {
-          background: hsl(150 22% 7% / 0.85) !important;
+          background: hsl(var(--card) / 0.85) !important;
         }
         .desktop-sidebar .nav-group + .nav-group {
           border-top: 1px solid hsl(var(--border) / 0.55);
@@ -389,15 +385,20 @@ const DesktopSidebar: React.FC = () => {
             <div
               key={section.section}
               className="nav-group"
-              style={{
-                flex: '1 1 auto',
-                minHeight: 'fit-content',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                paddingTop: si === 0 ? 0 : 10,
-                marginBottom: si === navSections.length - 1 ? 0 : 6,
-              }}
+              style={
+                {
+                  /* Inherited by every row and the group label below, so a row
+                     never has to be told which hue it wears. */
+                  '--tone': `var(--tone-${section.tone})`,
+                  flex: '1 1 auto',
+                  minHeight: 'fit-content',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  paddingTop: si === 0 ? 0 : 10,
+                  marginBottom: si === navSections.length - 1 ? 0 : 6,
+                } as React.CSSProperties
+              }
               aria-label={t(section.section)}
             >
               <p
@@ -407,7 +408,7 @@ const DesktopSidebar: React.FC = () => {
                   fontWeight: 600,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  color: 'hsl(var(--foreground) / 0.45)',
+                  color: 'hsl(var(--tone) / 0.85)',
                   marginBottom: '4px',
                 }}
               >
@@ -422,7 +423,7 @@ const DesktopSidebar: React.FC = () => {
                   <Fragment key={item.to}>
                     {ii > 0 && <div className="nav-row-divider" aria-hidden="true" />}
                     <motion.div variants={prefersReducedMotion() ? undefined : navItemVariants}>
-                      <NavRow item={navItemFor(item, bmCount)} onNavigate={sfxClick} />
+                      <NavRow item={navItemFor(item, bmCount, notesCount)} onNavigate={sfxClick} />
                     </motion.div>
                   </Fragment>
                 ))}

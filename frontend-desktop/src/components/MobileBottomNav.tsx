@@ -22,20 +22,25 @@ function useReducedMotion() {
   return reduced;
 }
 
-const navItems = [
-  { to: '/', label: 'Home', end: true, icon: (
+/* `tone` mirrors DesktopSidebar's three groups so this bar (shown when the
+   viewport is too narrow for the rail) and the rail agree about which section
+   you are in: Study = moss, Review = sky, System = violet. */
+type Tone = 'study' | 'review' | 'system';
+
+const navItems: { to: string; label: string; end: boolean; tone: Tone; icon: React.ReactNode }[] = [
+  { to: '/', label: 'Home', end: true, tone: 'study', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
   )},
-  { to: '/quiz', label: 'Practice', end: false, icon: (
+  { to: '/quiz', label: 'Practice', end: false, tone: 'study', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
   )},
-  { to: '/questions', label: 'Questions', end: false, icon: (
+  { to: '/questions', label: 'Questions', end: false, tone: 'study', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
   )},
-  { to: '/results', label: 'Results', end: false, icon: (
+  { to: '/results', label: 'Results', end: false, tone: 'review', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
   )},
-  { to: '/progress', label: 'Progress', end: false, icon: (
+  { to: '/progress', label: 'Progress', end: false, tone: 'review', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
   )},
 ];
@@ -103,8 +108,9 @@ const MobileBottomNav: React.FC = () => {
     }
   }, [showSheet]);
 
-  const activeColor = 'hsl(142 40% 50%)';
-  const inactiveColor = 'hsl(0 0% 55%)';
+  const inactiveColor = 'hsl(var(--muted-foreground))';
+  /* Settings/More belongs to the System group, so it wears violet here too. */
+  const settingsActive = 'hsl(var(--tone-system))';
 
   return (
     <>
@@ -229,8 +235,8 @@ const MobileBottomNav: React.FC = () => {
                 <span
                   className="text-sm px-2.5 py-1 rounded-full"
                   style={{
-                    background: sfxEnabled ? 'hsl(142 40% 50% / 0.12)' : 'hsl(var(--muted))',
-                    color: sfxEnabled ? 'hsl(142 40% 50%)' : 'hsl(var(--muted-foreground))',
+                    background: sfxEnabled ? 'hsl(var(--primary) / 0.14)' : 'hsl(var(--muted))',
+                    color: sfxEnabled ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
                     fontSize: '0.8125rem',
                   }}
                 >
@@ -282,11 +288,9 @@ const MobileBottomNav: React.FC = () => {
             to={item.to}
             end={item.end}
             onClick={() => haptic(8)}
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center py-1.5 relative`
-            }
+            className="flex-1 flex flex-col items-center justify-center py-1.5 relative"
             style={({ isActive }) => ({
-              color: isActive ? activeColor : inactiveColor,
+              color: isActive ? `hsl(var(--tone-${item.tone}))` : inactiveColor,
               transition: 'transform 80ms ease-out, color 150ms ease',
             })}
           >
@@ -296,7 +300,12 @@ const MobileBottomNav: React.FC = () => {
                   className="flex-shrink-0"
                   style={{
                     transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                    transition: 'transform 250ms cubic-bezier(0.32, 0.72, 0, 1)',
+                    transition:
+                      'transform 250ms cubic-bezier(0.32, 0.72, 0, 1), background-color 180ms ease',
+                    /* Padding is constant so toggling the pill cannot reflow the bar. */
+                    padding: '3px 11px',
+                    borderRadius: 13,
+                    background: isActive ? `hsl(var(--tone-${item.tone}) / 0.18)` : 'transparent',
                   }}
                 >
                   {item.icon}
@@ -312,7 +321,7 @@ const MobileBottomNav: React.FC = () => {
                     width: isActive ? '16px' : '0px',
                     height: '2.5px',
                     borderRadius: '2px',
-                    background: activeColor,
+                    background: `hsl(var(--tone-${item.tone}))`,
                     transition: 'width 280ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease',
                     opacity: isActive ? 1 : 0,
                   }}
@@ -327,7 +336,7 @@ const MobileBottomNav: React.FC = () => {
           onClick={() => { haptic(8); setShowSheet(!showSheet); }}
           className="flex-1 flex flex-col items-center justify-center py-1.5"
           style={{
-            color: showSheet ? activeColor : inactiveColor,
+            color: showSheet ? settingsActive : inactiveColor,
             transition: 'transform 80ms ease-out, color 150ms ease',
           }}
           aria-label="Settings"

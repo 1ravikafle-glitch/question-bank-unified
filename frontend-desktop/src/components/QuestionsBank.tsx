@@ -849,7 +849,7 @@ const QuestionsBank: React.FC = () => {
                 {!!noteMap[q.id] && noteOpenId !== q.id && (
                   <p style={{
                     fontSize: '0.75rem', lineHeight: 1.6, color: 'hsl(var(--foreground))',
-                    background: 'hsl(210 90% 50% / 0.07)', borderLeft: '3px solid hsl(210 90% 50%)',
+                    background: 'hsl(var(--info) / 0.07)', borderLeft: '3px solid hsl(var(--info))',
                     borderRadius: '0 8px 8px 0', padding: '0.5rem 0.75rem', margin: '12px 0 0',
                     whiteSpace: 'pre-wrap',
                   }}>

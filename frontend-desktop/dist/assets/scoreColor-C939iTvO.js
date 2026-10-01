@@ -1,0 +1,1 @@
+function o(r){return r>=90?"hsl(var(--score-fabulous))":r>=80?"hsl(var(--score-good))":r>=60?"hsl(var(--score-fair))":"hsl(var(--score-poor))"}function e(r){return r>=91?"Fabulous":r>=81?"Excellent":r>=61?"Good":r>=41?"Fair":r>=21?"Satisfactory":"Poor"}export{e as a,o as s};

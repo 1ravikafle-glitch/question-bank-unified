@@ -214,7 +214,7 @@ const Dashboard: React.FC = () => {
           style={{
             borderRadius: 'var(--apple-radius-xl)',
             padding: '2rem',
-            background: 'linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 35%))',
+            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
             marginBottom: '2rem',
           }}
         >
@@ -464,7 +464,7 @@ const Dashboard: React.FC = () => {
                     whileTap={{ scale: 0.9 }}
                     animate={
                       !beastMode && quizCount === n
-                        ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(152 55% 45%)' }
+                        ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(var(--primary))' }
                         : { scale: 1, backgroundColor: 'hsl(var(--muted))' }
                     }
                     transition={{ type: 'spring', stiffness: 400, damping: 15 }}
@@ -496,7 +496,7 @@ const Dashboard: React.FC = () => {
                   whileTap={{ scale: 0.9 }}
                   animate={
                     beastMode
-                      ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(0 84% 55%)' }
+                      ? { scale: [0.9, 1.12, 1], backgroundColor: 'hsl(var(--destructive))' }
                       : { scale: 1, backgroundColor: 'hsl(var(--muted))' }
                   }
                   transition={{ type: 'spring', stiffness: 400, damping: 15 }}
@@ -508,12 +508,12 @@ const Dashboard: React.FC = () => {
                     fontSize: '0.8125rem',
                     fontWeight: 'var(--font-weight-semibold)',
                     color: beastMode ? 'white' : 'hsl(var(--muted-foreground))',
-                    border: beastMode ? '1px solid hsl(0 84% 55%)' : '1px solid hsl(var(--border))',
+                    border: beastMode ? '1px solid hsl(var(--destructive))' : '1px solid hsl(var(--border))',
                     cursor: 'pointer',
                     boxShadow: beastMode
-                      ? '0 0 20px 2px hsl(0 84% 60% / 0.55), 0 4px 14px hsl(0 84% 60% / 0.4)'
+                      ? '0 0 20px 2px hsl(var(--destructive) / 0.55), 0 4px 14px hsl(var(--destructive) / 0.4)'
                       : '0 1px 3px hsl(var(--foreground) / 0.06)',
-                    background: beastMode ? 'hsl(0 84% 55%)' : undefined,
+                    background: beastMode ? 'hsl(var(--destructive))' : undefined,
                   }}
                   aria-label="Beast Mode: practice all questions"
                   aria-pressed={beastMode}

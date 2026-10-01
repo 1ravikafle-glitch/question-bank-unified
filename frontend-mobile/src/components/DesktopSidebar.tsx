@@ -238,7 +238,7 @@ const DesktopSidebar: React.FC = () => {
       {/* Dark mode override */}
       <style>{`
         .dark .sidebar-material {
-          background: hsl(150 22% 7% / 0.85) !important;
+          background: hsl(var(--card) / 0.85) !important;
         }
       `}</style>
 
@@ -469,8 +469,8 @@ const DesktopSidebar: React.FC = () => {
               width: 36,
               height: 20,
               borderRadius: 10,
-              background: sfxEnabled ? 'hsl(142 40% 45%)' : 'hsl(var(--muted))',
-              border: `1px solid ${sfxEnabled ? 'hsl(142 40% 35%)' : 'hsl(var(--border))'}`,
+              background: sfxEnabled ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+              border: `1px solid ${sfxEnabled ? 'hsl(var(--primary) / 0.55)' : 'hsl(var(--border))'}`,
               transition: 'background 0.2s, border-color 0.2s',
               cursor: 'pointer',
               padding: 0,

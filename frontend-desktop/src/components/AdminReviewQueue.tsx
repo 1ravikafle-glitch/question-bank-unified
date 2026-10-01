@@ -8,6 +8,8 @@ interface Contribution {
   user_identifier: string;
   filename: string;
   category?: string;
+  /** What the contributor said the file is. Null on older rows. */
+  kind?: 'past_paper' | 'questions' | null;
   status: 'pending' | 'approved' | 'rejected';
   question_count: number;
   with_answer: number;
@@ -171,6 +173,10 @@ const AdminReviewQueue: React.FC = () => {
                 <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '0.15rem 0 0' }}>
                   {r.user_identifier} · {r.question_count} questions · {r.with_answer} with answers
                   {r.category ? ` · ${r.category}` : ''}
+                  {' · '}
+                  <span style={{ color: 'hsl(var(--foreground))' }}>
+                    {r.kind === 'past_paper' ? '📄 past paper' : '❓ questions'}
+                  </span>
                 </p>
               </div>
               <button

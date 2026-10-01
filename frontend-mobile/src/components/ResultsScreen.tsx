@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { type QuizResult, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useLang } from '@/context/LanguageContext';
-import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue } from '../services/api';
+import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue, deleteAttempt } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { getRandomScoreMessages, getRandomScoreMessage } from '@/utils/scoreMessages';
 import { scoreColor } from '@/utils/scoreColor';
@@ -109,7 +109,11 @@ const ResultsScreen: React.FC = () => {
     const totalCorrect = all.reduce((sum, a) => sum + a.score, 0);
     const totalQuestions = all.reduce((sum, a) => sum + a.total_questions, 0);
     const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
-    const avgWrong = total > 0 ? Math.round(all.reduce((sum, a) => sum + (a.total_questions - a.score), 0) / total) : 0;
+    // incorrect_questions.length — NOT total − score. score is already reduced
+    // by any negative-marking penalty (and skips are neither correct nor
+    // wrong), so subtraction inflates the wrong count on every graded sheet.
+    // The array is normalized to [] in loadHistory above, so it is always there.
+    const avgWrong = total > 0 ? Math.round(all.reduce((sum, a) => sum + a.incorrect_questions.length, 0) / total) : 0;
     return { total, accuracy, avgWrong };
   }, [pastAttempts]);
 
@@ -133,7 +137,38 @@ const ResultsScreen: React.FC = () => {
     }
   }, [expandedAttemptId]);
 
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const handleDeleteAttempt = useCallback(async (attempt: RecentAttempt) => {
+    if (!attempt.id) return;
+    if (!window.confirm(`Delete attempt #${attempt.id}? This cannot be undone.`)) return;
+    setDeletingId(attempt.id);
+    try {
+      await deleteAttempt(attempt.id);
+      toast.success(`Attempt #${attempt.id} deleted.`);
+      // Drop it locally so the list reflects the removal immediately; the
+      // server row is already gone, and the next mount refetches.
+      setPastAttempts((prev) => prev.filter((x) => x.id !== attempt.id));
+      if (expandedAttemptId === attempt.id) {
+        setExpandedAttemptId(null);
+        setExpandedQuestions([]);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || 'Could not delete the attempt.');
+    } finally {
+      setDeletingId(null);
+    }
+  }, [expandedAttemptId]);
+
   const latestAttempt = pastAttempts[0];
+  // `total − score` is NOT the wrong count once negative marking applies
+  // (score is already reduced by the penalty), and it also counts skips as
+  // wrong. The server always ships the array; if a row somehow lacks it there
+  // is no honest number to print, so this stays null rather than guessing.
+  const latestWrongCount =
+    latestAttempt && Array.isArray(latestAttempt.incorrect_questions)
+      ? latestAttempt.incorrect_questions.length
+      : null;
   const latestScoreMsgs = useMemo(() => latestAttempt ? getRandomScoreMessages(latestAttempt.percentage, 3) : [], [latestAttempt?.id]);
 
   return (
@@ -164,11 +199,24 @@ const ResultsScreen: React.FC = () => {
             <p style={{ fontSize: '0.875rem', fontWeight: 600, margin: 0 }}>
               You scored {num(quizResult.score)} / {num(quizResult.total_questions)}
             </p>
-            {(quizResult as any).negative_marking > 0 && (
-              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '2px 0 0', fontFamily: 'var(--font-mono)' }}>
-                {(quizResult as any).raw_score ?? quizResult.score} correct − penalty ({(quizResult as any).negative_marking}/wrong)
-              </p>
-            )}
+            {/* The breakdown is only shown when the wrong count is actually
+                known. total − raw would count skips as wrong and cannot
+                reproduce the penalty, so a missing array means no formula
+                rather than a fabricated one. */}
+            {(quizResult as any).negative_marking > 0 &&
+              Array.isArray((quizResult as any).incorrect_questions) && (() => {
+                const raw = (quizResult as any).raw_score ?? quizResult.score;
+                const neg = Number((quizResult as any).negative_marking) || 0;
+                const wrong = (quizResult as any).incorrect_questions.length;
+                const penalty = Math.min(raw, Math.round(wrong * neg * 100) / 100);
+                const pre = raw - penalty;
+                return (
+                  <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '2px 0 0', fontFamily: 'var(--font-mono)' }}>
+                    {num(raw)} correct − {num(penalty)} penalty ({num(wrong)} wrong × {num(neg)}) = {num(quizResult.score)}
+                    {Math.abs(pre - quizResult.score) > 0.001 ? ` (rounded from ${num(Math.round(pre * 100) / 100)})` : ''}
+                  </p>
+                );
+              })()}
             {(quizResult as any).offline && (
               <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '2px 0 0' }}>
                 Offline result. Saved on this device, will sync automatically when you reconnect.
@@ -243,7 +291,7 @@ const ResultsScreen: React.FC = () => {
                   ✓ {latestAttempt.score} Correct
                 </span>
                 <span className="badge badge-destructive" style={{ fontSize: '0.75rem', padding: '3px 10px' }}>
-                  ✕ {latestAttempt.total_questions - latestAttempt.score} Wrong
+                  ✕ {latestWrongCount ?? '—'} Wrong
                 </span>
               </div>
 
@@ -423,6 +471,16 @@ const ResultsScreen: React.FC = () => {
                       aria-expanded={isExpanded}
                     >
                       {isExpanded ? 'Hide review' : 'Review attempt'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteAttempt(a); }}
+                      disabled={deletingId === a.id}
+                      aria-label={`Delete attempt ${a.id}`}
+                      title="Delete this attempt"
+                    >
+                      {deletingId === a.id ? 'Deleting…' : 'Delete'}
                     </button>
                   </motion.div>
 

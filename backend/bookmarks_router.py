@@ -37,7 +37,13 @@ def list_bookmarks(
     rows = (
         db.query(models.Bookmark)
         .filter(models.Bookmark.user_identifier == user_identifier)
-        .order_by(models.Bookmark.created_at.desc())
+        # created_at alone is not enough to order by. SQLite renders the
+        # server_default as CURRENT_TIMESTAMP, which has one-second resolution,
+        # so every bookmark added in the same second ties and the sort falls
+        # back to whatever the engine emits (in practice rowid/insertion
+        # order). id is monotonic, so it breaks ties by true recency. Do not
+        # drop it - rapid bookmarking would otherwise come back shuffled.
+        .order_by(models.Bookmark.created_at.desc(), models.Bookmark.id.desc())
         .all()
     )
     ids = [r.question_id for r in rows]

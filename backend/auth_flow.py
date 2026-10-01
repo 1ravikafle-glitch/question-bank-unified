@@ -197,9 +197,12 @@ class RegisterRequest(BaseModel):
     # Optional. Left blank, the server assigns the next free member number.
     user_id: Optional[str] = Field(default=None, max_length=20)
     password: str = Field(..., min_length=8, max_length=200)
-    # Called "gmail" because that is what people expect the field to be, but
-    # any address is accepted - the field is only used to deliver a reset code.
-    gmail: str = Field(..., max_length=255)
+    # Optional: an address is only a reset-code delivery channel, and nobody
+    # should be forced to hand one over to practise MCQs. Omitted/blank is
+    # stored as NULL, never '' - the unique index on users.email allows many
+    # NULLs but only one empty string, so the SECOND emailless signup would
+    # have collided and reported "just taken". Addable later from Settings.
+    gmail: Optional[str] = Field(default=None, max_length=255)
 
 
 class RegisterResponse(BaseModel):
@@ -232,20 +235,21 @@ def register(
                 detail="Member ID must be 3-20 characters: letters, numbers or dash.",
             )
 
-    gmail = (req.gmail or "").strip().lower()
-    if not EMAIL_RE.match(gmail):
+    gmail = (req.gmail or "").strip().lower() or None
+    if gmail is not None and not EMAIL_RE.match(gmail):
         raise HTTPException(status_code=400, detail="That does not look like an email address.")
 
     if db.query(models.User).filter(models.User.username == username).first():
         raise HTTPException(status_code=409, detail="That username is already taken.")
 
-    existing_email = db.query(models.User).filter(models.User.email == gmail).first()
-    if existing_email is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="That email is already registered. Use 'forgot password' on that account, "
-                   "or register with a different address.",
-        )
+    if gmail is not None:
+        existing_email = db.query(models.User).filter(models.User.email == gmail).first()
+        if existing_email is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="That email is already registered. Use 'forgot password' on that account, "
+                       "or register with a different address.",
+            )
 
     if member_id and db.query(models.User).filter(models.User.user_id == member_id).first():
         raise HTTPException(status_code=409, detail="That member ID is already taken.")
@@ -291,6 +295,67 @@ def register(
         user_id=member_id,
         message="Account created. You can sign in now.",
     )
+
+
+@router.get("/me")
+def auth_me(
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_user),
+):
+    """The signed-in account's own profile. Email may be null (optional at
+    registration) - Settings shows "Not added yet" and offers to add it."""
+    user = db.query(models.User).filter(models.User.username == caller[0]).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return {
+        "username": user.username,
+        "user_id": user.user_id,
+        "email": user.email or None,
+        "is_admin": caller[1],
+    }
+
+
+class UpdateEmailRequest(BaseModel):
+    # Empty/whitespace clears the address back to NULL.
+    email: Optional[str] = Field(default=None, max_length=255)
+
+
+@router.put("/email")
+def update_email(
+    req: UpdateEmailRequest,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_user),
+):
+    """Add or change the caller's own reset-address from Settings.
+
+    Registration no longer requires one, so this is how a user supplies it
+    later. Stored lowercase; blank clears it to NULL (never '', which the
+    unique index treats as a real value and would then only allow one
+    emailless... see the register docstring).
+    """
+    email = (req.email or "").strip().lower() or None
+    if email is not None and not EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="That does not look like an email address.")
+
+    user = db.query(models.User).filter(models.User.username == caller[0]).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    if email is not None and email != (user.email or "").lower():
+        taken = (
+            db.query(models.User)
+            .filter(models.User.email == email, models.User.username != user.username)
+            .first()
+        )
+        if taken is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="That email is already registered to another account.",
+            )
+
+    user.email = email
+    db.commit()
+    return {"ok": True, "email": user.email}
 
 
 # ── OTP password reset ───────────────────────────────────────────────────────

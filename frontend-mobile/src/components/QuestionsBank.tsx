@@ -602,8 +602,8 @@ const QuestionsBank: React.FC = () => {
                       fontWeight: 600,
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
-                      color: q.difficulty === 'easy' ? 'hsl(142 45% 40%)' : q.difficulty === 'hard' ? 'hsl(0 65% 50%)' : 'hsl(var(--muted-foreground))',
-                      background: q.difficulty === 'easy' ? 'hsl(142 45% 40% / 0.08)' : q.difficulty === 'hard' ? 'hsl(0 65% 50% / 0.08)' : 'hsl(var(--muted))',
+                      color: q.difficulty === 'easy' ? 'hsl(var(--primary))' : q.difficulty === 'hard' ? 'hsl(var(--destructive))' : 'hsl(var(--muted-foreground))',
+                      background: q.difficulty === 'easy' ? 'hsl(var(--primary) / 0.08)' : q.difficulty === 'hard' ? 'hsl(var(--destructive) / 0.08)' : 'hsl(var(--muted))',
                       padding: '2px 8px',
                       borderRadius: '6px',
                     }}>
@@ -628,8 +628,8 @@ const QuestionsBank: React.FC = () => {
                             fontSize: '0.625rem',
                             fontWeight: 700,
                             borderRadius: '4px',
-                            color: correct ? 'hsl(142 45% 40%)' : 'hsl(0 65% 50%)',
-                            background: correct ? 'hsl(142 45% 40% / 0.08)' : 'hsl(0 65% 50% / 0.08)',
+                            color: correct ? 'hsl(var(--primary))' : 'hsl(var(--destructive))',
+                            background: correct ? 'hsl(var(--primary) / 0.08)' : 'hsl(var(--destructive) / 0.08)',
                           }}
                         >
                           {correct ? '✓' : '✗'}
@@ -669,8 +669,8 @@ const QuestionsBank: React.FC = () => {
                           let borderColor = 'hsl(var(--border))';
                           let bgColor = 'hsl(var(--card))';
                           let textColor = 'hsl(var(--foreground))';
-                          if (showCorrect) { borderColor = 'hsl(142 45% 40%)'; bgColor = 'hsl(142 45% 40% / 0.04)'; }
-                          else if (showWrong) { borderColor = 'hsl(0 65% 50%)'; bgColor = 'hsl(0 65% 50% / 0.04)'; }
+                          if (showCorrect) { borderColor = 'hsl(var(--primary))'; bgColor = 'hsl(var(--primary) / 0.04)'; }
+                          else if (showWrong) { borderColor = 'hsl(var(--destructive))'; bgColor = 'hsl(var(--destructive) / 0.04)'; }
                           else if (isSelected) { borderColor = 'hsl(var(--primary))'; bgColor = 'hsl(var(--primary) / 0.04)'; }
 
                           return (
@@ -713,14 +713,14 @@ const QuestionsBank: React.FC = () => {
                                 fontSize: '0.6875rem',
                                 fontWeight: 700,
                                 flexShrink: 0,
-                                background: showCorrect ? 'hsl(142 45% 40%)' : showWrong ? 'hsl(0 65% 50%)' : isSelected ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                                background: showCorrect ? 'hsl(var(--primary))' : showWrong ? 'hsl(var(--destructive))' : isSelected ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
                                 color: showCorrect || showWrong || isSelected ? 'white' : 'hsl(var(--muted-foreground))',
                               }}>
                                 {key.toUpperCase()}
                               </span>
                               <span style={{ flex: 1 }}>{value}</span>
-                              {showCorrect && <span style={{ fontSize: '0.875rem', color: 'hsl(142 45% 40%)', fontWeight: 700 }}>✓</span>}
-                              {showWrong && <span style={{ fontSize: '0.875rem', color: 'hsl(0 65% 50%)', fontWeight: 700 }}>✗</span>}
+                              {showCorrect && <span style={{ fontSize: '0.875rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>✓</span>}
+                              {showWrong && <span style={{ fontSize: '0.875rem', color: 'hsl(var(--destructive))', fontWeight: 700 }}>✗</span>}
                             </button>
                           );
                         }
@@ -735,8 +735,8 @@ const QuestionsBank: React.FC = () => {
                               gap: '12px',
                               padding: '10px 14px',
                               borderRadius: '10px',
-                              border: `1px solid ${isCorrect ? 'hsl(142 45% 40%)' : 'hsl(var(--border))'}`,
-                              background: isCorrect ? 'hsl(142 45% 40% / 0.04)' : 'hsl(var(--card))',
+                              border: `1px solid ${isCorrect ? 'hsl(var(--primary))' : 'hsl(var(--border))'}`,
+                              background: isCorrect ? 'hsl(var(--primary) / 0.04)' : 'hsl(var(--card))',
                               cursor: 'default',
                               transition: 'all 0.15s',
                               width: '100%',
@@ -753,13 +753,13 @@ const QuestionsBank: React.FC = () => {
                               fontSize: '0.6875rem',
                               fontWeight: 700,
                               flexShrink: 0,
-                              background: isCorrect ? 'hsl(142 45% 40%)' : 'hsl(var(--muted))',
+                              background: isCorrect ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
                               color: isCorrect ? 'white' : 'hsl(var(--muted-foreground))',
                             }}>
                               {key.toUpperCase()}
                             </span>
                             <span style={{ flex: 1, color: 'hsl(var(--foreground))' }}>{value}</span>
-                            {isCorrect && <span style={{ fontSize: '0.875rem', color: 'hsl(142 45% 40%)', fontWeight: 700 }}>✓</span>}
+                            {isCorrect && <span style={{ fontSize: '0.875rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>✓</span>}
                           </div>
                         );
                       })}
@@ -804,12 +804,12 @@ const QuestionsBank: React.FC = () => {
                         flexWrap: 'wrap',
                       }}>
                         {isThisCorrect ? (
-                          <span style={{ color: 'hsl(142 45% 40%)' }}>✓ Correct!</span>
+                          <span style={{ color: 'hsl(var(--primary))' }}>✓ Correct!</span>
                         ) : (
                           <>
-                            <span style={{ color: 'hsl(0 65% 50%)' }}>✗ Incorrect answer</span>
+                            <span style={{ color: 'hsl(var(--destructive))' }}>✗ Incorrect answer</span>
                             <span style={{ color: 'hsl(var(--muted-foreground))' }}>||</span>
-                            <span style={{ color: 'hsl(142 45% 40%)' }}>Correct answer: {correctText}</span>
+                            <span style={{ color: 'hsl(var(--primary))' }}>Correct answer: {correctText}</span>
                           </>
                         )}
                       </p>
@@ -838,7 +838,7 @@ const QuestionsBank: React.FC = () => {
                 {!!noteMap[q.id] && noteOpenId !== q.id && (
                   <p style={{
                     fontSize: '0.75rem', lineHeight: 1.6, color: 'hsl(var(--foreground))',
-                    background: 'hsl(210 90% 50% / 0.07)', borderLeft: '3px solid hsl(210 90% 50%)',
+                    background: 'hsl(var(--info) / 0.07)', borderLeft: '3px solid hsl(var(--info))',
                     borderRadius: '0 8px 8px 0', padding: '0.5rem 0.75rem', margin: '12px 0 0',
                     whiteSpace: 'pre-wrap',
                   }}>

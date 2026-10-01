@@ -213,7 +213,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
             const picked = (selected[q.id] || '').toString().toLowerCase();
             // Stored keys are ORIGINAL; map to the DISPLAYED label for highlight.
             const pickedDisp = (dispOf[picked] || picked).toLowerCase();
-            const locked = selected[q.id] !== undefined;
             const cls =
               'psc-q' +
               (i === currentIdx && !hovering ? ' current' : '') +
@@ -282,12 +281,11 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                   {items.map(([key, text]) => {
                     const isSel = pickedDisp === key.toLowerCase();
                     return (
-                      <label key={key} className={'psc-opt' + (isSel ? ' sel' : '') + (locked && !isSel ? ' dim' : '')}>
+                      <label key={key} className={'psc-opt' + (isSel ? ' sel' : '')}>
                         <input
                           type="radio"
                           name={`psc-q-${q.id}`}
                           checked={isSel}
-                          disabled={locked}
                           onChange={() => onSelect(q.id, key.toLowerCase())}
                         />
                         <span className="psc-bubble" aria-hidden="true" />
@@ -379,7 +377,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                   const item = items[li];
                   if (!item) return <span key={l} />;
                   const isSel = pickedDisp === item[0].toLowerCase();
-                  const locked = selected[q.id] !== undefined;
                   return (
                     <label key={l} className="psc-omr-opt" aria-label={`Question ${i + 1} option ${l}`}>
                       <input
@@ -387,7 +384,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                         className="psc-omr-input"
                         name={`psc-omr-${q.id}`}
                         checked={isSel}
-                        disabled={locked}
                         onChange={() => onSelect(q.id, item[0].toLowerCase())}
                       />
                       <span className="psc-omr-bub" aria-hidden="true" />

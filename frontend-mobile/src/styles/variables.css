@@ -62,6 +62,34 @@
 
   --ring: 142 71% 45%;
 
+
+  /* --- Score scale: the four grades returned by utils/scoreColor.ts.
+         These live here rather than as literals in the util so each grade can
+         be lifted separately on the dark card (a deep forest green tuned for
+         white is unreadable on #111). `--bookmark` is the amber annotation
+         accent shared by bookmark buttons and gold highlights. --- */
+  --score-fabulous: 150 60% 32%;
+  --score-good: 38 92% 45%;
+  --score-fair: 24 95% 50%;
+  --score-poor: 0 84% 60%;
+  --bookmark: 38 92% 45%;
+
+  /* --- Section tones: one accent hue per sidebar group (Study / Review /
+         System). These are consumed as `hsl(var(--tone-x))` and as an
+         inherited `--tone` on a group, so hover states can pick up the hue of
+         the section they belong to instead of repeating --primary everywhere.
+         Hover is a separate token because dark mode needs a lighter one —
+         `brightness()` filters read muddy over a tinted surface. --- */
+  --tone-study: 142 71% 40%;
+  --tone-study-hover: 142 71% 35%;
+  --tone-study-soft: 142 71% 96%;
+  --tone-review: 205 88% 40%;
+  --tone-review-hover: 205 88% 35%;
+  --tone-review-soft: 205 88% 96%;
+  --tone-system: 272 58% 48%;
+  --tone-system-hover: 272 58% 42%;
+  --tone-system-soft: 272 58% 97%;
+
   --radius: 0.75rem;
 
   /* --- Typography --- */
@@ -219,4 +247,25 @@
   --input: 150 12% 20%;
 
   --ring: 142 71% 55%;
+
+  /* Score scale, dark: each grade lifted off the dark card while keeping the
+     four steps distinguishable from one another. */
+  --score-fabulous: 150 58% 50%;
+  --score-good: 38 92% 58%;
+  --score-fair: 24 95% 57%;
+  --score-poor: 4 72% 58%;
+  --bookmark: 38 92% 56%;
+
+  /* Section tones, dark: same three hues pushed brighter and desaturated a
+     touch so they sit on green-black without glowing. Soft backgrounds stay
+     dark — a light tint here would read as a selected state. */
+  --tone-study: 142 60% 54%;
+  --tone-study-hover: 142 60% 62%;
+  --tone-study-soft: 142 40% 17%;
+  --tone-review: 202 88% 62%;
+  --tone-review-hover: 202 88% 70%;
+  --tone-review-soft: 202 55% 17%;
+  --tone-system: 272 70% 72%;
+  --tone-system-hover: 272 70% 80%;
+  --tone-system-soft: 272 45% 21%;
 }

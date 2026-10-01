@@ -1,6 +1,7 @@
-import { useContext } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { AuthContext } from '@/context/AuthContext';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useSound } from '@/context/SoundContext';
@@ -8,6 +9,7 @@ import { useSfx } from '@/hooks/useSfx';
 import { useLang, type Lang } from '@/context/LanguageContext';
 import { useQuizPrefs } from '@/quizPrefs';
 import { staggerParent, sectionRise, useReducedMotion } from '@/motion';
+import { authMe, authUpdateEmail } from '@/services/api';
 
 const row: React.CSSProperties = {
   display: 'flex',
@@ -199,6 +201,7 @@ const Settings: React.FC = () => {
       </motion.section>
 
       {/* Account */}
+      <EmailSection />
       <motion.section variants={reduced ? undefined : sectionRise} aria-label="Account">
         <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
           Account
@@ -253,6 +256,99 @@ const Settings: React.FC = () => {
 };
 
 export default Settings;
+
+/* Email is optional at registration (it only ever delivers a reset code), so
+   this is where it gets supplied afterwards. Shows the stored address or
+   "Not added yet", and saves inline. */
+function EmailSection() {
+  const reduced = useReducedMotion();
+  const { sfxClick } = useSfx();
+  const [current, setCurrent] = useState<string | null>(null);
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    authMe()
+      .then((m) => { setCurrent(m.email); setValue(m.email || ''); })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const save = async () => {
+    const next = value.trim();
+    if (next === (current || '')) return;
+    if (next && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(next)) {
+      toast.error('That does not look like an email address.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await authUpdateEmail(next);
+      setCurrent(r.email);
+      setValue(r.email || '');
+      toast.success(r.email ? 'Email saved' : 'Email removed', { duration: 1500 });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Could not save the email.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const card: React.CSSProperties = {
+    background: 'hsl(var(--card))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: 18,
+    padding: 8,
+  };
+
+  return (
+    <motion.section variants={reduced ? undefined : sectionRise} style={{ marginBottom: 16 }} aria-label="Email">
+      <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
+        Email
+      </h2>
+      <div style={card}>
+        <div style={{ ...row, border: 'none', flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+          <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>
+            {current ? 'Recovery email' : 'Add a recovery email'}
+          </span>
+          <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
+            {loaded
+              ? (current
+                  ? 'Used only to send a password-reset code.'
+                  : 'Not added yet. Without it, password reset falls back to the server log.')
+              : 'Loading…'}
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="email"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onBlur={() => { if (value.trim() !== (current || '')) save(); }}
+              placeholder="you@gmail.com"
+              autoComplete="email"
+              aria-label="Recovery email"
+              style={{
+                flex: 1, minWidth: 0, padding: '9px 12px', borderRadius: 10,
+                border: '1px solid hsl(var(--border))', background: 'hsl(var(--background))',
+                color: 'hsl(var(--foreground))', fontSize: 14, fontFamily: 'inherit',
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => { sfxClick(); save(); }}
+              disabled={busy || !loaded || value.trim() === (current || '')}
+              style={{ padding: '9px 16px', fontSize: 13 }}
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
 
 function LanguageSection() {
   const { lang, setLang, t } = useLang();

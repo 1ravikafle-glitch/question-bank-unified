@@ -2326,6 +2326,10 @@
 .dark .psc-opt.sel .psc-bubble { box-shadow: inset 0 0 0 3px hsl(220 20% 11%); }
 .psc-q.current { background: linear-gradient(90deg, hsl(var(--foreground) / 0.07), transparent 80%); box-shadow: inset 3px 0 0 hsl(var(--primary)); padding-left: 11px; }
 .psc-q.hover-linked { background: hsl(var(--foreground) / 0.05); box-shadow: inset 3px 0 0 hsl(var(--muted-foreground)); }
+/* Hovering a question exposes its A–D controls: the option row lights up and
+   every unanswered bubble reads as pressable. Points at the controls only. */
+.psc-q.hover-linked .psc-opt:not(.sel) { background: hsl(var(--primary) / 0.07); }
+.psc-q.hover-linked .psc-opt:not(.sel) .psc-bubble { border-color: hsl(var(--primary) / 0.8); box-shadow: 0 0 0 3px hsl(var(--primary) / 0.13); }
 .psc-submit-wrap { margin-top: 25px; padding-top: 17px; border-top: 1px solid currentColor; text-align: center; position: relative; }
 .psc-submit { appearance: none; border: 1px solid hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; padding: 10px 30px; border-radius: 8px; cursor: pointer; transition: filter 0.2s ease, transform 0.15s ease; }
 .psc-submit:hover:not(:disabled) { filter: brightness(1.1); }
@@ -2347,6 +2351,15 @@
 .psc-omr-row { display: grid; align-items: center; min-height: 41px; padding: 4px 2px; border-bottom: 1px dotted hsl(var(--border)); border-radius: 6px; transition: background 0.18s ease; }
 /* No separate OMR hover: the shared linked highlight (same as paper) is the only hover. */
 .psc-omr-row.active { background: hsl(var(--primary) / 0.08); box-shadow: inset 3px 0 0 hsl(var(--primary)); }
+/* Same linked highlight as the paper half, plus controls that read pressable. */
+.psc-omr-row.hover-linked { background: hsl(var(--primary) / 0.09); box-shadow: inset 3px 0 0 hsl(var(--primary)); }
+.psc-omr-row.hover-linked .psc-omr-bub { border-color: hsl(var(--primary) / 0.75); }
+.psc-omr-row.hover-linked .psc-omr-input:checked + .psc-omr-bub { border-color: hsl(var(--foreground)); }
+.psc-omr-row.hover-linked .psc-omr-opt:active .psc-omr-input:not(:checked) + .psc-omr-bub {
+  transform: scale(1.1);
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.16);
+}
 .psc-omr-num { font-size: 11.5px; font-weight: 700; cursor: pointer; padding-left: 5px; background: none; border: none; color: hsl(var(--foreground)); text-align: left; font-variant-numeric: tabular-nums; }
 .psc-omr-num:hover { text-decoration: underline; text-underline-offset: 3px; }
 .psc-omr-opt { display: flex; justify-content: center; align-items: center; height: 33px; cursor: pointer; }
@@ -2368,4 +2381,223 @@
   .psc-opts { grid-template-columns: 1fr; margin-left: 14px; }
   .psc-qtext { font-size: 14px; }
   .psc-omr { max-height: 430px; }
+}
+
+/* =============================================================
+   Tone-aware navigation rows
+   -------------------------------------------------------------
+   `--tone` is declared once per sidebar group (Study = moss,
+   Review = sky, System = violet) and inherited by its rows, so hover
+   and active colour is that section's own hue instead of one green
+   everywhere. The rows never declare --tone themselves — a local
+   declaration would beat inheritance and flatten the group back.
+   ============================================================= */
+
+.desktop-sidebar .nav-group {
+  /* Fallback only: the group sets the real value inline. */
+  --tone: var(--primary);
+}
+
+.nav-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 500;
+  color: hsl(var(--foreground) / 0.72);
+  background-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-row:hover {
+    color: hsl(var(--tone));
+    background-color: hsl(var(--tone) / 0.10);
+  }
+}
+
+.nav-row:active {
+  background-color: hsl(var(--tone) / 0.17);
+}
+
+/* The sliding surface behind the active row comes from the layoutId span in
+   the component; this row only takes the text colour and weight. */
+.nav-row.is-active {
+  color: hsl(var(--tone));
+  font-weight: 700;
+}
+
+.nav-row.is-external {
+  color: hsl(var(--tone));
+  background-color: hsl(var(--tone) / 0.09);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-row.is-external:hover {
+    background-color: hsl(var(--tone) / 0.17);
+    color: hsl(var(--tone));
+  }
+}
+
+.nav-row:focus-visible {
+  outline: 2px solid hsl(var(--tone));
+  outline-offset: 2px;
+}
+
+/* =============================================================
+   Hover colour pass
+   -------------------------------------------------------------
+   Every interactive family used to flatten to the same grey on hover,
+   so nothing told you what kind of control you were pointing at.
+   Each now picks up its own accent. Light and dark are tuned
+   separately: a tint that reads as "highlighted" on paper reads as
+   "muddy" on a dark surface at the same alpha.
+   ============================================================= */
+
+.btn-outline:hover:not(:disabled) {
+  background-color: hsl(var(--primary) / 0.07);
+  border-color: hsl(var(--primary) / 0.55);
+  color: hsl(var(--primary));
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background-color: hsl(var(--primary) / 0.11);
+  color: hsl(var(--primary));
+}
+
+.btn-icon:hover:not(:disabled) {
+  background-color: hsl(var(--primary) / 0.11);
+  color: hsl(var(--primary));
+}
+
+.nav-pill:hover {
+  background-color: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+}
+
+.dropdown-item:hover {
+  background-color: hsl(var(--primary) / 0.11);
+  color: hsl(var(--primary));
+}
+
+.category-dropdown-item:hover {
+  background: hsl(var(--primary) / 0.11) !important;
+  color: hsl(var(--primary));
+}
+
+.question-navigator-button:hover:not(.question-navigator-button-disabled) {
+  background-color: hsl(var(--primary) / 0.13);
+  color: hsl(var(--primary));
+}
+
+.pagination-item:hover:not(.pagination-item-active):not(:disabled) {
+  background-color: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+}
+
+.radiogroup-item:hover:not(.radiogroup-item-disabled) {
+  border-color: hsl(var(--primary) / 0.5);
+  background-color: hsl(var(--primary) / 0.06);
+}
+
+.chip:hover {
+  border-color: hsl(var(--primary) / 0.55);
+  background-color: hsl(var(--primary) / 0.07);
+}
+
+.table-cell:hover {
+  background-color: hsl(var(--primary) / 0.06);
+}
+
+/* Paper options: tint with the accent rather than a flat foreground wash, so
+   "pressable" reads before the pointer lands on the exact letter. */
+.psc-opt:hover {
+  background-color: hsl(var(--primary) / 0.10);
+}
+
+.specimen-card:hover {
+  border-color: hsl(var(--primary) / 0.35);
+}
+
+.theme-toggle-btn:hover {
+  background-color: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+}
+
+.activity-toggle {
+  transition: opacity 150ms, color 150ms var(--ease-standard);
+}
+
+.activity-toggle:hover {
+  opacity: 1;
+  color: hsl(var(--primary));
+}
+
+/* Cards already lift on hover; give the ones you can act on a hairline in the
+   accent so the lift is not the only signal. */
+.card:hover {
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+/* --- Dark mode equivalents ---------------------------------------- */
+
+.dark .btn-outline:hover:not(:disabled) {
+  background-color: hsl(var(--primary) / 0.16);
+  border-color: hsl(var(--primary) / 0.6);
+  color: hsl(var(--primary));
+}
+
+.dark .btn-ghost:hover:not(:disabled),
+.dark .btn-icon:hover:not(:disabled) {
+  background-color: hsl(var(--primary) / 0.18);
+  color: hsl(var(--primary));
+}
+
+/* `!important` is load-bearing: the pre-existing
+   `.category-dropdown-item:hover { background: ... !important }` earlier in this
+   file would otherwise win in dark mode and force the light-mode tint onto a
+   dark surface. Only an !important rule outranks it, so this one stands alone
+   instead of joining the group below. */
+.dark .nav-pill:hover,
+.dark .dropdown-item:hover {
+  background-color: hsl(var(--primary) / 0.18);
+  color: hsl(var(--primary));
+}
+.dark .category-dropdown-item:hover {
+  background: hsl(var(--primary) / 0.18) !important;
+  color: hsl(var(--primary));
+}
+
+.dark .question-navigator-button:hover:not(.question-navigator-button-disabled),
+.dark .pagination-item:hover:not(.pagination-item-active):not(:disabled) {
+  background-color: hsl(var(--primary) / 0.2);
+  color: hsl(var(--primary));
+}
+
+.dark .radiogroup-item:hover:not(.radiogroup-item-disabled),
+.dark .chip:hover {
+  border-color: hsl(var(--primary) / 0.6);
+  background-color: hsl(var(--primary) / 0.14);
+}
+
+.dark .table-cell:hover,
+.dark .psc-opt:hover {
+  background-color: hsl(var(--primary) / 0.14);
+}
+
+.dark .card:hover {
+  border-color: hsl(var(--primary) / 0.42);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dark .nav-row:hover {
+    color: hsl(var(--tone));
+    background-color: hsl(var(--tone) / 0.16);
+  }
+}
+
+.dark .nav-row.is-external,
+.dark .nav-row.is-external:hover {
+  background-color: hsl(var(--tone) / 0.16);
 }
