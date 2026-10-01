@@ -992,9 +992,10 @@
 /* Mobile bottom nav padding */
 .pb-20 { padding-bottom: 5rem; }
 
-/* Prevent horizontal overflow globally */
+/* Prevent horizontal overflow globally (clip, NOT hidden: hidden breaks
+   position:sticky descendants such as the OMR sheet) */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Safe area support for mobile browsers */

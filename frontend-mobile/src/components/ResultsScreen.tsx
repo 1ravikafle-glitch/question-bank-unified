@@ -438,8 +438,13 @@ const ResultsScreen: React.FC = () => {
                                     <span style={{ fontFamily: 'var(--font-mono)', color: 'hsl(var(--muted-foreground))' }}>#{q.question_number}</span> {q.question_text}
                                   </p>
                                   <div className="space-y-1" style={{ marginLeft: '1.25rem' }}>
-                                    {Object.entries(q.options).map(([key, value]) => {
-                                      const isCorrect = key.toLowerCase() === q.correct_answer.toLowerCase();
+                                    {Object.entries(
+                                      (typeof q.options === 'string' ? (() => { try { return JSON.parse(q.options as unknown as string); } catch { return {}; } })() : q.options) || {}
+                                    ).map(([key, value]) => {
+                                      const correctKey = (q.correct_answer || '').toLowerCase();
+                                      const selectedKey = (q.selected_answer || '').toLowerCase();
+                                      const isCorrect = key.toLowerCase() === correctKey;
+                                      const isSelected = !isCorrect && key.toLowerCase() === selectedKey;
                                       return (
                                         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                           <span
@@ -447,22 +452,24 @@ const ResultsScreen: React.FC = () => {
                                               width: '1.25rem', height: '1.25rem', borderRadius: '50%',
                                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                               fontSize: '0.625rem', fontWeight: 700,
-                                              background: isCorrect ? 'hsl(var(--success))' : 'hsl(var(--muted))',
-                                              color: isCorrect ? '#fff' : 'hsl(var(--muted-foreground))',
+                                              background: isCorrect ? 'hsl(var(--success))' : isSelected ? 'hsl(var(--destructive))' : 'hsl(var(--muted))',
+                                              color: isCorrect || isSelected ? '#fff' : 'hsl(var(--muted-foreground))',
                                             }}
                                           >
-                                            {isCorrect ? '✓' : '·'}
+                                            {isCorrect ? '✓' : isSelected ? '✕' : '·'}
                                           </span>
                                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', textTransform: 'uppercase' }}>{key}.</span>
-                                          <span style={{ flex: 1, fontSize: '0.8125rem', color: isCorrect ? 'hsl(var(--success))' : 'hsl(var(--foreground))' }}>
-                                            {value}
+                                          <span style={{ flex: 1, fontSize: '0.8125rem', color: isCorrect ? 'hsl(var(--success))' : isSelected ? 'hsl(var(--destructive))' : 'hsl(var(--foreground))' }}>
+                                            {value as string}
                                           </span>
                                         </div>
                                       );
                                     })}
                                   </div>
                                   <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.5rem', marginLeft: '1.25rem' }}>
-                                    Your answer was incorrect
+                                    {q.is_correct
+                                      ? `Your answer ${String(q.selected_answer || '').toUpperCase()} was correct`
+                                      : `Your answer ${String(q.selected_answer || '').toUpperCase()} was incorrect · correct is ${String(q.correct_answer || '').toUpperCase()}`}
                                   </p>
                                 </div>
                               ))}

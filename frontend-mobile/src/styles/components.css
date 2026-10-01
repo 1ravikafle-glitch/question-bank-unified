@@ -2318,7 +2318,7 @@
 .psc-progress-fill { height: 100%; width: 0%; background: hsl(var(--primary)); transition: width 0.25s ease; }
 .psc-omr-cols { flex-shrink: 0; display: grid; align-items: center; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--muted)); padding: 7px 9px; font-size: 10.5px; font-weight: 700; text-align: center; color: hsl(var(--muted-foreground)); }
 .psc-omr-cols .psc-q-col { text-align: left; }
-.psc-omr-scroll { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 7px 18px; scroll-behavior: smooth; min-height: 120px; }
+.psc-omr-scroll { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 7px 18px; scroll-behavior: smooth; min-height: 120px; overscroll-behavior: contain; }
 .psc-omr-row { display: grid; align-items: center; min-height: 41px; padding: 4px 2px; border-bottom: 1px dotted hsl(var(--border)); border-radius: 6px; transition: background 0.18s ease; }
 .psc-omr-row:hover { background: hsl(var(--muted)); }
 .psc-omr-row.active { background: hsl(var(--primary) / 0.08); box-shadow: inset 3px 0 0 hsl(var(--primary)); }

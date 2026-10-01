@@ -10,10 +10,25 @@ import database
 import schemas
 import session
 import sys
+import json
 import random
 import app_cache
 
 router = APIRouter(prefix="/quiz", tags=["quiz"])
+
+
+def _options_dict(raw):
+    """SQLite stores options as a JSON string; the review UI needs a dict."""
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+    return {}
 
 
 def _ensure_attempt_extra_columns():
@@ -435,15 +450,15 @@ def get_attempt_detail(attempt_id: int, db: Session = Depends(database.get_db)):
         if not q:
             continue
         selected = user_answers.get(str(qid), user_answers.get(qid, "")).lower()
-        correct = q.correct_answer.lower()
+        correct = (q.correct_answer or "").lower()
         # Resolve value-text answers (from old submissions) to key letters
-        options = q.options or {}
+        options = _options_dict(q.options)
         resolved = _resolve_answer_key(selected, options)
         analysis.append({
             "question_id": qid,
             "question_number": q.question_number,
             "question_text": q.question_text,
-            "options": q.options or {},
+            "options": options,
             "correct_answer": correct,
             "selected_answer": resolved,
             "is_correct": resolved == correct,
