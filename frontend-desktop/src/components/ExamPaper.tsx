@@ -19,6 +19,8 @@ interface ExamPaperProps {
   submitting: boolean;
   noteMap: Record<number, string>;
   onNoteSaved: (qid: number, text: string) => void;
+  timeLeft: number;
+  warnSecs: number;
 }
 
 /* PSC-style written-exam sheet: full question paper + OMR answer panel.
@@ -40,6 +42,8 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   submitting,
   noteMap,
   onNoteSaved,
+  timeLeft,
+  warnSecs,
 }) => {
   const { num } = useLang();
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -303,6 +307,14 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           <div className="psc-progress-wrap">
             <div className="psc-progress-info">
               <span>Answered</span>
+              <span
+                className={'psc-omr-timer' + (timeLeft <= warnSecs ? ' low' : '')}
+                role="timer"
+                aria-label={`${Math.floor(Math.max(0, timeLeft) / 60)} minutes ${Math.max(0, timeLeft) % 60} seconds left`}
+              >
+                {String(Math.floor(Math.max(0, timeLeft) / 60)).padStart(2, '0')}:
+                {String(Math.max(0, timeLeft) % 60).padStart(2, '0')}
+              </span>
               <span>
                 {num(answered)} / {num(questions.length)}
               </span>
@@ -329,7 +341,11 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
               <div
                 key={q.id}
                 data-omr={i}
-                className={'psc-omr-row' + (i === currentIdx ? ' active' : '')}
+                className={
+                  'psc-omr-row' +
+                  (i === currentIdx ? ' active' : '') +
+                  (hoverIdx === i && i !== currentIdx ? ' hover-linked' : '')
+                }
                 style={{ gridTemplateColumns: `46px repeat(${letters.length}, 1fr)` }}
                 onMouseEnter={() => setHoverIdx(i)}
                 onMouseLeave={() => setHoverIdx((h) => (h === i ? null : h))}

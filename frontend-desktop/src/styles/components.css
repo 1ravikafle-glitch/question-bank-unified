@@ -937,6 +937,35 @@
 .quiz-dot-strip-many { gap: 4px !important; }
 .quiz-dot-strip-many > div { width: 10px !important; height: 10px !important; transition: none !important; }
 
+/* ── Day/night lights sweep: corner-to-corner wipe, theme flips mid-flight ── */
+.theme-sweep {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+.theme-sweep.to-dark {
+  background: radial-gradient(circle at 100% 0%, #000 0%, #050807 100%);
+  animation: themeSweepDark 0.86s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+.theme-sweep.to-light {
+  background: radial-gradient(circle at 0% 100%, #fffdf4 0%, #f4efe2 100%);
+  animation: themeSweepLight 0.86s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+@keyframes themeSweepDark {
+  0% { clip-path: circle(0 at calc(100% - 70px) 44px); opacity: 1; }
+  45% { clip-path: circle(150% at calc(100% - 70px) 44px); opacity: 1; }
+  100% { clip-path: circle(150% at calc(100% - 70px) 44px); opacity: 0; }
+}
+@keyframes themeSweepLight {
+  0% { clip-path: circle(0 at 70px calc(100% - 44px)); opacity: 1; }
+  45% { clip-path: circle(150% at 70px calc(100% - 44px)); opacity: 1; }
+  100% { clip-path: circle(150% at 70px calc(100% - 44px)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-sweep { display: none; }
+}
+
 /* ── Mobile sticky quiz bar: phones/tablets only, never on desktop ── */
 .quiz-sticky-bar { display: flex; }
 @media (min-width: 1024px) {
@@ -1084,7 +1113,7 @@
 .psc-opt.sel .psc-bubble { background: currentColor; box-shadow: inset 0 0 0 3px #e9e9e7; transform: scale(1.04); }
 .dark .psc-opt.sel .psc-bubble { box-shadow: inset 0 0 0 3px hsl(220 20% 11%); }
 .psc-q.current { background: linear-gradient(90deg, hsl(var(--foreground) / 0.07), transparent 80%); box-shadow: inset 3px 0 0 hsl(var(--primary)); padding-left: 11px; }
-.psc-q.hover-linked { background: hsl(var(--foreground) / 0.05); box-shadow: inset 3px 0 0 hsl(var(--muted-foreground)); }
+.psc-q.hover-linked { background: linear-gradient(90deg, hsl(var(--primary) / 0.09), transparent 80%); box-shadow: inset 3px 0 0 hsl(var(--primary)); padding-left: 11px; }
 .psc-submit-wrap { margin-top: 25px; padding-top: 17px; border-top: 1px solid currentColor; text-align: center; position: relative; }
 .psc-submit { appearance: none; border: 1px solid hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; padding: 10px 30px; border-radius: 8px; cursor: pointer; transition: filter 0.2s ease, transform 0.15s ease; }
 .psc-submit:hover:not(:disabled) { filter: brightness(1.1); }
@@ -1096,15 +1125,25 @@
 .psc-omr-title { text-align: center; font-size: 15px; font-weight: 700; color: hsl(var(--foreground)); }
 .psc-omr-sub { text-align: center; font-size: 10.5px; margin-top: 3px; color: hsl(var(--muted-foreground)); }
 .psc-progress-wrap { margin-top: 10px; }
-.psc-progress-info { display: flex; justify-content: space-between; font-size: 10.5px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.psc-progress-info { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.psc-omr-timer { font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 800; color: hsl(var(--foreground)); background: hsl(var(--muted)); border-radius: 6px; padding: 2px 8px; }
+.psc-omr-timer.low { color: #fff; background: hsl(0 72% 44%); animation: pscTimerPulse 1.2s ease-in-out infinite; }
+@keyframes pscTimerPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .psc-omr-timer.low { animation: none; }
+}
 .psc-progress-bar { height: 5px; background: hsl(var(--muted)); overflow: hidden; border-radius: 3px; }
 .psc-progress-fill { height: 100%; width: 0%; background: hsl(var(--primary)); transition: width 0.25s ease; }
 .psc-omr-cols { flex-shrink: 0; display: grid; align-items: center; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--muted)); padding: 7px 9px; font-size: 10.5px; font-weight: 700; text-align: center; color: hsl(var(--muted-foreground)); }
 .psc-omr-cols .psc-q-col { text-align: left; }
-.psc-omr-scroll { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 7px 18px; scroll-behavior: smooth; min-height: 120px; overscroll-behavior: contain; }
+.psc-omr-scroll { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 6px 7px 18px; scroll-behavior: smooth; overscroll-behavior: contain; }
 .psc-omr-row { display: grid; align-items: center; min-height: 41px; padding: 4px 2px; border-bottom: 1px dotted hsl(var(--border)); border-radius: 6px; transition: background 0.18s ease; }
 .psc-omr-row:hover { background: hsl(var(--muted)); }
 .psc-omr-row.active { background: hsl(var(--primary) / 0.08); box-shadow: inset 3px 0 0 hsl(var(--primary)); }
+.psc-omr-row.hover-linked { background: hsl(var(--primary) / 0.09); box-shadow: inset 3px 0 0 hsl(var(--primary)); }
 .psc-omr-num { font-size: 11.5px; font-weight: 700; cursor: pointer; padding-left: 5px; background: none; border: none; color: hsl(var(--foreground)); text-align: left; font-variant-numeric: tabular-nums; }
 .psc-omr-num:hover { text-decoration: underline; text-underline-offset: 3px; }
 .psc-omr-opt { display: flex; justify-content: center; align-items: center; height: 33px; cursor: pointer; }

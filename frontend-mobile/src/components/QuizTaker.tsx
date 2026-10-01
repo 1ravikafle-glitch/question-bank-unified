@@ -984,6 +984,32 @@ const QuizTaker: React.FC = () => {
     q: any; idx: number; sel: string | null; rev: boolean;
     rect: { top: number; left: number; width: number } | null;
   } | null>(null);
+  // Collapse flight: answered card rises, then shrinks into its own progress
+  // dot (WAAPI transform-only, 60fps). Single driver. Do not revert.
+  const exitOverlayRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!exitShot) return;
+    let raf = 0;
+    raf = requestAnimationFrame(() => {
+      const el = exitOverlayRef.current;
+      const dot = document.querySelector(`[data-dotidx="${exitShot.idx}"]`);
+      if (!el || !dot) return;
+      const r = el.getBoundingClientRect();
+      const d = dot.getBoundingClientRect();
+      const dx = d.left + d.width / 2 - (r.left + r.width / 2);
+      const dy = d.top + d.height / 2 - (r.top + r.height / 2);
+      el.animate(
+        [
+          { transform: 'translate(0px, 0px) scale(1)', opacity: 1, offset: 0 },
+          { transform: 'translate(0px, -64px) scale(0.98)', opacity: 1, offset: 0.3 },
+          { transform: `translate(${dx * 0.9}px, ${dy * 0.9 + -30}px) scale(0.12)`, opacity: 0.85, offset: 0.78 },
+          { transform: `translate(${dx}px, ${dy}px) scale(0.04)`, opacity: 0, offset: 1 },
+        ],
+        { duration: 700, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' }
+      );
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [exitShot]);
   const goTo = useCallback((next: number, answeredIdx: number | null, dir: 'left' | 'right') => {
     if (slidingRef.current) return;
     slidingRef.current = true;
@@ -1018,7 +1044,7 @@ const QuizTaker: React.FC = () => {
       setTimeout(() => setPreviewHoldIdx(null), 300);
       setTimeout(() => {
         setExitShot(null);
-      }, 340);
+      }, 760);
       // New question starts at the top — otherwise the page keeps the
       // previous scroll offset and the user lands mid-question.
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1887,6 +1913,7 @@ const QuizTaker: React.FC = () => {
           {exitShot?.rect && (
             <div
               key={`exit-${exitShot.idx}`}
+              ref={exitOverlayRef}
               className="quiz-exit-overlay"
               aria-hidden="true"
               style={{

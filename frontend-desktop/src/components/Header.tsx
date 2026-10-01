@@ -98,7 +98,8 @@ const DropdownItem: React.FC<DropdownItemProps> = ({ onClick, color, hoverBg, pr
 const Header: React.FC = () => {
   const { userId, logout } = useContext(AuthContext);
   const { enabled: sfxEnabled, toggle: toggleSfx } = useSound();
-  const { resolved: themeResolved } = useTheme();
+  const { resolved: themeResolved, setMode: setThemeMode } = useTheme();
+  const [dayNightSweep, setDayNightSweep] = useState<null | { to: 'light' | 'dark' }>(null);
   const { lang, setLang, t } = useLang();
   const darkMenu = themeResolved === 'dark';
   const navigate = useNavigate();
@@ -106,7 +107,7 @@ const Header: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const closeToken = useRef(0);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
   const pageTitle = routeTitles[location.pathname] || 'Forestry PSC';
   const userInitial = userId ? userId.charAt(0).toUpperCase() : '?';
@@ -131,6 +132,22 @@ const Header: React.FC = () => {
     setClosing(false);
     setMenuOpen(true);
   }, []);
+
+  // E-avatar tap: day/night toggle. The avatar and name swap sides with a
+  // layout slide (E-first = day, name-first = night) while a lights-out
+  // sweep wipes corner-to-corner; the theme flips mid-sweep.
+  const toggleDayNight = useCallback(() => {
+    if (dayNightSweep) return;
+    if (menuOpen) closeAnimated();
+    const to = themeResolved === 'dark' ? 'light' : 'dark';
+    if (prefersReducedMotion()) {
+      setThemeMode(to);
+      return;
+    }
+    setDayNightSweep({ to });
+    window.setTimeout(() => setThemeMode(to), 380);
+    window.setTimeout(() => setDayNightSweep(null), 860);
+  }, [dayNightSweep, menuOpen, closeAnimated, themeResolved, setThemeMode]);
 
   const handleLogout = useCallback(() => {
     setMenuOpen(false);
@@ -412,14 +429,15 @@ const Header: React.FC = () => {
         </div>
 
         {userId && (
-          <motion.button
+          <motion.div
             ref={triggerRef}
-            type="button"
-            onClick={() => (menuOpen ? closeAnimated() : openMenu())}
-            whileHover={prefersReducedMotion() ? undefined : { scale: 1.04 }}
-            whileTap={prefersReducedMotion() ? undefined : { scale: 0.92 }}
-            animate={menuOpen ? { scale: 0.96 } : { scale: 1 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            tabIndex={-1}
+            layout
+            transition={
+              prefersReducedMotion()
+                ? undefined
+                : { layout: { type: 'spring', stiffness: 480, damping: 38 } }
+            }
             style={{
               height: 44,
               minWidth: 44,
@@ -429,6 +447,7 @@ const Header: React.FC = () => {
               justifyContent: 'center',
               gap: 8,
               padding: '0 14px 0 6px',
+              flexDirection: themeResolved === 'dark' ? 'row-reverse' : 'row',
               background: darkMenu
                 ? menuOpen ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)'
                 : 'hsl(var(--card))',
@@ -438,15 +457,25 @@ const Header: React.FC = () => {
               boxShadow: menuOpen
                 ? '0 4px 16px rgba(0,0,0,0.32)'
                 : '0 2px 10px rgba(0,0,0,0.25)',
-              cursor: 'pointer',
               flexShrink: 0,
             }}
-            aria-label="User menu"
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
+            aria-label="User account"
           >
-            <span
-              aria-hidden="true"
+            {/* E avatar: day/night toggle (tap to switch, slides sides) */}
+            <motion.button
+              type="button"
+              layout
+              onClick={toggleDayNight}
+              whileHover={prefersReducedMotion() ? undefined : { scale: 1.08 }}
+              whileTap={prefersReducedMotion() ? undefined : { scale: 0.88 }}
+              transition={
+                prefersReducedMotion()
+                  ? undefined
+                  : { layout: { type: 'spring', stiffness: 480, damping: 38 } }
+              }
+              aria-label={themeResolved === 'dark' ? 'Switch to day mode' : 'Switch to night mode'}
+              aria-pressed={themeResolved === 'dark'}
+              title={themeResolved === 'dark' ? 'Switch to day mode' : 'Switch to night mode'}
               style={{
                 width: 32,
                 height: 32,
@@ -459,11 +488,28 @@ const Header: React.FC = () => {
                 fontSize: 13,
                 fontWeight: 700,
                 flexShrink: 0,
+                border: 'none',
+                cursor: 'pointer',
               }}
             >
-              {userInitial}
-            </span>
-            <span
+              <span aria-hidden="true">{userInitial}</span>
+            </motion.button>
+            {/* Name: opens the account menu (as before) */}
+            <motion.button
+              type="button"
+              layout
+              onClick={() => (menuOpen ? closeAnimated() : openMenu())}
+              whileHover={prefersReducedMotion() ? undefined : { scale: 1.04 }}
+              whileTap={prefersReducedMotion() ? undefined : { scale: 0.96 }}
+              transition={
+                prefersReducedMotion()
+                  ? undefined
+                  : { layout: { type: 'spring', stiffness: 480, damping: 38 } }
+              }
+              aria-label="User menu"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              title={userId ?? undefined}
               style={{
                 fontSize: '0.875rem',
                 fontWeight: 600,
@@ -472,14 +518,25 @@ const Header: React.FC = () => {
                 maxWidth: 120,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
               }}
-              title={userId ?? undefined}
             >
               {userId}
-            </span>
-          </motion.button>
+            </motion.button>
+          </motion.div>
         )}
       </header>
+
+      {/* Day/night lights sweep (corner-to-corner wipe, theme flips mid-flight) */}
+      {dayNightSweep && (
+        <div
+          className={'theme-sweep ' + (dayNightSweep.to === 'dark' ? 'to-dark' : 'to-light')}
+          aria-hidden="true"
+        />
+      )}
 
       {dropdownNode}
     </>
