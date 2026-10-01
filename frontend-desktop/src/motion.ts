@@ -93,6 +93,51 @@ export const questionSlide: Variants = {
   },
 };
 
+/* ─────────────────────────────────────────────────────────────
+   PREMIUM QUIZ MOTION PASS (lead design engineer).
+   Compact, spring-physical, reduced-motion safe. Do not revert:
+   these variants are the quiz feel system — options choreography,
+   selection weight, reveal orchestration, rail glide.
+   ───────────────────────────────────────────────────────────── */
+
+/** Snappy spring for tactile UI (selection, toggles, dots). */
+export const springSnappy = {
+  type: 'spring' as const,
+  stiffness: 550,
+  damping: 32,
+  mass: 0.8,
+};
+
+/** Option list: children rise in sequence when a question arrives. */
+export const quizOptionList: Variants = {
+  initial: {},
+  animate: { transition: { staggerChildren: 0.045, delayChildren: 0.05 } },
+};
+
+/** One option: 10px rise + fade, spring-settled. */
+export const quizOptionItem: Variants = {
+  initial: { opacity: 0, y: 10 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.28, ease: MOTION.easeSpring },
+  },
+};
+
+/** Selection pop: brief tactile compression on the badge. */
+export const selectPop = {
+  whileTap: { scale: 0.96, transition: { duration: 0.1 } },
+};
+
+/** Reveal: correct answer breathes once, wrong answers settle. */
+export const revealCorrect: Variants = {
+  initial: { scale: 1 },
+  animate: {
+    scale: [1, 1.015, 1],
+    transition: { duration: 0.45, ease: MOTION.easeStandard },
+  },
+};
+
 /** Pressable rows/buttons: hover lift + press compress. */
 export function pressable(disabled = false) {
   if (disabled) return {};

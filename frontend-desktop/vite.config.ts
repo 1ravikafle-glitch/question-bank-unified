@@ -51,8 +51,26 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/auth': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
-      '/admin': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
-      '/quiz': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
+      '/admin': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+        // Dev-only: SPA route collides with backend API prefix (see /questions).
+        bypass(req) {
+          const accept = req.headers.accept || '';
+          if (accept.includes('text/html')) return '/index.html';
+        },
+      },
+      '/quiz': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+        // Dev-only: SPA routes collide with backend API prefixes (see /questions).
+        bypass(req) {
+          const accept = req.headers.accept || '';
+          if (accept.includes('text/html')) return '/index.html';
+        },
+      },
       '/questions': {
         target: 'http://localhost:8000',
         changeOrigin: true,

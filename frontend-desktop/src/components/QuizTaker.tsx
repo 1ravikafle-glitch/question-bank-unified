@@ -20,9 +20,15 @@ import { useSfx } from '@/hooks/useSfx';
 import { useLang } from '@/context/LanguageContext';
 import toast from 'react-hot-toast';
 import BookmarkButton from '@/components/BookmarkButton';
+import ExamPaper from '@/components/ExamPaper';
 import { useQuizPrefs } from '@/quizPrefs';
 import PracticeSetupBody from '@/components/PracticeSetupBody';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  quizOptionList,
+  quizOptionItem,
+  springSnappy,
+} from '@/motion';
 
 // Design tokens — single source in shared/appleQuizTokens.ts
 // (widened: option render assigns different tokens to the same locals)
@@ -173,7 +179,13 @@ function QuestionBox({
         {qText}
       </div>
 
-      <div
+      {/* PREMIUM MOTION PASS: options choreograph in per question (stagger),
+          keyed by question so the sequence replays on every navigation. */}
+      <motion.div
+        key={`opts-${index}-${question.id ?? question.question_number ?? ''}`}
+        variants={quizOptionList}
+        initial="initial"
+        animate="animate"
         className={paper ? 'exam-opts' : undefined}
         style={paper ? undefined : { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}
       >
@@ -210,8 +222,10 @@ function QuestionBox({
             badgeColor = '#fff';
           }
           return (
-            <button
+            <motion.button
               key={opt.key}
+              variants={quizOptionItem}
+              whileTap={locked || showResult ? undefined : { scale: 0.985, transition: { duration: 0.1 } }}
               onClick={() => role === 'active' && !revealed && onChoose(opt.key)}
               disabled={locked || showResult}
               style={{
@@ -235,7 +249,9 @@ function QuestionBox({
                 if (!locked && !showResult) e.currentTarget.style.background = bg;
               }}
             >
-              <span
+              <motion.span
+                layout
+                transition={springSnappy}
                 style={{
                   width: 32,
                   height: 32,
@@ -253,14 +269,32 @@ function QuestionBox({
                 }}
               >
                 {opt.key}
-              </span>
+              </motion.span>
               <span style={{ fontSize: 16.5, fontWeight: 500, color: textColor, fontFamily: T.font, flex: 1 }}>{opt.text}</span>
-              {showResult && isCorrectOpt && <span style={{ marginLeft: 'auto', color: T.success, fontSize: 14, fontWeight: 700 }}>✓</span>}
-              {showResult && isSelected && !isCorrectOpt && <span style={{ marginLeft: 'auto', color: T.danger, fontSize: 14, fontWeight: 700 }}>✕</span>}
-            </button>
+              {showResult && isCorrectOpt && (
+                <motion.span
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={springSnappy}
+                  style={{ marginLeft: 'auto', color: T.success, fontSize: 14, fontWeight: 700 }}
+                >
+                  ✓
+                </motion.span>
+              )}
+              {showResult && isSelected && !isCorrectOpt && (
+                <motion.span
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={springSnappy}
+                  style={{ marginLeft: 'auto', color: T.danger, fontSize: 14, fontWeight: 700 }}
+                >
+                  ✕
+                </motion.span>
+              )}
+            </motion.button>
           );
         })}
-      </div>
+      </motion.div>
 
       {showResult && qExplanation && (
         <div
@@ -902,6 +936,19 @@ const QuizTaker: React.FC = () => {
     [currentQuestion, isLocked, sfxSelect],
   );
 
+  // Paper-view answering: any question, answered once then locked in.
+  const paperSelect = useCallback(
+    (qid: number, keyLower: string) => {
+      if (selected[qid] !== undefined) return;
+      try { navigator.vibrate?.(8); } catch {}
+      setSelected((prev) => ({ ...prev, [qid]: keyLower }));
+      const idx = questions.findIndex((q) => q.id === qid);
+      setAnnouncement(`Answered question ${idx + 1} of ${questions.length}.`);
+      sfxSelect();
+    },
+    [selected, questions, sfxSelect],
+  );
+
   // Directional slide navigation: the outgoing card glides out toward
   // the travel direction while the incoming card sweeps in from the
   // opposite side. Answered cards also pop their progress dot.
@@ -1018,8 +1065,8 @@ const QuizTaker: React.FC = () => {
         return;
       }
 
-      // M: bookmark (mark) the current question
-      if ((e.key === 'm' || e.key === 'M') && currentQuestion) {
+      // M: bookmark (mark) the current question (paper view has its own M handler)
+      if ((e.key === 'm' || e.key === 'M') && currentQuestion && !isExamMode) {
         e.preventDefault();
         handleBmToggle(currentQuestion.id);
         return;
@@ -1058,7 +1105,7 @@ const QuizTaker: React.FC = () => {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, confirmExit, currentQuestion, handleBmToggle]);
+  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, confirmExit, currentQuestion, handleBmToggle, isExamMode]);
 
   // Helpers to adapt Question to reference shape for QuestionBox
   const toBoxQuestion = (q: Question) => {
@@ -1428,6 +1475,24 @@ const QuizTaker: React.FC = () => {
           </div>
         </div>
 
+        {isExamMode ? (
+          <ExamPaper
+            questions={questions}
+            getShuffled={getShuffledFor}
+            selected={selected}
+            onSelect={paperSelect}
+            examTitle={examConfig?.title ?? 'Mock Exam'}
+            negative={examConfig?.negative ?? 0}
+            minutes={examConfig?.minutes ?? Math.max(1, Math.round(examTotalSecs / 60))}
+            category={examConfig?.category || ''}
+            userId={userId}
+            bmIds={bmIds}
+            onBmToggle={handleBmToggle}
+            onSubmit={() => submitQuizRequest(selected)}
+            submitting={submitting}
+          />
+        ) : (
+          <>
         {/* Keyboard shortcut index bar — hidden on mobile */}
         <div className="hidden lg:flex" style={{
           alignItems: 'center',
@@ -1640,6 +1705,8 @@ const QuizTaker: React.FC = () => {
               View results
             </button>
           </div>
+        )}
+          </>
         )}
       </div>
 

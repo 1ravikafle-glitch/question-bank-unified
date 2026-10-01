@@ -444,12 +444,67 @@ export const clearBookmarks = async (
   return response.data;
 };
 
-// ── Personal notes ─────────────────────────────────────────────
+// ── Personal notes (offline-tolerant) ──────────────────────────
+// Local mirror + outbox ({qid: text}; empty text = delete) replayed on
+// the next successful fetch, mirroring the bookmark outbox pattern.
+const NOTES_LOCAL_KEY = 'fpsc-notes-local';
+const NOTES_OUTBOX_KEY = 'fpsc-notes-outbox';
+
+function readNotes(key: string): Record<number, string> {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '{}');
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const out: Record<number, string> = {};
+      for (const [k, val] of Object.entries(v)) {
+        if (typeof val === 'string' && val) out[Number(k)] = val;
+      }
+      return out;
+    }
+  } catch {}
+  return {};
+}
+
+function writeNotes(key: string, notes: Record<number, string>) {
+  try {
+    localStorage.setItem(key, JSON.stringify(notes));
+  } catch {}
+}
+
+export const flushNotesOutbox = async (userIdentifier: string): Promise<number> => {
+  const outbox = readNotes(NOTES_OUTBOX_KEY);
+  const qids = Object.keys(outbox);
+  if (qids.length === 0) return 0;
+  let synced = 0;
+  for (const qid of qids) {
+    await api.put('/notes', {
+      user_identifier: userIdentifier,
+      question_id: Number(qid),
+      text: outbox[Number(qid)],
+    });
+    synced++;
+  }
+  writeNotes(NOTES_OUTBOX_KEY, {});
+  return synced;
+};
+
 export const fetchNotes = async (
   userIdentifier: string
 ): Promise<{ notes: Record<number, string>; count: number }> => {
-  const response = await api.get(`/notes/${encodeURIComponent(userIdentifier)}`);
-  return response.data;
+  try {
+    await flushNotesOutbox(userIdentifier).catch(() => {});
+    const response = await api.get(`/notes/${encodeURIComponent(userIdentifier)}`);
+    const notes: Record<number, string> = response.data.notes || {};
+    writeNotes(NOTES_LOCAL_KEY, notes);
+    return { notes, count: response.data.count ?? Object.keys(notes).length };
+  } catch (e) {
+    if (!isNetworkError(e)) throw e;
+    // Offline: last-known mirror with pending outbox edits applied.
+    const notes = { ...readNotes(NOTES_LOCAL_KEY), ...readNotes(NOTES_OUTBOX_KEY) };
+    for (const [k, v] of Object.entries(notes)) {
+      if (!v) delete notes[Number(k)];
+    }
+    return { notes, count: Object.keys(notes).length };
+  }
 };
 
 export const saveNote = async (
@@ -457,10 +512,33 @@ export const saveNote = async (
   questionId: number,
   text: string
 ): Promise<{ saved: boolean; cleared: boolean }> => {
-  const response = await api.put('/notes', {
-    user_identifier: userIdentifier,
-    question_id: questionId,
-    text,
-  });
-  return response.data;
+  const clean = (text || '').trim();
+  // Optimistic local mirror update.
+  const mirror = readNotes(NOTES_LOCAL_KEY);
+  if (clean) mirror[questionId] = clean;
+  else delete mirror[questionId];
+  writeNotes(NOTES_LOCAL_KEY, mirror);
+  try {
+    const response = await api.put('/notes', {
+      user_identifier: userIdentifier,
+      question_id: questionId,
+      text,
+    });
+    // Drop the superseded outbox entry for this question.
+    const box = readNotes(NOTES_OUTBOX_KEY);
+    delete box[questionId];
+    writeNotes(NOTES_OUTBOX_KEY, box);
+    return response.data;
+  } catch (e) {
+    if (!isNetworkError(e)) {
+      // Revert the optimistic write on real errors.
+      await fetchNotes(userIdentifier).catch(() => {});
+      throw e;
+    }
+    const box = readNotes(NOTES_OUTBOX_KEY);
+    if (clean) box[questionId] = clean;
+    else delete box[questionId];
+    writeNotes(NOTES_OUTBOX_KEY, box);
+    return { saved: !!clean, cleared: !clean };
+  }
 };

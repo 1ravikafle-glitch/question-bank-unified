@@ -22,6 +22,11 @@ import toast from 'react-hot-toast';
 import { useDismiss } from '@/hooks/useDismiss';
 import BookmarkButton from '@/components/BookmarkButton';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  quizOptionList,
+  quizOptionItem,
+  springSnappy,
+} from '@/motion';
 
 // Design tokens — single source in shared/appleQuizTokens.ts
 // (widened: option render assigns different tokens to the same locals)
@@ -191,7 +196,14 @@ function QuestionBox({
 
       {/* quiz-options-stack: column on portrait phones, 2-col grid in
           landscape (see the injected <style> in QuizTaker main view). */}
-      <div className={'quiz-options-stack' + (paper ? ' exam-opts' : '')} style={paper ? undefined : { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+      {/* PREMIUM MOTION PASS: options choreograph in per question (stagger),
+          keyed by question so the sequence replays on every navigation. */}
+      <motion.div
+        key={`opts-${index}-${question.id ?? question.question_number ?? ''}`}
+        variants={quizOptionList}
+        initial="initial"
+        animate="animate"
+        className={'quiz-options-stack' + (paper ? ' exam-opts' : '')} style={paper ? undefined : { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
         {qOptions.map((opt) => {
           const isSelected = selected === opt.key;
           const isCorrectOpt = opt.key === qCorrect;
@@ -224,8 +236,10 @@ function QuestionBox({
             badgeBg = T.accent;
             badgeColor = '#fff';
           }            return (
-            <button
+            <motion.button
               key={opt.key}
+              variants={quizOptionItem}
+              whileTap={locked || showResult ? undefined : { scale: 0.985, transition: { duration: 0.1 } }}
               onClick={() => role === 'active' && !revealed && onChoose(opt.key)}
               disabled={locked || showResult}
               style={{
@@ -250,7 +264,9 @@ function QuestionBox({
                 if (!locked && !showResult) e.currentTarget.style.background = bg;
               }}
             >
-              <span
+              <motion.span
+                layout
+                transition={springSnappy}
                 style={{
                   width: 32,
                   height: 32,
@@ -268,7 +284,7 @@ function QuestionBox({
                 }}
               >
                 {opt.key}
-              </span>
+              </motion.span>
               <span style={{ fontSize: 16.5, fontWeight: 500, color: textColor, fontFamily: T.font, flex: 1 }}>{opt.text}</span>
               {!showResult && !locked && (
                 <span style={{
@@ -287,12 +303,30 @@ function QuestionBox({
                   {opt.key.toLowerCase()}
                 </span>
               )}
-              {showResult && isCorrectOpt && <span style={{ marginLeft: 'auto', color: T.success, fontSize: 14, fontWeight: 700 }}>✓</span>}
-              {showResult && isSelected && !isCorrectOpt && <span style={{ marginLeft: 'auto', color: T.danger, fontSize: 14, fontWeight: 700 }}>✕</span>}
-            </button>
+              {showResult && isCorrectOpt && (
+                <motion.span
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={springSnappy}
+                  style={{ marginLeft: 'auto', color: T.success, fontSize: 14, fontWeight: 700 }}
+                >
+                  ✓
+                </motion.span>
+              )}
+              {showResult && isSelected && !isCorrectOpt && (
+                <motion.span
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={springSnappy}
+                  style={{ marginLeft: 'auto', color: T.danger, fontSize: 14, fontWeight: 700 }}
+                >
+                  ✕
+                </motion.span>
+              )}
+            </motion.button>
           );
         })}
-      </div>
+      </motion.div>
 
       {showResult && qExplanation && (
         <div
