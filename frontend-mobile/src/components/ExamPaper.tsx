@@ -5,7 +5,7 @@ import type { Question } from '@/shared/types';
 
 interface ExamPaperProps {
   questions: Question[];
-  getShuffled: (q: Question) => { items: [string, string][] };
+  getShuffled: (q: Question) => { items: [string, string][]; origOf: Record<string, string> };
   selected: Record<number, string>;
   onSelect: (qid: number, keyLower: string) => void;
   examTitle: string;
@@ -19,6 +19,8 @@ interface ExamPaperProps {
   submitting: boolean;
   noteMap: Record<number, string>;
   onNoteSaved: (qid: number, text: string) => void;
+  timeLeft: number;
+  warnSecs: number;
 }
 
 /* PSC-style written-exam sheet: full question paper + OMR answer panel.
@@ -40,6 +42,8 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   submitting,
   noteMap,
   onNoteSaved,
+  timeLeft,
+  warnSecs,
 }) => {
   const { num } = useLang();
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -53,7 +57,16 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   const scrollLockRef = useRef(false);
 
   const paper = useMemo(
-    () => questions.map((q) => ({ q, items: getShuffled(q).items })),
+    () =>
+      questions.map((q) => {
+        const s = getShuffled(q);
+        // Invert displayed-label -> original-key for highlight + OMR mapping.
+        const dispOf: Record<string, string> = {};
+        for (const [label, orig] of Object.entries(s.origOf || {})) {
+          dispOf[orig.toLowerCase()] = label;
+        }
+        return { q, items: s.items, dispOf };
+      }),
     [questions, getShuffled]
   );
   const maxOpts = useMemo(
@@ -184,8 +197,10 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         </section>
 
         <section aria-label="Questions">
-          {paper.map(({ q, items }, i) => {
+          {paper.map(({ q, items, dispOf }, i) => {
             const picked = (selected[q.id] || '').toString().toLowerCase();
+            // Stored keys are ORIGINAL; map to the DISPLAYED label for highlight.
+            const pickedDisp = (dispOf[picked] || picked).toLowerCase();
             const locked = selected[q.id] !== undefined;
             const cls =
               'psc-q' +
@@ -212,26 +227,28 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                     {num(i + 1)}.
                   </button>
                   <span>{q.question_text}</span>
-                  <button
-                    type="button"
-                    className={'psc-qbm' + (bmIds.has(q.id) ? ' on' : '')}
-                    onClick={() => onBmToggle(q.id)}
-                    aria-pressed={bmIds.has(q.id)}
-                    aria-label={bmIds.has(q.id) ? 'Remove bookmark' : 'Bookmark (M)'}
-                    title="Bookmark (M)"
-                  >
-                    {bmIds.has(q.id) ? '🔖' : '📑'}
-                  </button>
-                  <button
-                    type="button"
-                    className={'psc-qbm' + (noteMap[q.id] ? ' on' : '')}
-                    onClick={() => setNoteOpenIdx(noteOpenIdx === i ? null : i)}
-                    aria-pressed={noteOpenIdx === i}
-                    aria-label={noteMap[q.id] ? 'Edit personal note' : 'Add personal note (N)'}
-                    title="Note (N)"
-                  >
-                    📝
-                  </button>
+                  <span className="psc-qacts">
+                    <button
+                      type="button"
+                      className={'psc-qbm bm' + (bmIds.has(q.id) ? ' on' : '')}
+                      onClick={() => onBmToggle(q.id)}
+                      aria-pressed={bmIds.has(q.id)}
+                      aria-label={bmIds.has(q.id) ? 'Remove bookmark' : 'Bookmark (M)'}
+                      title="Bookmark (M)"
+                    >
+                      🔖
+                    </button>
+                    <button
+                      type="button"
+                      className={'psc-qbm nt' + (noteMap[q.id] ? ' on' : '')}
+                      onClick={() => setNoteOpenIdx(noteOpenIdx === i ? null : i)}
+                      aria-pressed={noteOpenIdx === i}
+                      aria-label={noteMap[q.id] ? 'Edit personal note' : 'Add personal note (N)'}
+                      title="Note (N)"
+                    >
+                      📝
+                    </button>
+                  </span>
                 </div>
                 {noteOpenIdx === i && userId && (
                   <NoteEditor
@@ -251,7 +268,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                 )}
                 <div className="psc-opts" role="radiogroup" aria-label={`Question ${i + 1} options`}>
                   {items.map(([key, text]) => {
-                    const isSel = picked === key.toLowerCase();
+                    const isSel = pickedDisp === key.toLowerCase();
                     return (
                       <label key={key} className={'psc-opt' + (isSel ? ' sel' : '') + (locked && !isSel ? ' dim' : '')}>
                         <input
@@ -292,6 +309,14 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           <div className="psc-progress-wrap">
             <div className="psc-progress-info">
               <span>Answered</span>
+              <span
+                className={'psc-omr-timer' + (timeLeft <= warnSecs ? ' low' : '')}
+                role="timer"
+                aria-label={`${Math.floor(Math.max(0, timeLeft) / 60)} minutes ${Math.max(0, timeLeft) % 60} seconds left`}
+              >
+                {String(Math.floor(Math.max(0, timeLeft) / 60)).padStart(2, '0')}:
+                {String(Math.max(0, timeLeft) % 60).padStart(2, '0')}
+              </span>
               <span>
                 {num(answered)} / {num(questions.length)}
               </span>
@@ -311,13 +336,18 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           ))}
         </div>
         <div className="psc-omr-scroll" ref={omrRef}>
-          {paper.map(({ q, items }, i) => {
+          {paper.map(({ q, items, dispOf }, i) => {
             const picked = (selected[q.id] || '').toString().toLowerCase();
+            const pickedDisp = (dispOf[picked] || picked).toLowerCase();
             return (
               <div
                 key={q.id}
                 data-omr={i}
-                className={'psc-omr-row' + (i === currentIdx ? ' active' : '')}
+                className={
+                  'psc-omr-row' +
+                  (i === currentIdx ? ' active' : '') +
+                  (hoverIdx === i && i !== currentIdx ? ' hover-linked' : '')
+                }
                 style={{ gridTemplateColumns: `46px repeat(${letters.length}, 1fr)` }}
                 onMouseEnter={() => setHoverIdx(i)}
                 onMouseLeave={() => setHoverIdx((h) => (h === i ? null : h))}
@@ -328,7 +358,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                 {letters.map((l, li) => {
                   const item = items[li];
                   if (!item) return <span key={l} />;
-                  const isSel = picked === item[0].toLowerCase();
+                  const isSel = pickedDisp === item[0].toLowerCase();
                   const locked = selected[q.id] !== undefined;
                   return (
                     <label key={l} className="psc-omr-opt" aria-label={`Question ${i + 1} option ${l}`}>

@@ -212,9 +212,6 @@ function QuestionBox({
           keyed by question so the sequence replays on every navigation. */}
       <motion.div
         key={`opts-${index}-${question.id ?? question.question_number ?? ''}`}
-        variants={quizOptionList}
-        initial="initial"
-        animate="animate"
         className={paper ? 'exam-opts' : undefined}
         style={paper ? undefined : { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}
       >
@@ -255,6 +252,8 @@ function QuestionBox({
               key={opt.key}
               variants={quizOptionItem}
               custom={{ x: enterX, i: oi }}
+              initial="initial"
+              animate="animate"
               whileTap={locked || showResult ? undefined : { scale: 0.985, transition: { duration: 0.1 } }}
               onClick={() => role === 'active' && !revealed && onChoose(opt.key)}
               disabled={locked || showResult}
@@ -567,6 +566,7 @@ const QuizTaker: React.FC = () => {
         else next.delete(qid);
         return next;
       });
+      toast(res.bookmarked ? '🔖 Bookmark added' : 'Bookmark removed', { duration: 1000 });
     },
     [userId]
   );

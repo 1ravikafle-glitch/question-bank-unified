@@ -227,26 +227,28 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                     {num(i + 1)}.
                   </button>
                   <span>{q.question_text}</span>
-                  <button
-                    type="button"
-                    className={'psc-qbm' + (bmIds.has(q.id) ? ' on' : '')}
-                    onClick={() => onBmToggle(q.id)}
-                    aria-pressed={bmIds.has(q.id)}
-                    aria-label={bmIds.has(q.id) ? 'Remove bookmark' : 'Bookmark (M)'}
-                    title="Bookmark (M)"
-                  >
-                    {bmIds.has(q.id) ? '🔖' : '📑'}
-                  </button>
-                  <button
-                    type="button"
-                    className={'psc-qbm' + (noteMap[q.id] ? ' on' : '')}
-                    onClick={() => setNoteOpenIdx(noteOpenIdx === i ? null : i)}
-                    aria-pressed={noteOpenIdx === i}
-                    aria-label={noteMap[q.id] ? 'Edit personal note' : 'Add personal note (N)'}
-                    title="Note (N)"
-                  >
-                    📝
-                  </button>
+                  <span className="psc-qacts">
+                    <button
+                      type="button"
+                      className={'psc-qbm bm' + (bmIds.has(q.id) ? ' on' : '')}
+                      onClick={() => onBmToggle(q.id)}
+                      aria-pressed={bmIds.has(q.id)}
+                      aria-label={bmIds.has(q.id) ? 'Remove bookmark' : 'Bookmark (M)'}
+                      title="Bookmark (M)"
+                    >
+                      🔖
+                    </button>
+                    <button
+                      type="button"
+                      className={'psc-qbm nt' + (noteMap[q.id] ? ' on' : '')}
+                      onClick={() => setNoteOpenIdx(noteOpenIdx === i ? null : i)}
+                      aria-pressed={noteOpenIdx === i}
+                      aria-label={noteMap[q.id] ? 'Edit personal note' : 'Add personal note (N)'}
+                      title="Note (N)"
+                    >
+                      📝
+                    </button>
+                  </span>
                 </div>
                 {noteOpenIdx === i && userId && (
                   <NoteEditor

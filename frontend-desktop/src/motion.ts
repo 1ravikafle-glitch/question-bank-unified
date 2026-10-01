@@ -114,18 +114,16 @@ export const quizOptionList: Variants = {
   animate: { transition: { staggerChildren: 0.045, delayChildren: 0.05 } },
 };
 
-/** One option: the ROW drifts a short distance and fades in, staggered —
-    shells must never fly the full gap (they collide mid-flight and read as
-    chaos). The full-distance travel lives in the TEXT nodes (kicker, title,
-    badges, labels). Dynamic: pass custom={{ i: optionIndex }}. */
+/** One option: VISIBLE glide — rows start semi-transparent and already moving,
+    never blinking from nothing. Staggered per row. Do not revert. */
 export const quizOptionItem: Variants = {
-  initial: () => ({ opacity: 0, x: 28 }),
+  initial: () => ({ opacity: 0.35, x: 44 }),
   animate: (c: { i?: number } = {}) => ({
     opacity: 1,
     x: 0,
     transition: {
-      x: { type: 'spring', stiffness: 380, damping: 32, mass: 0.9, delay: (c.i ?? 0) * 0.055 },
-      opacity: { delay: 0.05 + (c.i ?? 0) * 0.055, duration: 0.2 },
+      x: { type: 'spring', stiffness: 380, damping: 30, mass: 0.9, delay: (c.i ?? 0) * 0.055 },
+      opacity: { duration: 0.25, delay: (c.i ?? 0) * 0.055 },
     },
   }),
 };

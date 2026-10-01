@@ -27,11 +27,11 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ userId, questionId, initialText
     try {
       await saveNote(userId, questionId, value);
       onSaved(value.trim());
-      if (value.trim()) toast.success('Note saved');
-      else toast.success('Note cleared');
+      if (value.trim()) toast.success('📝 Note saved', { duration: 1000 });
+      else toast.success('Note cleared', { duration: 1000 });
       onClose?.();
     } catch {
-      toast.error('Could not save note');
+      toast.error('Could not save note', { duration: 1500 });
     } finally {
       setSaving(false);
     }

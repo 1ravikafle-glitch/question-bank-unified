@@ -2303,11 +2303,17 @@
 .psc-instructions li { margin-bottom: 2px; }
 .psc-q { position: relative; margin-bottom: 18px; padding: 1px 0 16px; border-bottom: 1px dotted hsl(var(--muted-foreground) / 0.6); transition: background 0.25s ease, box-shadow 0.25s ease, padding 0.25s ease; }
 .psc-q:last-child { border-bottom: none; }
-.psc-qtext { font-size: 14.5px; line-height: 1.48; font-weight: 600; display: flex; align-items: flex-start; gap: 3px; }
+.psc-qtext { position: relative; font-size: 14.5px; line-height: 1.48; font-weight: 600; display: flex; align-items: flex-start; gap: 3px; padding-right: 84px; min-height: 32px; }
+/* Bookmark + note actions pinned top-right: identical spot on every question. */
+.psc-qacts { position: absolute; top: -4px; right: 0; display: inline-flex; gap: 2px; }
 .psc-qnum { display: inline-block; min-width: 27px; margin-right: 3px; font-weight: 700; font-family: inherit; font-size: inherit; color: inherit; background: none; border: none; cursor: pointer; padding: 0; }
 .psc-qnum:hover { text-decoration: underline; text-underline-offset: 3px; }
-.psc-qbm { margin-left: auto; flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; opacity: 0.45; filter: grayscale(1); border-radius: 6px; }
+.psc-qbm { margin-left: auto; flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; opacity: 0.6; border-radius: 6px; }
 .psc-qbm.on { opacity: 1; filter: none; }
+.psc-qbm.bm { box-shadow: inset 0 0 0 1px hsl(38 92% 45% / 0.35); background: hsl(38 92% 50% / 0.07); }
+.psc-qbm.nt { box-shadow: inset 0 0 0 1px hsl(210 90% 50% / 0.35); background: hsl(210 90% 50% / 0.06); }
+.psc-qbm.on.bm { background: hsl(38 92% 50% / 0.16); box-shadow: inset 0 0 0 1px hsl(38 92% 45% / 0.5); }
+.psc-qbm.on.nt { background: hsl(210 90% 50% / 0.14); box-shadow: inset 0 0 0 1px hsl(210 90% 50% / 0.45); }
 .psc-qbm:hover { opacity: 1; filter: none; background: hsl(var(--muted)); }
 .psc-opts { margin-top: 8px; margin-left: 29px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px 28px; }
 .psc-opt { display: flex; align-items: flex-start; min-height: 26px; font-size: 13.5px; line-height: 1.42; cursor: pointer; border-radius: 6px; padding: 2px 4px; transition: background 0.15s ease; }
@@ -2337,7 +2343,8 @@
 .psc-omr-cols .psc-q-col { text-align: left; }
 .psc-omr-scroll { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 7px 18px; scroll-behavior: smooth; min-height: 120px; overscroll-behavior: contain; }
 .psc-omr-row { display: grid; align-items: center; min-height: 41px; padding: 4px 2px; border-bottom: 1px dotted hsl(var(--border)); border-radius: 6px; transition: background 0.18s ease; }
-.psc-omr-row:hover { background: hsl(var(--muted)); }
+.psc-omr-row { display: grid; align-items: center; min-height: 41px; padding: 4px 2px; border-bottom: 1px dotted hsl(var(--border)); border-radius: 6px; transition: background 0.18s ease; }
+/* No separate OMR hover: the shared linked highlight (same as paper) is the only hover. */
 .psc-omr-row.active { background: hsl(var(--primary) / 0.08); box-shadow: inset 3px 0 0 hsl(var(--primary)); }
 .psc-omr-num { font-size: 11.5px; font-weight: 700; cursor: pointer; padding-left: 5px; background: none; border: none; color: hsl(var(--foreground)); text-align: left; font-variant-numeric: tabular-nums; }
 .psc-omr-num:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -2357,8 +2364,6 @@
   .psc-info-row { grid-template-columns: 105px 1fr; }
   .psc-info-row > :nth-child(n+3) { border-top: 1px solid hsl(var(--muted-foreground) / 0.5); }
   .psc-info-row .psc-info-value { border-right: none; }
-.psc-qbm:hover { opacity: 1; filter: none; background: hsl(var(--muted)); }
-.psc-note { margin: 8px 0 0 29px; font-size: 12.5px; line-height: 1.55; padding: 6px 10px; border-left: 3px solid hsl(210 90% 50%); background: hsl(210 90% 50% / 0.08); border-radius: 0 8px 8px 0; white-space: pre-wrap; }
   .psc-opts { grid-template-columns: 1fr; margin-left: 14px; }
   .psc-qtext { font-size: 14px; }
   .psc-omr { max-height: 430px; }
