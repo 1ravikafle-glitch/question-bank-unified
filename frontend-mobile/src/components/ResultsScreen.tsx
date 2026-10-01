@@ -27,6 +27,7 @@ interface RecentAttempt {
   percentage: number;
   completed_at: string | null;
   incorrect_questions: number[];
+  skipped_questions?: number[];
 }
 
 const percentColor = (pct: number) => scoreColor(pct);
@@ -72,6 +73,7 @@ const ResultsScreen: React.FC = () => {
         setPastAttempts(rawAttempts.map((a: any) => ({
           ...a,
           incorrect_questions: Array.isArray(a.incorrect_questions) ? a.incorrect_questions : [],
+          skipped_questions: Array.isArray(a.skipped_questions) ? a.skipped_questions : [],
         })).sort((a: any, b: any) => {
           const da = a.completed_at ? new Date(a.completed_at).getTime() : 0;
           const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;

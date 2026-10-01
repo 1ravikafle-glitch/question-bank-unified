@@ -43,8 +43,11 @@ def _ensure_attempt_extra_columns():
             ("questions", "explanation", "TEXT"),
             ("questions", "source", "TEXT"),
         ]
+        # JSON columns are added as TEXT and rewritten by the existing
+        # serialization layer, matching how incorrect_questions already works.
+        stmts_extra = [("quiz_attempts", "skipped_questions", "TEXT")]
         stmts = []
-        for table, col, ddl in jobs:
+        for table, col, ddl in jobs + stmts_extra:
             try:
                 cols = {c["name"] for c in insp.get_columns(table)}
             except Exception:
@@ -186,6 +189,7 @@ def submit_quiz(
             percentage=percentage,
             answers=answers,
             incorrect_questions=incorrect_questions,
+            skipped_questions=skipped_questions,
             raw_score=raw_score,
             negative_marking=negative,
         )
@@ -351,6 +355,7 @@ def get_user_progress(
                 "percentage": a.percentage,
                 "completed_at": a.completed_at.isoformat() if a.completed_at else None,
                 "incorrect_questions": a.incorrect_questions or [],
+                "skipped_questions": a.skipped_questions or [],
                 "raw_score": a.raw_score if a.raw_score is not None else a.score,
                 "negative_marking": a.negative_marking or 0,
             }

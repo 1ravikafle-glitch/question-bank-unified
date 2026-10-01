@@ -29,6 +29,15 @@ CELL_OPTION_RE = re.compile(r'^\s*([a-d])[\]\.\)]\s*(.*)', re.IGNORECASE)
 # Matches a compact answer-key line like "69d 70d 71d" (no separator)
 COMPACT_ANSWER_KEY_LINE_RE = re.compile(r'^(\d+[a-d]\s*)+$', re.IGNORECASE)
 
+# An answer stated inline right under the options of a single question, e.g.
+# "Answer: b" / "Ans: (b)" / "Correct answer: c". The PDF parser has always
+# supported this; without the same rule here the line was swallowed into
+# question_text and the question imported with no answer at all.
+INLINE_ANSWER_RE = re.compile(
+    r'^\s*(?:answer|ans|correct(?:\s+answer)?|उत्तर)\s*[:\-–]?\s*\(?([a-dA-D])\)?\s*\.?\s*$',
+    re.IGNORECASE,
+)
+
 # An explicit "ANSWER KEY" / "ANSWERS" heading line, used as a hard,
 # reliable split point when present.
 ANSWER_KEY_HEADING_RE = re.compile(r'^\s*answers?(\s*key)?\s*:?\s*$', re.IGNORECASE)
@@ -110,6 +119,7 @@ def extract_questions_and_answers(docx_path_or_file):
     current_question = None
     current_options = {}
     question_number = None
+    inline_answer = None
     started = False
     para_counter = -1  # tracks index within doc.paragraphs as we walk
 
@@ -138,16 +148,26 @@ def extract_questions_and_answers(docx_path_or_file):
                         'question_number': question_number,
                         'question_text': current_question.strip(),
                         'options': current_options.copy(),
+                        'inline_answer': inline_answer,
                     })
                 question_number = int(qmatch.group(1))
                 current_question = qmatch.group(2)
                 current_options = {}
+                inline_answer = None
                 continue
 
             omatch = OPTION_LINE_RE.match(line)
             if omatch:
                 letter = omatch.group(1).lower()
                 current_options[letter] = omatch.group(2).strip()
+                continue
+
+            # Inline answer under this question's options. Only trust it once
+            # the options are actually there, otherwise "a) ..." style text
+            # elsewhere could be misread as an answer.
+            amatch = INLINE_ANSWER_RE.match(line)
+            if amatch and current_question is not None and len(current_options) >= 2:
+                inline_answer = amatch.group(1).lower()
                 continue
 
             # Skip stray compact-answer-key-looking lines; otherwise treat
@@ -176,10 +196,13 @@ def extract_questions_and_answers(docx_path_or_file):
             'question_number': question_number,
             'question_text': current_question.strip(),
             'options': current_options.copy(),
+            'inline_answer': inline_answer,
         })
 
     for q in questions:
-        q['correct_answer'] = answer_key.get(q['question_number'])
+        # A trailing "ANSWER KEY" section wins over an inline answer; that is
+        # the authoritative source when both are present.
+        q['correct_answer'] = answer_key.get(q['question_number']) or q.pop('inline_answer', None)
 
     return questions
 

@@ -32,6 +32,7 @@ export interface QuizResult {
   incorrect_questions: number[];
   raw_score?: number;
   negative_marking?: number;
+  skipped_questions?: number[];
 }
 
 /** Mock-exam configuration passed via router state into /quiz. */

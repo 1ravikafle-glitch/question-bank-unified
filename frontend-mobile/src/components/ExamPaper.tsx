@@ -3,6 +3,11 @@ import { useLang } from '@/context/LanguageContext';
 import NoteEditor from './NoteEditor';
 import type { Question } from '@/shared/types';
 
+// A mock exam is only scored once this share of the paper is answered, so a
+// blank or barely-touched sheet never writes a fake 0 into the user's history.
+export const MIN_EXAM_ATTEMPT_RATIO = 0.25;
+
+
 interface ExamPaperProps {
   questions: Question[];
   getShuffled: (q: Question) => { items: [string, string][]; origOf: Record<string, string> };
@@ -78,6 +83,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     [maxOpts]
   );
   const answered = questions.filter((q) => selected[q.id] !== undefined).length;
+  // A paper must be at least a quarter answered before it can be submitted.
+  const minToSubmit = Math.max(1, Math.ceil(questions.length * MIN_EXAM_ATTEMPT_RATIO));
+  const canSubmit = answered >= minToSubmit;
   // Single-highlight rule: while anything is hovered, only the hovered
   // pair (paper + OMR) glows; the current-question marker returns when
   // the mouse leaves. Never two greens at once.
@@ -296,11 +304,19 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
         </section>
 
         <div className="psc-submit-wrap">
-          <button type="button" className="psc-submit" onClick={onSubmit} disabled={submitting}>
+          <button
+            type="button"
+            className="psc-submit"
+            onClick={onSubmit}
+            disabled={submitting || !canSubmit}
+            aria-describedby="psc-submit-note"
+          >
             {submitting ? 'SUBMITTING…' : 'SUBMIT ANSWER SHEET'}
           </button>
-          <div className="psc-submit-note">
-            {num(answered)} of {num(questions.length)} answered{negative > 0 ? ` · −${num(negative)}/wrong` : ''}
+          <div className="psc-submit-note" id="psc-submit-note">
+            {canSubmit
+              ? `${num(answered)} of ${num(questions.length)} answered${negative > 0 ? ` · −${num(negative)}/wrong` : ''}`
+              : `Answer ${num(minToSubmit - answered)} more to submit · minimum ${Math.round(MIN_EXAM_ATTEMPT_RATIO * 100)}% of the paper`}
           </div>
         </div>
       </main>

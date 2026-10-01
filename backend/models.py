@@ -76,6 +76,9 @@ class QuizAttempt(Base):
     percentage = Column(Integer, nullable=False)
     answers = Column(JSONType)
     incorrect_questions = Column(JSONType)
+    # Exam papers leave blanks unanswered. Persisted so the "N blank, no
+    # penalty" line still renders when the result is reloaded from history.
+    skipped_questions = Column(JSONType, nullable=True)
     completed_at = Column(DateTime(timezone=True), server_default=func.now())
     # Mock-exam scoring detail (null/0 = plain practice, pre-feature rows).
     raw_score = Column(Integer, nullable=True)

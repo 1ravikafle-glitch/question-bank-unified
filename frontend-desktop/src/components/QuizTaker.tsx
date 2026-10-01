@@ -15,13 +15,14 @@ import {
 } from '../services/api';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
-import { type Question, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
+import { type Question, type QuizResult, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { useLang } from '@/context/LanguageContext';
 import toast from 'react-hot-toast';
 import BookmarkButton from '@/components/BookmarkButton';
-import ExamPaper from '@/components/ExamPaper';
+import ExamPaper, { MIN_EXAM_ATTEMPT_RATIO } from '@/components/ExamPaper';
+import ExamResultModal from '@/components/ExamResultModal';
 import NoteButton from '@/components/NoteButton';
 import NoteEditor from '@/components/NoteEditor';
 import { useQuizPrefs } from '@/quizPrefs';
@@ -536,6 +537,7 @@ const QuizTaker: React.FC = () => {
   const [noteMap, setNoteMap] = useState<Record<number, string>>({});
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteSaveTick, setNoteSaveTick] = useState(0);
+  const [examResult, setExamResult] = useState<QuizResult | null>(null);
   // Close the note editor whenever the active question changes.
   useEffect(() => {
     setNoteOpen(false);
@@ -607,9 +609,10 @@ const QuizTaker: React.FC = () => {
   const isExamMode = !!examConfig;
   const examTotalSecs = examConfig ? examConfig.minutes * 60 : 0;
   const warnedRef = useRef(false);
+  // Reminder map by paper length: 90 min -> 15 before, 45 -> 10 before, 25 -> 5 before.
   const examWarnSecs = (() => {
-    const table: Record<number, number> = { 30: 5 * 60, 50: 7 * 60, 100: 15 * 60 };
-    if (examConfig && table[examConfig.count] != null) return table[examConfig.count];
+    const table: Record<number, number> = { 25: 5 * 60, 45: 10 * 60, 90: 15 * 60 };
+    if (examConfig && table[examConfig.minutes] != null) return table[examConfig.minutes];
     return Math.max(60, Math.round(examTotalSecs * 0.15));
   })();
   const urlParams = new URLSearchParams(location.search);
@@ -759,14 +762,24 @@ const QuizTaker: React.FC = () => {
   }, [questionIdFromUrl, countParam, categoryParam, isPracticeWrongMode, wrongReady, examConfig, wrongCategory]);
 
   // Local scoring when offline (answers queued for server sync later)
+  /* Offline mirror of backend /quiz/submit scoring. Must stay in lockstep:
+     a blank is a skip (counts toward the paper total, never penalized, never
+     wrong) and penalty applies to genuine mistakes only. */
   const scoreLocally = (qs: Question[], sel: Record<number, string>, negative = 0) => {
     const correct: Record<number, boolean> = {};
     const incorrect: number[] = [];
+    const skipped: number[] = [];
     let raw = 0;
     qs.forEach((q) => {
       const picked = (sel[q.id] || '').toString().toLowerCase();
+      if (!picked || picked === 'skip') {
+        // Left blank: no penalty, no wrong-queue entry, no progress row.
+        skipped.push(q.id);
+        correct[q.id] = false;
+        return;
+      }
       const right = (q.correct_answer || '').toString().toLowerCase();
-      const ok = !!picked && picked[0] === right[0];
+      const ok = picked[0] === right[0];
       correct[q.id] = ok;
       if (ok) raw++;
       else incorrect.push(q.id);
@@ -779,6 +792,7 @@ const QuizTaker: React.FC = () => {
       percentage: qs.length ? Math.round((score / qs.length) * 100) : 0,
       correct_answers: correct,
       incorrect_questions: incorrect,
+      skipped_questions: skipped,
       raw_score: raw,
       negative_marking: negative,
       offline: true,
@@ -786,7 +800,21 @@ const QuizTaker: React.FC = () => {
   };
 
   const submitQuizRequest = useCallback(
-    async (finalSelected: Record<number, string>) => {
+    async (finalSelected: Record<number, string>, opts?: { force?: boolean }) => {
+      // Mock exams only count as a real attempt when at least a quarter of
+      // the paper is answered. Without this an accidental submit on a blank
+      // sheet writes a 0-score attempt into history forever.
+      if (isExamMode && !opts?.force) {
+        const attempted = questions.filter((q) => finalSelected[q.id]).length;
+        const needed = Math.max(1, Math.ceil(questions.length * MIN_EXAM_ATTEMPT_RATIO));
+        if (attempted < needed) {
+          toast(
+            `Answer at least ${needed} of ${questions.length} questions to submit (${Math.round(MIN_EXAM_ATTEMPT_RATIO * 100)}%).`,
+            { duration: 4000, icon: '✍️' }
+          );
+          return;
+        }
+      }
       setSubmitting(true);
       try {
         const answersPayload: Record<number, string> = {};
@@ -817,19 +845,27 @@ const QuizTaker: React.FC = () => {
         localStorage.removeItem(QUIZ_STORAGE_KEY);
         try { navigator.vibrate?.([10, 30, 10]); } catch {}
         sfxSubmit();
-        navigate('/results', { state: { quizResult: result, username: userId } });
+        if (isExamMode) {
+          // Exam result stays on the paper as a popup — never navigates away.
+          setExamResult(result);
+          setSubmitting(false);
+        } else {
+          navigate('/results', { state: { quizResult: result, username: userId } });
+        }
       } catch (error) {
         console.error('Error submitting quiz:', error);
         setAnnouncement('Failed to submit quiz.');
         setSubmitting(false);
       }
     },
-    [questions, userId, navigate, isPracticeWrongMode, examConfig],
+    [questions, userId, navigate, isPracticeWrongMode, examConfig, isExamMode],
   );
 
   const handleStartNewQuiz = useCallback(() => {
     localStorage.removeItem(QUIZ_STORAGE_KEY);
     shuffledCacheRef.current.clear();
+    // Drop any previous exam result so the sheet can't reappear over a new paper.
+    setExamResult(null);
     setSelected({});
     setCurrentIndex(0);
     setQuestions([]);
@@ -992,7 +1028,9 @@ const QuizTaker: React.FC = () => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           if (timerRef.current) window.clearInterval(timerRef.current);
-          submitQuizRequest(selected);
+          // Time is up: the paper is graded as-is. The 25% gate applies to
+          // deliberate submits, never to an expired clock.
+          submitQuizRequest(selected, { force: true });
           return 0;
         }
         return prev - 1;
@@ -1646,6 +1684,7 @@ const QuizTaker: React.FC = () => {
         </div>
 
         {isExamMode ? (
+          <>
           <ExamPaper
             questions={questions}
             getShuffled={getShuffledFor}
@@ -1672,6 +1711,20 @@ const QuizTaker: React.FC = () => {
               });
             }}
           />
+          {examResult && (
+            <ExamResultModal
+              result={examResult}
+              examTitle={examConfig?.title ?? 'Mock Exam'}
+              negative={examConfig?.negative ?? 0}
+              onPracticeWrong={(ids) => {
+                setExamResult(null);
+                navigate('/quiz/practice-wrong', { state: { wrongQuestionIds: ids, source: 'exam' } });
+              }}
+              onFullResults={() => navigate('/results', { state: { quizResult: examResult, username: userId } })}
+              onHome={() => navigate('/')}
+            />
+          )}
+          </>
         ) : (
           <>
         {/* Personal-note editor for the active question */}
