@@ -29,7 +29,10 @@ def ensure_user_columns() -> None:
             ("sessions_valid_from", "INTEGER"),
             # Public member number, distinct from the login handle.
             ("user_id", "TEXT"),
-            # Always 0 for manual signups - the address is never verified.
+            # EMAIL VERIFIED: INTEGER, matching the model. A Boolean model column
+            # against this INTEGER DDL is what broke every registration on
+            # Postgres (boolean literal into an integer column); SQLite is
+            # untyped so it hid the mismatch locally. Keep in sync with models.py.
             ("email_verified", "INTEGER NOT NULL DEFAULT 0"),
         ]
         stmts = [

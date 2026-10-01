@@ -65,7 +65,14 @@ class User(Base):
     # code has to be read from the mailbox. Kept as a column so that a verified
     # flow can be added later without a migration. Do not "fix" this by
     # requiring verification; see AUDIT.md.
-    email_verified = Column(Boolean, nullable=False, default=False, server_default="0")
+    #
+    # INTEGER (0/1), NOT Boolean. This bit us in production: the model said
+    # Boolean while auth_migrations had ALTERed the existing table to INTEGER,
+    # and SQLite does not care about type names so every local test passed,
+    # while Postgres refused a boolean literal into an integer column and
+    # broke ALL registrations. Keep this Integer and the migration DDL in
+    # sync. Do not revert.
+    email_verified = Column(Integer, nullable=False, default=0, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

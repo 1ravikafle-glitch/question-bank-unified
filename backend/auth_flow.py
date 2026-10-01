@@ -30,6 +30,7 @@ from typing import Optional, Tuple
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import database
@@ -259,16 +260,31 @@ def register(
         password=hash_password(req.password),
         email=gmail,
         user_id=member_id,
-        # Intentionally False: see the module docstring.
-        email_verified=False,
+        # Intentionally 0: the address is never verified (see module docstring).
+        # Integer, not False - the column is INTEGER on Postgres.
+        email_verified=0,
     )
     db.add(user)
     try:
         db.commit()
-    except Exception:
+    except IntegrityError:
         db.rollback()
-        # Lost a race on the unique index; report it as a conflict, not a 500.
-        raise HTTPException(status_code=409, detail="That username, member ID or email was just taken.")
+        # A genuine race on one of the unique indexes. This really is a conflict.
+        raise HTTPException(
+            status_code=409,
+            detail="That username, member ID or email was just taken.",
+        )
+    except Exception as e:
+        # A database error is NOT a conflict. This used to report every failure
+        # as "just taken", which is how a production-breaking boolean-vs-integer
+        # type mismatch shipped unnoticed: locally the symptom looked like a
+        # duplicate. Log the real cause and say what actually happened.
+        db.rollback()
+        print(f"[AUTH] register failed for {username}: {type(e).__name__}: {e}", file=sys.stderr)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not create the account (server error). Please try again.",
+        )
 
     return RegisterResponse(
         ok=True,

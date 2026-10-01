@@ -92,6 +92,30 @@ Verified: two identical 6-question attempts report 12 / 8 / 66% in both places.
 **Rule:** if two endpoints report the same metric, they must compute it the
 same way. If you add a stat, check both.
 
+### The type-mismatch trap (found in production, cost: every registration)
+
+An `ALTER TABLE ... ADD COLUMN` DDL must produce a column whose TYPE matches
+the model, or Postgres breaks while SQLite keeps passing. `email_verified` was
+`Column(Boolean)` in the model but the migration added it as
+`INTEGER NOT NULL DEFAULT 0`. SQLite's types are cosmetic, so every local test
+passed; Postgres raised
+`column "email_verified" is of type integer but expression is of type boolean`
+and **every registration on production failed**, while the register handler
+reported it as "that username was just taken" because it caught bare `Exception`
+and called any DB error a conflict.
+
+Two rules from this:
+- A migration's DDL and the model's column type are ONE contract. Change them
+  together, and never assume SQLite validated anything.
+- Never catch `Exception` and report it as a 409. Catch `IntegrityError` for
+  conflicts; anything else is a server error and gets logged with its real
+  cause. The lie is why this shipped unnoticed.
+
+To reproduce engine-only bugs locally: `initdb` a throwaway cluster as your
+own user (no root needed), create the table in its pre-migration shape, run the
+real migration, then hit the real endpoint. See git history around 82c77d2 for
+the working recipe.
+
 ---
 
 ## 4. Bound every id you accept
