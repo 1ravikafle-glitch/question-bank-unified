@@ -697,6 +697,66 @@ const Dashboard: React.FC = () => {
             )}
           </motion.section>
 
+          {/* ── Mock Test card ────────────────────────────────────
+              Mock used to live only inside the settings sheet, where most
+              users never look. It is a headline feature, so it gets a real
+              section here — with what it actually is (timed, full paper, OMR,
+              negative marking) spelled out so nobody has to guess. */}
+          <motion.section
+            variants={itemVariants}
+            aria-label="Mock test"
+            style={{
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: 'var(--apple-radius-lg)',
+              padding: '1.25rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  display: 'grid',
+                  placeItems: 'center',
+                  width: '2.25rem',
+                  height: '2.25rem',
+                  flexShrink: 0,
+                  borderRadius: 'var(--apple-radius-sm)',
+                  background: 'hsl(var(--tone-review-soft))',
+                  color: 'hsl(var(--tone-review))',
+                  fontSize: '1.1rem',
+                }}
+              >
+                ⏱
+              </span>
+              <h2
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '1.125rem',
+                  fontWeight: 'var(--font-weight-semibold)',
+                  color: 'hsl(var(--foreground))',
+                  margin: 0,
+                }}
+              >
+                Mock Test
+              </h2>
+            </div>
+            <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0 0 1rem 0', lineHeight: 1.5 }}>
+              A timed full-length paper you answer on one sheet, just like the real exam —
+              choose your subjects, question count and minutes, then fill the OMR bubbles.
+              Wrong answers carry negative marking, and you get a full score breakdown when
+              time is up.
+            </p>
+            <motion.button
+              onClick={() => { sfxClick(); navigate('/mock'); }}
+              className="btn btn-primary"
+              whileTap={{ scale: 0.98 }}
+              style={{ width: '100%', fontSize: '0.875rem' }}
+            >
+              Start a Mock Test
+            </motion.button>
+          </motion.section>
+
           {/* ── Quick Actions ─────────────────────────────────── */}
           <motion.section
             aria-label="Quick actions"

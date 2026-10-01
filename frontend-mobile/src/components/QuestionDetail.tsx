@@ -6,7 +6,6 @@ import BookmarkButton from '@/components/BookmarkButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
-import { bookmarkToast, bookmarkToastError } from '@/utils/bookmarkToast';
 
 import { type Question } from '@/shared/types';
 import { motion, type Variants } from 'framer-motion';
@@ -32,10 +31,16 @@ const QuestionDetail: React.FC = () => {
 
   const handleBmToggle = useCallback(async () => {
     if (!userId || !question) return;
-    const res = await toggleBookmark(userId, question.id).catch(() => null);
-    if (!res) { bookmarkToastError(); return; }
-    setBookmarked(res.bookmarked);
-    bookmarkToast(res.bookmarked);
+    // Toggle the icon on the press, not after the round trip. toggleBookmark
+    // toasts on the press too, then re-asserts the server's answer on landing.
+    setBookmarked((b) => !b);
+    try {
+      const res = await toggleBookmark(userId, question.id);
+      setBookmarked(res.bookmarked);
+    } catch {
+      // Not a connectivity failure. Undo; the error toast already showed.
+      setBookmarked((b) => !b);
+    }
   }, [userId, question]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');

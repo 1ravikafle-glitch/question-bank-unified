@@ -2,7 +2,6 @@ import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchBookmarks, toggleBookmark, clearBookmarks } from '../services/api';
 import { sortCategories } from '@/utils/categorySort';
-import { bookmarkToast, bookmarkToastError } from '@/utils/bookmarkToast';
 
 import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
@@ -45,9 +44,11 @@ const Bookmarks: React.FC = () => {
     async (qid: number) => {
       if (!userId) return;
       sfxClick();
+      // The row is only removed once the server agrees — an instant removal that
+      // silently failed would lose the question off the page with no way back.
+      // The toast is still instant: toggleBookmark fires it on the press.
       const res = await toggleBookmark(userId, qid).catch(() => null);
-      if (!res) { bookmarkToastError(); return; }
-      bookmarkToast(res.bookmarked);
+      if (!res) return;
       if (!res.bookmarked) {
         setQuestions((prev) => prev.filter((q) => q.id !== qid));
       }

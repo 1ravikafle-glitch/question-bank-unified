@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory, fetchBookmarkIds, toggleBookmark, fetchNotes } from '../services/api';
 import { type Question } from '@/shared/types';
 import { toast } from 'react-hot-toast';
-import { bookmarkToast, bookmarkToastError } from '@/utils/bookmarkToast';
 
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
@@ -121,17 +120,28 @@ const QuestionsBank: React.FC = () => {
   const handleBmToggle = useCallback(
     async (qid: number) => {
       if (!userId) return;
-      const res = await toggleBookmark(userId, qid).catch(() => null);
-      if (!res) { bookmarkToastError(); return; }
-      setBmIds((prev) => {
-        const next = new Set(prev);
-        if (res.bookmarked) next.add(qid);
-        else next.delete(qid);
-        return next;
-      });
-      bookmarkToast(res.bookmarked);
+      // Flip the icon on the press, not after the round trip — M has to feel
+      // instant. toggleBookmark toasts on the press too, then re-asserts the
+      // server's answer once it lands.
+      const adding = !bmIds.has(qid);
+      const flip = (on: boolean) =>
+        setBmIds((prev) => {
+          const next = new Set(prev);
+          if (on) next.add(qid);
+          else next.delete(qid);
+          return next;
+        });
+      flip(adding);
+      try {
+        const res = await toggleBookmark(userId, qid);
+        flip(res.bookmarked);
+      } catch {
+        // Not a connectivity failure (those resolve optimistically inside
+        // toggleBookmark). Undo the flip; it already showed the error toast.
+        flip(!adding);
+      }
     },
-    [userId]
+    [userId, bmIds]
   );
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>();

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { bookmarkToast, bookmarkToastError } from '@/utils/bookmarkToast';
 import type { Question, QuestionCreate, QuizSubmission, QuizResult, UserProgress, QuizAttempt, PaginatedResponse, QuestionsFilterParams, QuizParams } from '@/shared/types';
 
 // Get base URL from environment variables
@@ -440,6 +441,13 @@ export const toggleBookmark = async (
   questionId: number
 ): Promise<{ bookmarked: boolean; count: number }> => {
   const optimistic = flipLocal(questionId);
+
+  // Toast on the press, not on the response. The confirmation used to wait for
+  // the round trip, so pressing M felt laggy — the icon and the toast landed
+  // together, hundreds of ms after the key. Firing here makes it instant on
+  // every surface (key, tap, long-press) with one code path.
+  bookmarkToast(optimistic.marked);
+
   try {
     const response = await api.post('/bookmarks/toggle', {
       user_identifier: userIdentifier,
@@ -449,12 +457,23 @@ export const toggleBookmark = async (
       const box = readNumList(BM_OUTBOX_KEY).filter((id) => id !== questionId);
       localStorage.setItem(BM_OUTBOX_KEY, JSON.stringify(box));
     } catch {}
-    return response.data;
+    const data = response.data;
+    // Another tab or device can win the race. Correct the optimistic toast in
+    // place (same id, so it swaps rather than stacks) instead of ignoring it.
+    if (typeof data?.bookmarked === 'boolean' && data.bookmarked !== optimistic.marked) {
+      bookmarkToast(data.bookmarked);
+    }
+    return data;
   } catch (e) {
     if (!isNetworkError(e)) {
       flipLocal(questionId);
+      // Replace the optimistic toast: the action did not happen, so saying
+      // "Bookmark added" would be a lie.
+      bookmarkToastError();
       throw e;
     }
+    // Offline: the toggle is queued in the outbox and the optimistic state is
+    // the truth, so the toast already shown is correct.
     queueBmToggle(questionId);
     return { bookmarked: optimistic.marked, count: optimistic.ids.length };
   }

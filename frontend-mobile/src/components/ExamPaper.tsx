@@ -141,18 +141,34 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     scrollOmrTo(currentIdx);
   }, [currentIdx]);
 
-  // M bookmarks the hovered (else current) paper question.
-  // N opens its note editor; N again saves + closes (hover-scoped).
+  // A–D select the hovered question's option; M bookmarks it; N opens its note
+  // editor (N again saves + closes). All three are hover-scoped, so a keypress
+  // lands on the bubble under the pointer — never on every question at once.
+  // The mock paper previously had NO a/b/c/d handling at all (QuizTaker returns
+  // early in exam mode), so the shortcut worked in practice mode only.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key !== 'm' && e.key !== 'M' && e.key !== 'n' && e.key !== 'N') return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return;
+      const k = e.key.length === 1 ? e.key.toLowerCase() : '';
+      const isOpt = k.length === 1 && k >= 'a' && k <= 'd';
+      const isBm = e.key === 'm' || e.key === 'M';
+      const isNote = e.key === 'n' || e.key === 'N';
+      if (!isOpt && !isBm && !isNote) return;
+
       const idx = hoverIdx ?? currentIdx;
-      const q = questions[idx];
+      const row = paper[idx];
+      const q = row?.q;
       if (!q) return;
+      // Option keys only exist if that question actually shows that letter.
+      if (isOpt && 'abcd'.indexOf(k) >= row.items.length) return;
+      // An open note editor owns the keyboard for its own question.
+      if (isOpt && noteOpenIdx === idx) return;
+
       e.preventDefault();
-      if (e.key === 'm' || e.key === 'M') {
+      if (isOpt) {
+        onSelect(q.id, k);
+      } else if (isBm) {
         onBmToggle(q.id);
       } else if (noteOpenIdx === idx) {
         setNoteSaveTick((t) => t + 1);
@@ -162,7 +178,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [hoverIdx, currentIdx, questions, onBmToggle, noteOpenIdx]);
+  }, [hoverIdx, currentIdx, paper, questions, onSelect, onBmToggle, noteOpenIdx]);
 
   const today = new Date().toLocaleDateString();
 
@@ -296,6 +312,18 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                     );
                   })}
                 </div>
+                {/* Keyboard affordance: these letters answer THIS question while
+                    the pointer is on it. Hover-scoped, so it only ever shows on
+                    the one armed question. */}
+                {hoverIdx === i && (
+                  <div className="psc-keyhint" aria-hidden="true">
+                    {items.map(([k]) => (
+                      <kbd key={k}>{k}</kbd>
+                    ))}
+                    <span className="psc-keyhint-sep" />
+                    <span className="psc-keyhint-lbl">Select</span>
+                  </div>
+                )}
               </article>
             );
           })}

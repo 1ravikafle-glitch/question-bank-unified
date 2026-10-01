@@ -2326,10 +2326,20 @@
 .dark .psc-opt.sel .psc-bubble { box-shadow: inset 0 0 0 3px hsl(220 20% 11%); }
 .psc-q.current { background: linear-gradient(90deg, hsl(var(--foreground) / 0.07), transparent 80%); box-shadow: inset 3px 0 0 hsl(var(--primary)); padding-left: 11px; }
 .psc-q.hover-linked { background: hsl(var(--foreground) / 0.05); box-shadow: inset 3px 0 0 hsl(var(--muted-foreground)); }
-/* Hovering a question exposes its A–D controls: the option row lights up and
-   every unanswered bubble reads as pressable. Points at the controls only. */
+/* Hovering a question exposes its A–D controls: the option row lights up, every
+   unanswered bubble reads as pressable, and the key legend below the options
+   says which letter fills which bubble. The letters are live while the pointer
+   is on that question — hover-scoped, so exactly one question is ever armed. */
 .psc-q.hover-linked .psc-opt:not(.sel) { background: hsl(var(--primary) / 0.07); }
 .psc-q.hover-linked .psc-opt:not(.sel) .psc-bubble { border-color: hsl(var(--primary) / 0.8); box-shadow: 0 0 0 3px hsl(var(--primary) / 0.13); }
+.psc-keyhint { display: flex; align-items: center; gap: 3px; margin: 7px 0 0 29px; font-size: 10.5px; line-height: 1; color: hsl(var(--muted-foreground)); }
+.psc-keyhint kbd { min-width: 16px; padding: 2px 4px; border: 1px solid hsl(var(--border)); border-radius: 4px; background: hsl(var(--card)); color: hsl(var(--foreground)); font-family: inherit; font-size: 10px; font-weight: 700; text-align: center; }
+.psc-keyhint-sep { width: 1px; height: 10px; margin: 0 3px; background: hsl(var(--border)); }
+.psc-keyhint-lbl { letter-spacing: 0.05em; text-transform: uppercase; }
+/* A touch screen has no letter keys to press — don't flash the legend on tap. */
+@media (hover: none) {
+  .psc-keyhint { display: none; }
+}
 .psc-submit-wrap { margin-top: 25px; padding-top: 17px; border-top: 1px solid currentColor; text-align: center; position: relative; }
 .psc-submit { appearance: none; border: 1px solid hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; padding: 10px 30px; border-radius: 8px; cursor: pointer; transition: filter 0.2s ease, transform 0.15s ease; }
 .psc-submit:hover:not(:disabled) { filter: brightness(1.1); }
@@ -2381,6 +2391,29 @@
   .psc-opts { grid-template-columns: 1fr; margin-left: 14px; }
   .psc-qtext { font-size: 14px; }
   .psc-omr { max-height: 430px; }
+}
+/* ── Phones: the paper owns the screen once the OMR stacks under it ──
+   The 650px rules above stop the layout breaking, but a 21px OMR bubble and
+   43px side padding are desktop values. These give the sheet real touch
+   targets and hand the width back to the text. */
+@media (max-width: 480px) {
+  .psc-layout { gap: 8px; }
+  .psc-paper { padding: 22px 13px 40px; }
+  .psc-govt { font-size: 12.5px; }
+  .psc-commission { font-size: 16px; }
+  .psc-exam-title { font-size: 13.5px; }
+  .psc-info { margin: 13px 0 14px; font-size: 12px; }
+  .psc-info-row { grid-template-columns: 92px 1fr; }
+  .psc-instructions { margin: 14px 0 20px; padding: 9px 11px; }
+  .psc-qtext { font-size: 13.5px; padding-right: 74px; }
+  .psc-qbm { font-size: 16px; padding: 5px 6px; }
+  .psc-opts { margin-left: 0; gap: 4px 0; }
+  /* 4 bubbles x 26px + number column still clears a 320px screen. */
+  .psc-omr { max-height: 58vh; }
+  .psc-omr-row { min-height: 46px; }
+  .psc-omr-bub { width: 26px; height: 26px; }
+  .psc-omr-opt { height: 36px; }
+  .psc-keyhint { margin-left: 0; }
 }
 
 /* =============================================================

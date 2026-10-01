@@ -242,23 +242,26 @@ html.quiz-fit .quiz-grid-2col > .desktop-640-block {
 html.quiz-fit .quiz-grid-2col > div:first-child {
   min-height: 0 !important;
   height: auto;
+  /* ONE scroll region for the whole practice card: question text + options.
+     Previously the text was hard-clamped to 4 lines and only the options
+     scrolled, so the tail of a long question was unreachable. */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
-/* Question text: clamp to 4 lines on phones so 4 options always fit. */
+/* Question text: sized for phones but NEVER truncated — a clipped question is
+   worse than a card that scrolls. */
 html.quiz-fit .quiz-q-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   font-size: 17px !important;
   line-height: 1.35 !important;
   margin-bottom: 10px !important;
 }
-/* Options absorb remaining height; scroll internally if truly needed. */
+/* Options ride along in the card's scroll rather than nesting a second one. */
 html.quiz-fit .quiz-options-stack {
   margin-top: 0 !important;
   min-height: 0;
-  overflow-y: auto;
-  flex: 1;
+  overflow: visible;
+  flex: none;
 }
 
 /* ── 8. Rounded geometry pass ─────────────────────────────────────────────

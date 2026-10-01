@@ -20,7 +20,6 @@ import { AuthContext } from '@/context/AuthContext';
 import { useLang } from '@/context/LanguageContext';
 import { useSfx } from '@/hooks/useSfx';
 import toast from 'react-hot-toast';
-import { bookmarkToast, bookmarkToastError } from '@/utils/bookmarkToast';
 
 import { useDismiss } from '@/hooks/useDismiss';
 import BookmarkButton from '@/components/BookmarkButton';
@@ -508,17 +507,28 @@ const QuizTaker: React.FC = () => {
   const handleBmToggle = useCallback(
     async (qid: number) => {
       if (!userId) return;
-      const res = await toggleBookmark(userId, qid).catch(() => null);
-      if (!res) { bookmarkToastError(); return; }
-      setBmIds((prev) => {
-        const next = new Set(prev);
-        if (res.bookmarked) next.add(qid);
-        else next.delete(qid);
-        return next;
-      });
-      bookmarkToast(res.bookmarked);
+      // Flip the icon on the press, not after the round trip — M has to feel
+      // instant. toggleBookmark toasts on the press too, then re-asserts the
+      // server's answer once it lands.
+      const adding = !bmIds.has(qid);
+      const flip = (on: boolean) =>
+        setBmIds((prev) => {
+          const next = new Set(prev);
+          if (on) next.add(qid);
+          else next.delete(qid);
+          return next;
+        });
+      flip(adding);
+      try {
+        const res = await toggleBookmark(userId, qid);
+        flip(res.bookmarked);
+      } catch {
+        // Not a connectivity failure (those resolve optimistically inside
+        // toggleBookmark). Undo the flip; it already showed the error toast.
+        flip(!adding);
+      }
     },
-    [userId]
+    [userId, bmIds]
   );
   const [setupCategories, setSetupCategories] = useState<string[]>([]);
   const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
@@ -1031,17 +1041,27 @@ const QuizTaker: React.FC = () => {
     [currentQuestion, isLocked, sfxSelect, activeShuffledData],
   );
 
-  // Paper-view answering: any question, answered once then locked in.
+  // Paper-view answering: any question, any option, re-answerable until submit.
+  // A bubble can be changed — `selected` holds one key per question, so the
+  // previous option is simply replaced (one at a time, nothing to clear first).
+  // The old `if (selected[qid] !== undefined) return;` guard made an answer
+  // final, which also silently swallowed every keyboard re-answer.
   // Displayed labels map back to ORIGINAL keys for scoring.
   const paperSelect = useCallback(
     (qid: number, keyLower: string) => {
-      if (selected[qid] !== undefined) return;
       const q = questions.find((x) => x.id === qid);
       const orig = (q ? getShuffledFor(q).origOf[keyLower.toUpperCase()] : undefined) ?? keyLower.toUpperCase();
+      const wasAnswered = selected[qid] !== undefined;
+      const next = orig.toLowerCase();
+      if ((selected[qid] ?? '') === next) return;
       try { navigator.vibrate?.(8); } catch {}
-      setSelected((prev) => ({ ...prev, [qid]: orig.toLowerCase() }));
+      setSelected((prev) => ({ ...prev, [qid]: next }));
       const idx = questions.findIndex((q) => q.id === qid);
-      setAnnouncement(`Answered question ${idx + 1} of ${questions.length}.`);
+      setAnnouncement(
+        wasAnswered
+          ? `Changed answer for question ${idx + 1} of ${questions.length}.`
+          : `Answered question ${idx + 1} of ${questions.length}.`
+      );
       sfxSelect();
     },
     [selected, questions, sfxSelect, getShuffledFor],
@@ -1168,14 +1188,15 @@ const QuizTaker: React.FC = () => {
      long option set can't fit. */
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1023.98px)');
-    const apply = () => document.documentElement.classList.toggle('quiz-fit', mq.matches);
+    const fits = !showSetup && !isExamMode && questions.length > 0;
+    const apply = () => document.documentElement.classList.toggle('quiz-fit', mq.matches && fits);
     apply();
     mq.addEventListener('change', apply);
     return () => {
       mq.removeEventListener('change', apply);
       document.documentElement.classList.remove('quiz-fit');
     };
-  }, []);
+  }, [showSetup, isExamMode, questions.length]);
 
   const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
