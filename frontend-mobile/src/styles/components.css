@@ -805,10 +805,10 @@
   pointer-events: none;
 }
 @keyframes quizExitLeft {
-  to { opacity: 0; transform: translateX(-72px) scale(0.985); }
+  to { opacity: 0; transform: translateY(-72px) scale(0.985); }
 }
 @keyframes quizExitRight {
-  to { opacity: 0; transform: translateX(72px) scale(0.985); }
+  to { opacity: 0; transform: translateY(-72px) scale(0.985); }
 }
 .dot-pop {
   animation: dotPop 0.5s var(--ease-spring);
