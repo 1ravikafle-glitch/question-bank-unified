@@ -67,20 +67,86 @@
               })();
               </script>
     <style>
-      #ad-top-mobile{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:6px 0;position:relative;z-index:100}
+      /* The ad lives inside a wrapper whose height is pinned here.
+         AdSense rewrites the <ins> to whatever size it likes - on a slow
+         connection it served a 390x390 unit here - and writes
+         `height:auto!important; max-height:none!important` onto the slot itself.
+         An inline !important outranks any author stylesheet rule, so no CSS can
+         clamp it; measured, the slot went 69px -> 409px and pushed the whole page
+         down 340px (0.28 CLS on its own, on top of the 0.07 from the slot
+         resizing once already). Pinning the height on a wrapper AdSense never
+         touches makes the reserved space genuinely constant. */
+      #ad-slot-mobile{width:100%;height:69px;overflow:hidden;position:relative;z-index:100}
+      #ad-top-mobile{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:6px 0;position:relative;z-index:100;max-height:none;overflow:hidden}
       /* Space is reserved so the page never jumps, but an unfilled slot must be
          invisible rather than an empty dark band. */
       #ad-top-mobile.ad-empty{background:transparent;border-bottom-color:transparent}
-      #ad-top-mobile{max-height:130px;overflow:hidden}
       #ad-top-mobile:empty{display:none}
     </style>
   </head>
   <body>
-    <div id="ad-top-mobile" class="ad-empty">
-      <ins class="adsbygoogle" style="display:inline-block;width:320px;height:50px" data-ad-client="ca-pub-7976760719077018" data-ad-slot="auto"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    <div id="ad-slot-mobile">
+      <div id="ad-top-mobile" class="ad-empty">
+        <ins class="adsbygoogle" style="display:inline-block;width:320px;height:50px" data-ad-client="ca-pub-7976760719077018" data-ad-slot="auto"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      </div>
     </div>
-    <div id="root"></div>
+    <style>
+      /* Static boot splash, painted from this file before any JavaScript runs.
+         React's route skeleton cannot cover this window: the bundle still has to
+         download and parse first, and until React mounts #root is empty. Measured
+         cold, that was ~600ms of blank white page on a phone before the home
+         layout appeared. This markup paints immediately and React replaces it. */
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #f6f8f7;
+        z-index: 9999;
+      }
+      #boot-splash .bs-mark {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: #ffffff
+          url('/forestry-logo-128.png') center / 62px 62px no-repeat;
+        box-shadow: 0 2px 10px hsl(150 18% 20% / 0.1);
+      }
+      #boot-splash .bs-bar {
+        width: 108px;
+        height: 4px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: hsl(150 18% 20% / 0.1);
+      }
+      #boot-splash .bs-bar::after {
+        content: "";
+        display: block;
+        width: 40%;
+        height: 100%;
+        border-radius: 999px;
+        background: #1f9d55;
+        animation: bs-slide 1.1s ease-in-out infinite;
+      }
+      @keyframes bs-slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(250%); }
+      }
+      @media (prefers-color-scheme: dark) {
+        #boot-splash { background: hsl(150 18% 7%); }
+        #boot-splash .bs-mark { box-shadow: 0 2px 10px hsl(0 0% 0% / 0.4); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash .bs-bar::after { animation: none; width: 100%; }
+      }
+      /* Keep the pre-render splash from flashing the wrong theme. */
+      html.dark #boot-splash { background: hsl(150 18% 7%); }
+    </style>
+    <div id="root"><div id="boot-splash" aria-hidden="true"><div class="bs-mark"></div><div class="bs-bar"></div></div></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       (function(){
@@ -89,14 +155,40 @@
         // shift on the page (0.08 of 0.09 total CLS, at ~1.6s, just as the
         // reader starts). Ads stay hidden during an exam, which is a
         // deliberate route change rather than an unrequested reflow.
+        //
+        // `display` is toggled on the pinned wrapper (#ad-slot-mobile), never on
+        // the ad itself: AdSense owns that element's inline style, so writing to
+        // it is how the page used to get shoved around.
+        var slot = document.getElementById('ad-slot-mobile');
         var ad = document.getElementById('ad-top-mobile');
         var ins = ad ? ad.querySelector('ins.adsbygoogle') : null;
 
+        // AdSense writes `height:auto !important` onto the slot *and* onto its
+        // parent, so the wrapper cannot be pinned from a stylesheet - an inline
+        // !important outranks every author rule. But it is the same element and
+        // the same property, so the last writer wins: re-assert the height
+        // whenever AdSense touches the attribute and the reserved space becomes
+        // genuinely constant. The guard makes this idempotent, so re-writing
+        // does not re-trigger the observer.
+        var PIN = '69px';
+        var pinned = function(){
+          if (!slot) return;
+          if (slot.style.getPropertyValue('height') !== PIN ||
+              slot.style.getPropertyPriority('height') !== 'important') {
+            slot.style.setProperty('height', PIN, 'important');
+          }
+        };
+        if (slot) {
+          new MutationObserver(pinned).observe(slot, {
+            attributes: true, attributeFilter: ['style'],
+          });
+        }
+
         var set = function(hidden){
-          if (!ad) return;
+          if (!ad || !slot) return;
           // Only write on change: each write invalidates style for the subtree.
           var want = hidden ? 'none' : '';
-          if (ad.style.display !== want) ad.style.display = want;
+          if (slot.style.display !== want) slot.style.display = want;
           var filled = !!(ins && ins.getAttribute('data-ad-status') === 'filled');
           var empty = !filled || hidden;
           if (ad.classList.contains('ad-empty') !== empty) ad.classList.toggle('ad-empty', empty);
@@ -122,7 +214,31 @@
         window.addEventListener('hashchange', apply);
         setTimeout(apply, 4000);
         setTimeout(apply, 9000);
+        // React Router navigates with pushState, which fires no hashchange and no
+        // popstate - so leaving a timed exam left the slot `display:none` for the
+        // rest of the session (until the 4s/9s retries). Two cheap signals cover
+        // it: re-test on every client-side navigation (wrapped history methods,
+        // which keep their original behaviour and return value), and re-test when
+        // the QuizTaker marks an exam with a class on <html>.
+        ['pushState', 'replaceState'].forEach(function (name) {
+          var orig = history[name];
+          if (typeof orig !== 'function') return;
+          history[name] = function () {
+            var out = orig.apply(this, arguments);
+            apply();
+            return out;
+          };
+        });
+        window.addEventListener('popstate', apply);
+        try {
+          new MutationObserver(apply).observe(document.documentElement, {
+            attributes: true, attributeFilter: ['class'],
+          });
+        } catch (e) {}
         apply();
+        pinned();
+        setTimeout(pinned, 1500);
+        setTimeout(pinned, 4000);
       })();
     </script>
   </body>

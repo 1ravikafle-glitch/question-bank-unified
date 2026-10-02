@@ -2435,7 +2435,15 @@ const QuizTaker: React.FC = () => {
           }}
           onClick={() => setShowExitConfirm(false)}
         >
+          {/* role/aria-modal/labelledby were missing: the sheet blocked the
+              screen but announced nothing, and focus stayed on <body>, so Tab
+              walked back into the exam behind the modal. autoFocus puts focus on
+              Cancel - the safe action - so a keyboard user can leave either way. */}
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exit-quiz-title"
+            aria-describedby="exit-quiz-body"
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '100%',
@@ -2447,12 +2455,13 @@ const QuizTaker: React.FC = () => {
               border: `1px solid ${T.border}`,
             }}
           >
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6, fontFamily: T.font, color: T.textPrimary }}>Exit this quiz?</div>
-            <div style={{ fontSize: 14, color: T.textSecondary, marginBottom: 20, lineHeight: 1.5, fontFamily: T.font }}>
+            <div id="exit-quiz-title" style={{ fontSize: 16, fontWeight: 600, marginBottom: 6, fontFamily: T.font, color: T.textPrimary }}>Exit this quiz?</div>
+            <div id="exit-quiz-body" style={{ fontSize: 14, color: T.textSecondary, marginBottom: 20, lineHeight: 1.5, fontFamily: T.font }}>
               Your progress on this attempt won't be saved.
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
+                autoFocus
                 onClick={() => setShowExitConfirm(false)}
                 style={{
                   flex: 1,

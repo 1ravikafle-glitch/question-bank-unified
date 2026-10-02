@@ -2032,12 +2032,18 @@
    Skeleton Loader
    ============================================================= */
 
+/* Loading placeholders.
+   The base was hsl(var(--muted)) = 96% lightness, which is effectively white
+   on a white card: every loading state in the app read as a blank page with a
+   few faint smudges. Derived from the foreground token instead so it reads
+   clearly in both themes without hardcoding a grey, with the sweep taken from
+   the card colour so it stays visible on dark too. */
 .skeleton {
-  background-color: hsl(var(--muted));
+  background-color: hsl(var(--foreground) / 0.09);
   background-image: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.3),
+    hsl(var(--card) / 0.55),
     transparent
   );
   background-size: 200% 100%;

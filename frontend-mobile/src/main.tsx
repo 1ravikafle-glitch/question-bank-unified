@@ -9,9 +9,17 @@ import './styles/ios.css'
 // Responsive scale layer: fluid type, landscape phones, tablets, small screens.
 import './styles/responsive.css'
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+const container = document.getElementById('root') as HTMLElement
+ReactDOM.createRoot(container).render(
   <App />
 )
+
+/* index.html ships a static splash inside #root so the page is never blank
+   while this bundle downloads and parses. Do NOT remove it by hand:
+   createRoot replaces the container's children on its first commit, so React
+   clears it at exactly the right moment. An earlier attempt dropped it on a
+   double requestAnimationFrame (~32ms), which left the blank gap it was meant
+   to cover - React does not paint for ~600ms on a cold load. */
 
 /* Speed: prefetch every route chunk + stats the moment the browser is idle.
    Routes are code-split — without this the first tap on Practice/Questions

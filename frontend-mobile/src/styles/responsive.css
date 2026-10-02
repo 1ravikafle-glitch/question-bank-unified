@@ -192,6 +192,7 @@ html.quiz-fit #root > div.min-h-screen {
   display: flex;
   flex-direction: column;
 }
+html.quiz-fit #ad-slot-mobile,
 html.quiz-fit #ad-top-mobile {
   display: none !important; /* every pixel goes to the question */
 }

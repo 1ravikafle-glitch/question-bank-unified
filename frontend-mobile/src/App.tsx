@@ -27,6 +27,7 @@ const Footer = lazy(() => import('./components/Footer'));
 
 const Null = () => null;
 import MobileTopBar from './components/MobileTopBar';
+import RouteSkeleton from './components/RouteSkeleton';
 import MobileBottomNav from './components/MobileBottomNav';
 import OfflineBanner from './components/OfflineBanner';
 import { AuthContext } from './context/AuthContext';
@@ -154,20 +155,7 @@ function AppShell() {
                 : { paddingLeft: '5%', paddingRight: '5%' }
             }
           >
-            <Suspense
-              fallback={
-                <div
-                  style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  role="status"
-                  aria-label="Loading"
-                >
-                  <div
-                    className="skeleton"
-                    style={{ width: 120, height: 12, borderRadius: 6 }}
-                  />
-                </div>
-              }
-            >
+            <Suspense fallback={<RouteSkeleton />}>
               <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={userId ? <QuestionList /> : <Navigate to="/login" replace />} />

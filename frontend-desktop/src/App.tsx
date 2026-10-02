@@ -19,6 +19,7 @@ const Settings = React.lazy(() => import('./components/Settings'));
 const Login = React.lazy(() => import('./components/Login'));
 const About = React.lazy(() => import('./components/About'));
 import Header from './components/Header';
+import RouteSkeleton from './components/RouteSkeleton';
 import DesktopSidebar from './components/DesktopSidebar';
 import MobileBottomNav from './components/MobileBottomNav';
 import OfflineBanner from './components/OfflineBanner';
@@ -159,12 +160,7 @@ function AppShell() {
           >
             <ErrorBoundary key={location.pathname}>
             <Suspense
-              fallback={
-                <div className="card" style={{ padding: '3rem 2rem', textAlign: 'center', maxWidth: 560, margin: '3rem auto' }}>
-                  <div className="skeleton" style={{ height: '1.25rem', width: '12rem', margin: '0 auto 1rem' }} />
-                  <div className="skeleton" style={{ height: '0.875rem', width: '18rem', maxWidth: '100%', margin: '0 auto' }} />
-                </div>
-              }
+              fallback={<RouteSkeleton />}
             >
             <Routes>
               <Route path="/login" element={<Login />} />
