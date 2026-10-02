@@ -4,7 +4,23 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // This app is served under /mobile/, so its built URLs must be /mobile/assets/…
+  //
+  // It used to build with the default base "/", which made every asset URL
+  // root-absolute ("/assets/index-*.js"). Those only resolved because the
+  // production server's SPA catch-all sniffs the user agent and picks a
+  // dist directory to serve the file from. So the entire app hinged on device
+  // detection being right: when the server guessed "desktop" for a mobile
+  // visitor, it served the desktop dist's index.html for the mobile bundle, the
+  // browser refused it (MIME text/html on a module script), and the page was
+  // blank but for the boot splash. A wrong UA guess, an unusual browser, or a
+  // crawler produced an entirely empty page.
+  //
+  // With an explicit base the paths are unambiguous and need no sniffing.
+  // Dev keeps base "/" so the local URLs and the proxy below are unchanged.
+  base: command === 'build' ? '/mobile/' : '/',
+
   plugins: [react(), tailwindcss()],
 
   resolve: {
@@ -118,4 +134,4 @@ export default defineConfig({
   preview: {
     port: 4173,
   },
-})
+}))
