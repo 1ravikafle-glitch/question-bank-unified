@@ -278,12 +278,20 @@ export async function ensurePack(
 export async function primeCache(): Promise<void> {
   try {
     if (!('caches' in window)) return;
+    // A worker already in control is doing this job, and it owns the cache
+    // name. Writing alongside it duplicates effort at best and, if the names
+    // disagree, produces an orphan cache the worker deletes on its next
+    // activate.
+    if (navigator.serviceWorker?.controller) return;
     const urls = new Set<string>([location.href]);
     document.querySelectorAll('script[src], link[rel="stylesheet"]').forEach((el) => {
       const u = (el as HTMLScriptElement).src || (el as HTMLLinkElement).href;
       if (u && u.startsWith(location.origin)) urls.add(u);
     });
-    const cache = await caches.open('forestry-v4');
+    // Must match CACHE in the repo-root sw.js. The worker's activate handler
+    // evicts every forestry-* cache that is not its own, so a stale literal here
+    // silently discards everything this function just wrote.
+    const cache = await caches.open('forestry-v5');
     await Promise.allSettled(
       [...urls].map((u) =>
         cache.match(u).then((hit) => (hit ? null : cache.add(u).catch(() => null)))
