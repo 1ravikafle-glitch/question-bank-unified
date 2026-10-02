@@ -294,13 +294,20 @@ def serve_spa(directory: str, path: str):
             ".jpg": "image/jpeg",
             ".svg": "image/svg+xml",
             ".json": "application/json",
+            ".webmanifest": "application/manifest+json",
+            ".webp": "image/webp",
+            ".txt": "text/plain",
+            ".xml": "application/xml",
             ".woff": "font/woff",
             ".woff2": "font/woff2",
             ".ico": "image/x-icon",
         }
         headers = None
-        if path.startswith("assets/") or path.endswith("forestry-logo.png"):
-            # Versioned build assets + logo: immutable, cache 1 year.
+        if path.startswith("assets/"):
+            # Only build output under assets/ is content-hashed by its filename,
+            # so only that can be safely immutable. The logo is a stable name
+            # that would otherwise be pinned in browsers for a year the next
+            # time it is replaced.
             headers = {"Cache-Control": "public, max-age=31536000, immutable"}
         return FileResponse(file_path, media_type=media_types.get(ext, "application/octet-stream"), headers=headers)
     return FileResponse(os.path.join(directory, "index.html"), media_type="text/html")

@@ -61,6 +61,25 @@ def status() -> dict:
     }
 
 
+def _timeout() -> float:
+    """Seconds to wait on the SMTP connection.
+
+    Default 12, not 20. A reachable relay completes in one to three seconds, so
+    a longer wait buys nothing; what it does buy is 21 seconds of frozen UI on
+    every signup and resend whenever the connection is blocked rather than
+    refused. A blocked egress path or a relay that has silently dropped the
+    client both present as a timeout, and the user waiting on the button is the
+    one who pays for it. Override with SMTP_TIMEOUT when a deliberately slow
+    relay needs more.
+    """
+    raw = (os.getenv("SMTP_TIMEOUT") or "").strip()
+    try:
+        val = float(raw)
+    except ValueError:
+        return 12.0
+    return val if val > 0 else 12.0
+
+
 def _open(host: str, port: int):
     """Open an SMTP session with the right transport for the port.
 
@@ -72,8 +91,8 @@ def _open(host: str, port: int):
     send failed while the API still answered "on its way".
     """
     if port == 465:
-        return smtplib.SMTP_SSL(host, port, timeout=20)
-    return smtplib.SMTP(host, port, timeout=20)
+        return smtplib.SMTP_SSL(host, port, timeout=_timeout())
+    return smtplib.SMTP(host, port, timeout=_timeout())
 
 
 # The last send failure, so the API can report what actually happened instead of
