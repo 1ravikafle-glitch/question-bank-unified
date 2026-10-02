@@ -1219,6 +1219,16 @@ const QuizTaker: React.FC = () => {
     if (timerRef.current) window.clearInterval(timerRef.current);
     localStorage.removeItem(QUIZ_STORAGE_KEY);
     setShowExitConfirm(false);
+    // Leaving a mock exam returns to the exam setup the reader came from. The
+    // practice path below instead shows the practice setup screen.
+    if (isExamMode) {
+      shuffledCacheRef.current.clear();
+      setSelected({});
+      setCurrentIndex(0);
+      setQuestions([]);
+      navigate('/mock');
+      return;
+    }
     // Show setup screen instead of navigating away
     shuffledCacheRef.current.clear();
     setSelected({});
@@ -1258,10 +1268,37 @@ const QuizTaker: React.FC = () => {
       const isTypingField = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
       if (isTypingField) return;
 
+      // With the confirm dialog open, Enter confirms and Escape cancels. The
+      // desktop handler has this block up front; mobile never did, and the
+      // `if (isExamMode) return;` further down sits above the Escape logic —
+      // so on a mock paper Escape could open the dialog but never close it.
+      if (showExitConfirm) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          confirmExit();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setShowExitConfirm(false);
+        }
+        return;
+      }
+
       // M: bookmark (mark) the current question (paper view has its own M handler)
       if ((e.key === 'm' || e.key === 'M') && currentQuestion && !showExitConfirm && !isExamMode) {
         e.preventDefault();
         handleBmToggle(currentQuestion.id);
+        return;
+      }
+
+      // Esc quits from the mock paper too, exactly as it does in practice mode.
+      // Scoped to exam mode: the practice handler further down keeps its own
+      // rule (only while a question is unlocked) and this must not change it.
+      // `!showExitConfirm` matters: the mobile handler has no up-front
+      // showExitConfirm block like desktop's, so without it this re-opened the
+      // dialog it was meant to let Escape close.
+      if (e.key === 'Escape' && isExamMode && !showExitConfirm) {
+        e.preventDefault();
+        setShowExitConfirm(true);
         return;
       }
 
