@@ -63,6 +63,33 @@ def _mail_startup_selftest() -> None:
         print(f"[MAIL] selftest crashed: {type(e).__name__}: {e}", file=sys.stderr)
 
 
+@app.on_event("startup")
+def _email_crypto_startup_check() -> None:
+    """Fail loudly if email addresses cannot be encrypted.
+
+    `email` is stored as a Fernet token. Without a key every address would fall
+    back to plaintext with only a log line to say so, which is precisely the
+    leak this change exists to close - and it would be invisible until someone
+    read the database. Report it once, loudly, at boot.
+    """
+    try:
+        import email_crypto
+
+        probe = "startup-probe@example.com"
+        token = email_crypto.encrypt(probe)
+        if not email_crypto.is_encrypted(token) or email_crypto.decrypt(token) != probe:
+            print(
+                "[AUTH] FATAL: email encryption is NOT active - addresses would be "
+                "stored in plain text. Set SECRET_KEY (or EMAIL_ENC_KEY). "
+                "Disabling verification is safer than storing them clear.",
+                file=sys.stderr,
+            )
+        else:
+            print("[AUTH] email encryption active", file=sys.stderr)
+    except Exception as e:
+        print(f"[AUTH] email encryption check crashed: {type(e).__name__}: {e}", file=sys.stderr)
+
+
 class CacheControlMiddleware(BaseHTTPMiddleware):
     """Cache headers for hot read-only endpoints (same as start_prod)."""
     CACHEABLE_PATHS = {"/questions/count/", "/questions/categories/", "/questions/category-counts/"}

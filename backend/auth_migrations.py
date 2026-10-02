@@ -34,6 +34,9 @@ def ensure_user_columns() -> None:
             # Postgres (boolean literal into an integer column); SQLite is
             # untyped so it hid the mismatch locally. Keep in sync with models.py.
             ("email_verified", "INTEGER NOT NULL DEFAULT 0"),
+            # Keyed HMAC of the address: the searchable half, since `email` now
+            # holds a non-deterministic Fernet token and cannot be compared.
+            ("email_hash", "TEXT"),
         ]
         stmts = [
             f"ALTER TABLE users ADD COLUMN {col} {ddl}"
@@ -109,8 +112,91 @@ def ensure_user_columns() -> None:
                     )
         except Exception:
             pass  # non-fatal: sign-in still works, just scans
+
+        # Convert every legacy plaintext address to a Fernet token and populate
+        # email_hash. Idempotent: a value that already decrypts is left alone,
+        # and encrypt() is a no-op on an already-encrypted one.
+        _encrypt_legacy_emails()
     except Exception as e:
         print(f"[AUTH] user column migration skipped: {e}", file=sys.stderr)
+
+
+def _encrypt_legacy_emails() -> None:
+    """Re-encrypt rows still holding a plaintext address, and backfill hashes.
+
+    `email` was historically written in the clear by register/update_email and
+    by the Google sign-in path. Once it holds a Fernet token, every reader has
+    to decrypt, so leaving stragglers in the clear would mean the same column
+    holds both formats forever and a future audit could not tell them apart.
+    """
+    import email_crypto
+
+    try:
+        with database.engine.begin() as conn:
+            rows = conn.execute(
+                _text(
+                    "SELECT id, username, email, email_hash FROM users "
+                    "WHERE email IS NOT NULL AND email <> ''"
+                )
+            ).fetchall()
+        changed = 0
+        for row in rows:
+            stored = row[2]
+            if email_crypto.is_encrypted(stored):
+                want = email_crypto.lookup_hash(email_crypto.decrypt(stored))
+                if want != row[3]:
+                    with database.engine.begin() as conn:
+                        conn.execute(
+                            _text("UPDATE users SET email_hash = :h WHERE id = :i"),
+                            {"h": want, "i": row[0]},
+                        )
+                    changed += 1
+                continue
+            token = email_crypto.encrypt(stored)
+            digest = email_crypto.lookup_hash(stored)
+            with database.engine.begin() as conn:
+                conn.execute(
+                    _text("UPDATE users SET email = :e, email_hash = :h WHERE id = :i"),
+                    {"e": token, "h": digest, "i": row[0]},
+                )
+            changed += 1
+        if changed:
+            print(f"[AUTH] encrypted/backfilled {changed} email address(es)", file=sys.stderr)
+    except Exception as e:
+        print(f"[AUTH] email encryption pass skipped: {e}", file=sys.stderr)
+
+    # One inbox, one account. Enforced on email_hash now that it is populated.
+    # Checked before creating the index because the CREATE fails outright on
+    # duplicates, and a failure here is silent in every other layer.
+    try:
+        insp = inspect(database.engine)
+        indexes = {i["name"] for i in insp.get_indexes("users")}
+        if "ux_users_email_hash" not in indexes:
+            dupes = [
+                r[0]
+                for r in database.engine.connect().execute(
+                    _text(
+                        "SELECT email_hash FROM users "
+                        "WHERE email_hash IS NOT NULL AND email_hash <> '' "
+                        "GROUP BY email_hash HAVING COUNT(*) > 1"
+                    )
+                )
+            ]
+            if dupes:
+                print(
+                    f"[AUTH] WARNING duplicate addresses block the unique index "
+                    f"({len(dupes)} hash(es)). Two accounts can share an inbox, so "
+                    f"a reset code could reach the wrong one. De-duplicate by hand.",
+                    file=sys.stderr,
+                )
+            else:
+                with database.engine.begin() as conn:
+                    conn.execute(
+                        _text("CREATE UNIQUE INDEX ux_users_email_hash ON users (email_hash)")
+                    )
+                print("[AUTH] unique index on users.email_hash", file=sys.stderr)
+    except Exception as e:
+        print(f"[AUTH] email_hash index not created ({e})", file=sys.stderr)
 
 
 def ensure_reset_token_columns() -> None:
@@ -130,6 +216,9 @@ def ensure_reset_token_columns() -> None:
         jobs = [
             ("code_hash", "TEXT"),
             ("attempts", "INTEGER NOT NULL DEFAULT 0"),
+            # 'reset' or 'verify'. Defaults to 'reset' so codes minted before
+            # this column existed keep their original meaning.
+            ("purpose", "TEXT NOT NULL DEFAULT 'reset'"),
         ]
         for col, ddl in jobs:
             if col in cols:

@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { authRegister, authForgotPasswordOtp, authVerifyResetCode, authResetPasswordWithToken } from '../services/api';
+import {
+  authRegister,
+  authConfirmEmail,
+  authSendVerification,
+  authForgotPasswordOtp,
+  authVerifyResetCode,
+  authResetPasswordWithToken,
+} from '../services/api';
 import { toast } from 'react-hot-toast';
 
 const label: React.CSSProperties = {
@@ -39,21 +46,37 @@ const errText = (e: unknown, fallback: string) => {
   return typeof d === 'string' ? d : fallback;
 };
 
-/* Create an account: username, optional member ID, password, email.
-   The email is stored but never verified - it is only used later to deliver a
-   password-reset code. Say so on the form rather than hiding it. */
-export const RegisterView: React.FC<{ onDone: () => void; onSwitchToLogin: () => void; onAuthenticated?: (userId: string, token: string) => void }> = ({
-  onDone,
-  onSwitchToLogin,
-  onAuthenticated,
-}) => {
+/* Create an account, then prove the address.
+ *
+ * Two steps because the address is the identity: signup creates the row and
+ * emails a code, and entering the code is what marks it verified and issues the
+ * member ID. Previously the address was optional and never checked, and the
+ * form happily displayed "your member ID is ..." for an account nobody had
+ * proven anything about.
+ *
+ * The form leads with the Gmail address because that is what a reader
+ * recognises. A display name is still asked for, so the account is not reduced
+ * to a string of digits. */
+export const RegisterView: React.FC<{
+  onDone: () => void;
+  onSwitchToLogin: () => void;
+  // The first argument is the handle the app stores locally. It is the
+  // username, not the member ID: the ID does not exist until the address is
+  // verified, and the server resolves a session by either.
+  onAuthenticated?: (handle: string, token: string) => void;
+}> = ({ onDone, onSwitchToLogin, onAuthenticated }) => {
   const [username, setUsername] = useState('');
-  const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [gmail, setGmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Verification step, entered after a successful signup.
+  const [stage, setStage] = useState<'form' | 'verify'>('form');
+  const [code, setCode] = useState('');
+  const [memberId, setMemberId] = useState<string | null>(null);
+  const [mailOk, setMailOk] = useState(true);
 
   const passwordStrength = (() => {
     if (!password) return { score: 0, label: '', color: '' };
@@ -76,23 +99,28 @@ export const RegisterView: React.FC<{ onDone: () => void; onSwitchToLogin: () =>
       setError('Password must be at least 8 characters.');
       return;
     }
+    if (!gmail.trim()) {
+      setError('Enter your Gmail address - it is how you sign in and recover your account.');
+      return;
+    }
     setBusy(true);
     try {
       const r = await authRegister({
         username: username.trim().toLowerCase(),
         password,
-        gmail: gmail.trim().toLowerCase(),
-        user_id: userId.trim() || undefined,
+        email: gmail.trim().toLowerCase(),
       });
-      toast.success(`Account created. Your member ID is ${r.user_id}`);
-      // The server mints a session at signup, so a new account goes straight
-      // in. Previously signup returned no token and dropped the user back on
-      // the login form to type the password they had just chosen.
       if (r.session_token && onAuthenticated) {
-        onAuthenticated(r.user_id, r.session_token);
-      } else {
-        onDone();
+        onAuthenticated(username.trim().toLowerCase(), r.session_token);
       }
+      if (r.user_id) {
+        // They supplied their own member ID at signup, so there is nothing to
+        // earn - skip straight past the code screen.
+        toast.success(`Account created. Your member ID is ${r.user_id}`);
+        onDone();
+        return;
+      }
+      setStage('verify');
     } catch (e) {
       setError(errText(e, 'Could not create the account.'));
     } finally {
@@ -100,17 +128,96 @@ export const RegisterView: React.FC<{ onDone: () => void; onSwitchToLogin: () =>
     }
   };
 
+  const verify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!code.trim()) return;
+    setBusy(true);
+    try {
+      const r = await authConfirmEmail(username.trim().toLowerCase(), code.trim().toUpperCase());
+      setMemberId(r.user_id);
+      setCode('');
+      toast.success(r.already_verified ? 'Already verified.' : `Address verified. Your member ID is ${r.user_id}`);
+    } catch (e) {
+      setError(errText(e, 'That code is not correct.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    setError('');
+    setBusy(true);
+    try {
+      const r = await authSendVerification(username.trim().toLowerCase());
+      setMailOk(r.sent);
+      if (!r.sent) setError('The mail server is not reachable right now, so no code was sent. Try again shortly.');
+    } catch (e) {
+      setError(errText(e, 'Could not send a new code.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (stage === 'verify') {
+    return (
+      <form onSubmit={verify} aria-label="Verify email" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+        <div>
+          <h2 style={{ margin: '0 0 0.35rem', fontSize: '1.05rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
+            Check your Gmail
+          </h2>
+          <p style={{ ...note, margin: 0 }}>
+            We sent a code to <strong style={{ fontWeight: 600 }}>{gmail.trim().toLowerCase()}</strong>.
+            Enter it to confirm the address and get your member ID.
+          </p>
+        </div>
+        <div>
+          <label style={label} htmlFor="ver-code">Verification code</label>
+          <input id="ver-code" style={{ ...input, letterSpacing: '0.35em', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}
+            value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code"
+            inputMode="text" placeholder="8 characters" maxLength={12} required autoFocus />
+        </div>
+        {memberId && (
+          <p style={{ ...note, margin: 0, padding: '0.75rem', borderRadius: 'var(--apple-radius-md)', background: 'hsl(var(--success) / 0.1)', color: 'hsl(var(--success))' }}>
+            Verified. Your member ID is <strong style={{ fontWeight: 700 }}>{memberId}</strong>.
+          </p>
+        )}
+        {error && <p role="alert" style={{ ...note, color: 'hsl(var(--destructive))', margin: 0 }}>{error}</p>}
+        {!mailOk && !memberId && (
+          <p style={{ ...note, margin: 0, color: 'hsl(var(--destructive))' }}>
+            Email delivery is not working on this server, so no code was sent.
+          </p>
+        )}
+        <button type="submit" className="btn btn-primary" style={btn} disabled={busy || !!memberId}>
+          {busy ? 'Checking…' : memberId ? 'Verified' : 'Verify and get my ID'}
+        </button>
+        {!memberId && (
+          <button type="button" className="btn" style={btn} onClick={resend} disabled={busy}>
+            {busy ? 'Sending…' : 'Send a new code'}
+          </button>
+        )}
+        <button type="button" className="btn" style={btn} onClick={onDone} disabled={busy}>
+          {memberId ? 'Continue to the app' : 'Skip for now'}
+        </button>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={submit} aria-label="Register form" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
       <div>
-        <label style={label} htmlFor="reg-user">Username</label>
-        <input id="reg-user" style={input} value={username} onChange={(e) => setUsername(e.target.value)}
-          autoComplete="username" placeholder="e.g. ravi.kafle" required />
+        <label style={label} htmlFor="reg-mail">Gmail address</label>
+        <input id="reg-mail" style={input} type="email" value={gmail} onChange={(e) => setGmail(e.target.value)}
+          autoComplete="email" placeholder="you@gmail.com" required autoFocus />
+        <p style={{ ...note, margin: '0.35rem 0 0' }}>
+          This is how you sign in and how you recover your account. We email a code
+          to confirm it is really yours.
+        </p>
       </div>
       <div>
-        <label style={label} htmlFor="reg-id">Member ID <span style={{ textTransform: 'none', fontWeight: 400 }}>(optional)</span></label>
-        <input id="reg-id" style={input} value={userId} onChange={(e) => setUserId(e.target.value)}
-          placeholder="Leave blank and we assign one" />
+        <label style={label} htmlFor="reg-user">Display name</label>
+        <input id="reg-user" style={input} value={username} onChange={(e) => setUsername(e.target.value)}
+          autoComplete="username" placeholder="e.g. ravi.kafle" required />
       </div>
       <div>
         <label style={label} htmlFor="reg-pw">Password</label>
@@ -152,14 +259,6 @@ export const RegisterView: React.FC<{ onDone: () => void; onSwitchToLogin: () =>
           </div>
         )}
       </div>
-      <div>
-        <label style={label} htmlFor="reg-mail">Email <span style={{ textTransform: 'none', fontWeight: 400 }}>(optional)</span></label>
-        <input id="reg-mail" style={input} type="email" value={gmail} onChange={(e) => setGmail(e.target.value)}
-          autoComplete="email" placeholder="you@gmail.com" />
-        <p style={{ ...note, margin: '0.35rem 0 0' }}>
-          Only used to send a password-reset code. Skip it now — you can add or change it later in Settings.
-        </p>
-      </div>
 
       {error && <p role="alert" style={{ ...note, color: 'hsl(var(--destructive))', margin: 0 }}>{error}</p>}
 
@@ -192,7 +291,15 @@ export const ResetPasswordView: React.FC<{ onDone: () => void }> = ({ onDone }) 
     setBusy(true);
     try {
       const r = await authForgotPasswordOtp(identifier.trim());
-      setMailWorks(r.email_delivery);
+      setMailWorks(r.email_delivery && !r.delivery_failed);
+      if (r.delivery_failed) {
+        // The server tried and could not reach the relay. Advancing to the
+        // code box here is what produced "it just shows enter OTP": the screen
+        // promised a mail that was never sent, so the code could never arrive.
+        // Say what happened and stay on this step so a retry is one tap.
+        setError(r.message);
+        return;
+      }
       setStep(2);
     } catch (e) {
       setError(errText(e, 'Could not send a code. Try again shortly.'));
@@ -240,10 +347,11 @@ export const ResetPasswordView: React.FC<{ onDone: () => void }> = ({ onDone }) 
       {step === 1 && (
         <form onSubmit={requestCode} aria-label="Forgot password" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
           <p style={{ ...note, margin: 0 }}>
-            Enter your username, member ID, or the email you registered with.
+            Enter the Gmail you registered with, or your username or member ID.
+            We will only send a code if it matches an account here.
           </p>
           <div>
-            <label style={label} htmlFor="fp-id">Username, member ID or email</label>
+            <label style={label} htmlFor="fp-id">Gmail, username or member ID</label>
             <input id="fp-id" style={input} value={identifier} onChange={(e) => setIdentifier(e.target.value)} required autoFocus />
           </div>
           {error && <p role="alert" style={{ ...note, color: 'hsl(var(--destructive))', margin: 0 }}>{error}</p>}
@@ -257,9 +365,15 @@ export const ResetPasswordView: React.FC<{ onDone: () => void }> = ({ onDone }) 
         <form onSubmit={verify} aria-label="Enter reset code" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
           <p style={{ ...note, margin: 0 }}>
             {mailWorks
-              ? <>We sent a reset code to the address on <strong>{identifier.trim()}</strong>. Enter it below.</>
-              : <>Email delivery is not configured on this server, so the code is in the server log.</>}
+              ? <>If that account exists, a reset code is on its way. Enter it below.</>
+              : <>This server cannot send mail, so the code was written to its log instead.</>}
           </p>
+          {!mailWorks && (
+            <p role="status" style={{ ...note, margin: 0, color: 'hsl(var(--destructive))' }}>
+              No code reached your inbox. If nothing arrives, the address on this
+              account may not match - try your username or member ID instead.
+            </p>
+          )}
           <div>
             <label style={label} htmlFor="fp-code">Reset code</label>
             <input id="fp-code" style={{ ...input, letterSpacing: '0.3em', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}

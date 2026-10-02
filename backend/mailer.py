@@ -61,6 +61,36 @@ def status() -> dict:
     }
 
 
+def _open(host: str, port: int):
+    """Open an SMTP session with the right transport for the port.
+
+    Port 465 is implicit TLS: the handshake happens inside the TCP connection,
+    so it needs SMTP_SSL. Opening it with the plain SMTP class and then calling
+    starttls() fails with "wrong version number", and only STARTTLS is offered
+    on 587. Previously only the 587 path existed, so a deployment configured
+    for 465 - the port most guides list first - connected to nothing and every
+    send failed while the API still answered "on its way".
+    """
+    if port == 465:
+        return smtplib.SMTP_SSL(host, port, timeout=20)
+    return smtplib.SMTP(host, port, timeout=20)
+
+
+# The last send failure, so the API can report what actually happened instead of
+# claiming a code is on its way for a message the relay refused.
+_last_error = None
+
+
+def _remember(exc) -> None:
+    global _last_error
+    _last_error = f"{type(exc).__name__}: {exc}" if exc else None
+
+
+def last_error() -> str | None:
+    """Most recent send/selftest failure, or None. Never contains the password."""
+    return _last_error
+
+
 def selftest() -> bool:
     """Connect and authenticate once at boot.
 
@@ -77,23 +107,34 @@ def selftest() -> bool:
     user = (os.getenv("SMTP_USER") or "").strip()
     pw = (os.getenv("SMTP_PASS") or "").strip()
     try:
-        with smtplib.SMTP(st["host"], port, timeout=20) as smtp:
+        with _open(st["host"], port) as smtp:
             smtp.ehlo()
             if smtp.has_extn("starttls"):
                 smtp.starttls()
                 smtp.ehlo()
             if user and pw:
                 smtp.login(user, pw)
+        _remember(None)
         print(f"[MAIL] ready: {st['host']}:{port} as {st['from']}", file=sys.stderr)
         return True
     except Exception as e:
+        _remember(e)
         print(f"[MAIL] NOT READY: {st['host']}:{port} as {st['from']} -> {type(e).__name__}: {e}", file=sys.stderr)
+        if isinstance(e, smtplib.SMTPAuthenticationError):
+            print("[MAIL] hint: Gmail rejects a normal account password. Use a "
+                  "16-character App Password (Google Account > Security > "
+                  "2-Step Verification > App passwords).", file=sys.stderr)
         return False
 
 
 def send(to: str, subject: str, body: str) -> bool:
-    """Best-effort send. Never raises: a mail outage must not 500 the API."""
+    """Send a message. Never raises: a mail outage must not 500 the API.
+
+    Returns True only when the relay accepted the message, so the caller can
+    report a real delivery failure instead of a hopeful one.
+    """
     if not configured():
+        _remember(None)
         print("[MAIL] SMTP not configured, skipping send", file=sys.stderr)
         return False
     host = (os.getenv("SMTP_HOST") or "").strip()
@@ -109,17 +150,29 @@ def send(to: str, subject: str, body: str) -> bool:
     msg.set_content(body)
 
     try:
-        with smtplib.SMTP(host, port, timeout=20) as smtp:
-            smtp.starttls()
+        with _open(host, port) as smtp:
+            smtp.ehlo()
+            if smtp.has_extn("starttls"):
+                smtp.starttls()
+                smtp.ehlo()
             if user and pw:
                 smtp.login(user, pw)
             smtp.send_message(msg)
+        _remember(None)
         return True
     except Exception as e:
         st = status()
+        _remember(e)
         print(
             f"[MAIL] send FAILED to={to} via {st['host']}:{st['port']} as {st['from']} "
             f"-> {type(e).__name__}: {e}",
             file=sys.stderr,
         )
+        if isinstance(e, smtplib.SMTPAuthenticationError):
+            print(
+                "[MAIL] hint: Gmail rejects a normal account password. Use a "
+                "16-character App Password (Google Account > Security > "
+                "2-Step Verification > App passwords).",
+                file=sys.stderr,
+            )
         return False

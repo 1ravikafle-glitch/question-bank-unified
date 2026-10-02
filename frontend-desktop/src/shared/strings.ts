@@ -56,7 +56,9 @@ const STRINGS: Record<string, { en: string; ne: string }> = {
   // login
   'login.title': { en: 'Forestry PSC', ne: 'फरेष्ट्री पिएससी' },
   'login.subtitle': { en: 'Prepare with confidence', ne: 'आत्मविश्वासका साथ तयारी' },
-  'login.username': { en: 'Username', ne: 'प्रयोगकर्ता नाम' },
+  // The address is the identity now, and the server accepts any of the three,
+// so say all three rather than implying only one works.
+  'login.username': { en: 'Gmail, username or member ID', ne: 'जिमेल, प्रयोगकर्ता नाम वा सदस्य ID' },
   'login.password': { en: 'Password', ne: 'पासवर्ड' },
   'login.signin': { en: 'Sign in', ne: 'साइन इन' },
   'login.signing': { en: 'Signing in…', ne: 'साइन इन हुँदै…' },

@@ -569,15 +569,21 @@ export const saveNote = async (
 export const authRegister = async (body: {
   username: string;
   password: string;
+  /** The Gmail address this account belongs to. Verified by code afterwards. */
+  email?: string | null;
+  /** Legacy field name; the server accepts either. */
   gmail?: string | null;
   user_id?: string;
 }) => {
   const response = await api.post<{
     ok: boolean;
-    user_id: string;
+    /** Null until the address is verified - that is what earns the ID. */
+    user_id: string | null;
     message: string;
     // Minted at signup so the app can sign the new account straight in.
     session_token?: string | null;
+    next_step: string;
+    email_verified: boolean;
   }>('/auth/register', body);
   return response.data;
 };
@@ -587,6 +593,7 @@ export const authMe = async (): Promise<{
   username: string;
   user_id: string | null;
   email: string | null;
+  email_verified: boolean;
   is_admin: boolean;
 }> => {
   const response = await api.get('/auth/me');
@@ -595,17 +602,44 @@ export const authMe = async (): Promise<{
 
 /** Add / change / clear the reset-address from Settings. */
 export const authUpdateEmail = async (email: string) => {
-  const response = await api.put<{ ok: boolean; email: string | null }>('/auth/email', { email });
+  const response = await api.put<{
+    ok: boolean;
+    email: string | null;
+    email_verified: boolean;
+    user_id: string | null;
+  }>('/auth/email', { email });
+  return response.data;
+};
+
+/** Re-send a verification code to the signed-in account. */
+export const authSendVerification = async (username: string) => {
+  const response = await api.post<{ ok: boolean; sent: boolean; message: string }>(
+    '/auth/send-verification',
+    { username }
+  );
+  return response.data;
+};
+
+/** Exchange a verification code for `email_verified` and a member ID. */
+export const authConfirmEmail = async (username: string, code: string) => {
+  const response = await api.post<{
+    ok: boolean;
+    already_verified: boolean;
+    message?: string;
+    user_id: string | null;
+    email_verified: boolean;
+  }>('/auth/confirm-email', { username, code });
   return response.data;
 };
 
 /** Ask for a reset code. The reply is deliberately the same whether or not the
  *  account exists, so it cannot be used to discover who has one. */
 export const authForgotPasswordOtp = async (identifier: string) => {
-  const response = await api.post<{ message: string; email_delivery: boolean }>(
-    '/auth/forgot-password-otp',
-    { identifier }
-  );
+  const response = await api.post<{
+    message: string;
+    email_delivery: boolean;
+    delivery_failed?: boolean;
+  }>('/auth/forgot-password-otp', { identifier });
   return response.data;
 };
 

@@ -12,3 +12,7 @@ psycopg2-binary==2.9.9
 # screen. Without this the backend cannot check a credential's signature and
 # the feature stays disabled (the login screen hides the button).
 PyJWT[crypto]==2.7.0
+# Fernet (AES-128-CBC + HMAC-SHA256) for encrypting user email addresses at
+# rest. Currently only present transitively via PyJWT[crypto]; pinned
+# explicitly because the app now imports it directly.
+cryptography==41.0.7

@@ -162,14 +162,21 @@ const Login: React.FC = () => {
         {/* Form */}
         {view === 'register' ? (
           <RegisterView
-            onDone={() => setView('login')}
+            onDone={() => {
+              // Only reached once the address is confirmed, or when the reader
+              // explicitly skips. Either way the account is usable by username,
+              // which is the handle handed to onAuthenticated below.
+              setView('login');
+            }}
             onSwitchToLogin={() => setView('login')}
-            onAuthenticated={(id, token) => {
+            onAuthenticated={(handle, token) => {
               // Signup already verified the password and minted a session, so
-              // land straight in the app instead of asking for it again.
-              setUserId(id);
+              // store it. Do NOT navigate yet: the address still has to be
+              // confirmed, and bouncing to the home page replaced the code
+              // screen with the dashboard - which is why the verification step
+              // looked like it never happened.
+              setUserId(handle);
               setSessionToken(token);
-              navigate('/');
             }}
           />
         ) : view === 'forgot' ? (
@@ -188,13 +195,13 @@ const Login: React.FC = () => {
                   marginBottom: '6px',
                 }}
               >
-                Username
+                Gmail, username or member ID
               </label>
               <input
                 id="login-username"
                 type="text"
                 className="input"
-                placeholder="e.g. student123"
+                placeholder="you@gmail.com"
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
@@ -370,7 +377,7 @@ const Login: React.FC = () => {
             lineHeight: 1.5,
           }}
         >
-          No registration needed. Enter any username & password to get started.
+          New here? Create an account with your Gmail address - it takes a moment and no card.
         </p>
         }
 

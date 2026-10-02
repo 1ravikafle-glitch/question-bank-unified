@@ -9,7 +9,7 @@ import { useSfx } from '@/hooks/useSfx';
 import { useLang, type Lang } from '@/context/LanguageContext';
 import { useQuizPrefs } from '@/quizPrefs';
 import { staggerParent, sectionRise, useReducedMotion } from '@/motion';
-import { authMe, authUpdateEmail } from '@/services/api';
+import { authMe, authUpdateEmail, authSendVerification, authConfirmEmail } from '@/services/api';
 
 const row: React.CSSProperties = {
   display: 'flex',
@@ -257,23 +257,69 @@ const Settings: React.FC = () => {
 
 export default Settings;
 
-/* Email is optional at registration (it only ever delivers a reset code), so
-   this is where it gets supplied afterwards. Shows the stored address or
-   "Not added yet", and saves inline. */
+/* The Gmail address IS the identity now, so this is where an account that
+   signed up without one - or one created before verification existed - acquires
+   a real identity. Save the address, then confirm it with a code; only a
+   verified address earns (or keeps) the member ID. Saving a different address
+   deliberately drops the verified flag, because possession of the old inbox
+   says nothing about the new one. */
 function EmailSection() {
   const reduced = useReducedMotion();
   const { sfxClick } = useSfx();
   const [current, setCurrent] = useState<string | null>(null);
   const [value, setValue] = useState('');
+  const [username, setUsername] = useState('');
+  const [verified, setVerified] = useState(false);
+  const [memberId, setMemberId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [code, setCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     authMe()
-      .then((m) => { setCurrent(m.email); setValue(m.email || ''); })
+      .then((m) => {
+        setCurrent(m.email);
+        setValue(m.email || '');
+        setUsername(m.username);
+        setVerified(!!m.email_verified);
+        setMemberId(m.user_id);
+      })
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
+
+  const sendCode = async () => {
+    setNotice('');
+    setBusy(true);
+    try {
+      const r = await authSendVerification(username);
+      setVerifying(true);
+      if (!r.sent) setNotice('Email delivery is not working on this server, so no code was sent.');
+    } catch (e: any) {
+      setNotice(e?.response?.data?.detail || 'Could not send a code.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirm = async () => {
+    setNotice('');
+    setBusy(true);
+    try {
+      const r = await authConfirmEmail(username, code.trim().toUpperCase());
+      setVerified(true);
+      setMemberId(r.user_id);
+      setCode('');
+      setVerifying(false);
+      toast.success(r.user_id ? `Verified. Member ID ${r.user_id}` : 'Verified', { duration: 2200 });
+    } catch (e: any) {
+      setNotice(e?.response?.data?.detail || 'That code is not correct.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const save = async () => {
     const next = value.trim();
@@ -287,7 +333,12 @@ function EmailSection() {
       const r = await authUpdateEmail(next);
       setCurrent(r.email);
       setValue(r.email || '');
-      toast.success(r.email ? 'Email saved' : 'Email removed', { duration: 1500 });
+      // A changed address is unverified until a code arrives, so the UI drops
+      // straight back to the confirm step rather than implying it still counts.
+      setVerified(!!r.email_verified);
+      setMemberId(r.user_id);
+      setVerifying(!!r.email && !r.email_verified);
+      toast.success(r.email ? 'Email saved - confirm it to finish' : 'Email removed', { duration: 2600 });
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || 'Could not save the email.');
     } finally {
@@ -310,15 +361,78 @@ function EmailSection() {
       <div style={card}>
         <div style={{ ...row, border: 'none', flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
           <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>
-            {current ? 'Recovery email' : 'Add a recovery email'}
+            {current ? 'Gmail address' : 'Add your Gmail address'}
           </span>
           <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
             {loaded
-              ? (current
-                  ? 'Used only to send a password-reset code.'
-                  : 'Not added yet. Without it, password reset falls back to the server log.')
+              ? (verified
+                  ? 'Verified. This is how you sign in and recover your account.'
+                  : current
+                    ? 'Not confirmed yet. Enter the code we emailed to finish.'
+                    : 'Not added yet. Without it you can only sign in with your username, and a reset code falls back to the server log.')
               : 'Loading…'}
           </span>
+          {loaded && memberId && (
+            <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
+              Member ID <strong style={{ color: 'hsl(var(--foreground))' }}>{memberId}</strong>
+            </span>
+          )}
+          {loaded && current && !verified && (
+            <>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Verification code"
+                  aria-label="Verification code"
+                  maxLength={12}
+                  style={{
+                    flex: '1 1 160px', minWidth: 0, padding: '9px 12px', borderRadius: 10,
+                    border: '1px solid hsl(var(--border))', background: 'hsl(var(--background))',
+                    color: 'hsl(var(--foreground))', fontSize: 14, fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.2em', textTransform: 'uppercase',
+                  }}
+                />
+                {verifying ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => { sfxClick(); confirm(); }}
+                    disabled={busy || code.trim().length < 4}
+                    style={{ padding: '9px 16px', fontSize: 13 }}
+                  >
+                    {busy ? 'Checking…' : 'Confirm'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => { sfxClick(); sendCode(); }}
+                    disabled={busy}
+                    style={{ padding: '9px 16px', fontSize: 13 }}
+                  >
+                    {busy ? 'Sending…' : 'Send code'}
+                  </button>
+                )}
+              </div>
+              {verifying && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => { sfxClick(); sendCode(); }}
+                  disabled={busy}
+                  style={{ padding: '7px 14px', fontSize: 12.5, alignSelf: 'flex-start' }}
+                >
+                  Send a new code
+                </button>
+              )}
+              {notice && (
+                <span role="alert" style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--destructive))' }}>
+                  {notice}
+                </span>
+              )}
+            </>
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               type="email"
@@ -327,7 +441,7 @@ function EmailSection() {
               onBlur={() => { if (value.trim() !== (current || '')) save(); }}
               placeholder="you@gmail.com"
               autoComplete="email"
-              aria-label="Recovery email"
+              aria-label="Gmail address"
               style={{
                 flex: 1, minWidth: 0, padding: '9px 12px', borderRadius: 10,
                 border: '1px solid hsl(var(--border))', background: 'hsl(var(--background))',

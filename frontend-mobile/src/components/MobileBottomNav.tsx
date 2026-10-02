@@ -5,7 +5,7 @@ import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useLang } from '@/context/LanguageContext';
 import { useSound } from '@/context/SoundContext';
 import { gisHref } from '@/components/DesktopSidebar';
-import { authMe, authUpdateEmail } from '@/services/api';
+import { authMe, authUpdateEmail, authSendVerification, authConfirmEmail } from '@/services/api';
 import toast from 'react-hot-toast';
 
 /* ── Haptic feedback ─────────────────────────────────────────── */
@@ -64,13 +64,25 @@ const MobileBottomNav: React.FC = () => {
   /* Email is optional at signup; this is where it gets added afterwards. */
   const [email, setEmail] = useState<string | null>(null);
   const [emailDraft, setEmailDraft] = useState('');
+  // The address is the identity now, so this row carries the verification step
+  // too: unverified, the account has no member ID and a reset depends on luck.
+  const [emailUser, setEmailUser] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [showVerify, setShowVerify] = useState(false);
+  const [verifyNotice, setVerifyNotice] = useState('');
   const [emailBusy, setEmailBusy] = useState(false);
   const [showEmailEdit, setShowEmailEdit] = useState(false);
 
   useEffect(() => {
     if (!showSheet) return;
     authMe()
-      .then((m) => { setEmail(m.email); setEmailDraft(m.email || ''); })
+      .then((m) => {
+        setEmail(m.email);
+        setEmailDraft(m.email || '');
+        setEmailUser(m.username);
+        setEmailVerified(!!m.email_verified);
+      })
       .catch(() => {});
   }, [showSheet]);
 
@@ -86,13 +98,43 @@ const MobileBottomNav: React.FC = () => {
       setEmail(r.email);
       setEmailDraft(r.email || '');
       setShowEmailEdit(false);
-      toast.success(r.email ? 'Email saved' : 'Email removed', { duration: 1500 });
+      // A changed address is unverified until a code arrives, so drop straight
+      // into the confirm step instead of implying it still counts.
+      setEmailVerified(!!r.email_verified);
+      setShowVerify(!!r.email && !r.email_verified);
+      setVerifyCode('');
+      toast.success(r.email ? 'Email saved - confirm it to finish' : 'Email removed', { duration: 2600 });
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || 'Could not save the email.');
     } finally {
       setEmailBusy(false);
     }
   }, [emailDraft]);
+
+  const sendVerifyCode = useCallback(async () => {
+    setVerifyNotice('');
+    haptic(8);
+    try {
+      const r = await authSendVerification(emailUser);
+      if (!r.sent) setVerifyNotice('Email delivery is not working on this server, so no code was sent.');
+    } catch (e: any) {
+      setVerifyNotice(e?.response?.data?.detail || 'Could not send a code.');
+    }
+  }, [emailUser]);
+
+  const confirmEmail = useCallback(async () => {
+    setVerifyNotice('');
+    haptic(8);
+    try {
+      const r = await authConfirmEmail(emailUser, verifyCode.trim().toUpperCase());
+      setEmailVerified(true);
+      setShowVerify(false);
+      setVerifyCode('');
+      toast.success(r.user_id ? `Verified. Member ID ${r.user_id}` : 'Verified', { duration: 2400 });
+    } catch (e: any) {
+      setVerifyNotice(e?.response?.data?.detail || 'That code is not correct.');
+    }
+  }, [emailUser, verifyCode]);
 
   const cycleTheme = useCallback(() => {
     haptic(8);
@@ -350,7 +392,8 @@ const MobileBottomNav: React.FC = () => {
                   ) : (
                     <span style={{ display: 'block', minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 12.5, fontWeight: 500, color: 'hsl(var(--muted-foreground))' }}>
-                        Recovery email
+                        Gmail address
+                        {email && (emailVerified ? ' · verified' : ' · not confirmed')}
                       </span>
                       <span style={{ display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {email || 'Not added yet'}
@@ -389,6 +432,67 @@ const MobileBottomNav: React.FC = () => {
                   </button>
                 )}
               </div>
+
+              {/* Confirm the address. Only a verified address earns the member ID,
+                  and it is what makes a reset code reachable at all. */}
+              {email && !emailVerified && (showVerify || verifyCode || verifyNotice) && (
+                <div
+                  className="w-full flex flex-col gap-2 px-4 py-3.5 rounded-2xl"
+                  style={{ background: 'hsl(var(--muted) / 0.5)' }}
+                >
+                  <span style={{ fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
+                    Enter the code we emailed to finish setting up your account.
+                  </span>
+                  <div className="flex gap-2">
+                    <input
+                      value={verifyCode}
+                      onChange={(e) => setVerifyCode(e.target.value)}
+                      placeholder="Verification code"
+                      aria-label="Verification code"
+                      inputMode="text"
+                      maxLength={12}
+                      autoComplete="one-time-code"
+                      onKeyDown={(e) => { if (e.key === 'Enter') confirmEmail(); }}
+                      style={{
+                        flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 10,
+                        border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))',
+                        color: 'hsl(var(--foreground))', fontSize: 14,
+                        fontFamily: 'var(--font-mono)', letterSpacing: '0.2em', textTransform: 'uppercase',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={confirmEmail}
+                      disabled={verifyCode.trim().length < 4}
+                      style={{ padding: '8px 14px', borderRadius: 999, border: 'none', background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: verifyCode.trim().length < 4 ? 0.6 : 1 }}
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={sendVerifyCode}
+                    style={{ alignSelf: 'flex-start', padding: '0', border: 'none', background: 'none', color: 'hsl(var(--primary))', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Send a new code
+                  </button>
+                  {verifyNotice && (
+                    <span role="alert" style={{ fontSize: 12.5, color: 'hsl(var(--destructive))' }}>
+                      {verifyNotice}
+                    </span>
+                  )}
+                </div>
+              )}
+              {email && !emailVerified && !showVerify && !verifyCode && !verifyNotice && (
+                <button
+                  type="button"
+                  onClick={() => { haptic(8); setShowVerify(true); sendVerifyCode(); }}
+                  className="w-full text-sm px-3 py-2.5 rounded-2xl"
+                  style={{ background: 'hsl(var(--muted) / 0.5)', color: 'hsl(var(--foreground))', fontSize: 13, fontWeight: 600, border: '1px solid hsl(var(--border))', cursor: 'pointer' }}
+                >
+                  Confirm this address to get your member ID
+                </button>
+              )}
             </div>
 
             {/* Divider */}

@@ -10,6 +10,7 @@ import sys
 import time
 import auth_flow
 import auth_migrations
+import email_crypto
 import database
 import models
 import bcrypt
@@ -197,12 +198,18 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
                 session_token=session.mint_session(ADMIN_USERNAME, is_admin=True),
             )
 
-        # Regular user login. Accepts the username OR the member number, so a
-        # user never has to remember which one they registered with.
+        # Regular user login. Accepts the username, the member number, or the
+        # gmail address, so a user never has to remember which one they
+        # registered with.
         existing = (
             db.query(models.User).filter(models.User.username == username).first()
             or db.query(models.User).filter(models.User.user_id == username).first()
         )
+        # The address is the identity now, so signing in with it has to work.
+        # Resolved through auth_flow._find_by_identifier, which knows about
+        # email_hash; `users.email` holds a Fernet token and cannot be matched.
+        if existing is None:
+            existing = auth_flow._find_by_identifier(db, username)
 
         if existing and existing.password == NO_PASSWORD:
             # Google-only account: signing in with a typed password is not a
@@ -264,11 +271,28 @@ class GoogleAuthRequest(BaseModel):
 
 @router.get("/providers")
 def auth_providers():
-    """Which sign-in options this deployment actually supports."""
+    """Which sign-in options this deployment actually supports.
+
+    `email_delivery` is whether the mailer is *configured*. It stays true after
+    a send fails (wrong app password, unreachable relay), so the client must
+    not read it as "a mail will arrive" - the send endpoints report the real
+    outcome separately via `delivery_failed`.
+    """
+    import email_crypto
+
+    st = mailer.status()
     return {
         "google": google_auth.enabled(),
         "password_reset": True,
         "email_delivery": mailer.configured(),
+        # Operator detail, safe to expose: host and account, never the password.
+        "email_host": st.get("host"),
+        "email_account": st.get("user") or st.get("from"),
+        # False means addresses would be stored in plain text, which is a
+        # deployment error worth showing rather than hiding.
+        "email_encrypted": email_crypto.is_encrypted(
+            email_crypto.encrypt("probe@example.com")
+        ),
     }
 
 
@@ -302,7 +326,14 @@ def google_login(req: GoogleAuthRequest, db: Session = Depends(database.get_db))
         # is already on a MANUAL account would fail at commit. Do not
         # auto-link (that would hand a Google user someone else's account) and
         # do not 500: say what happened.
-        clash = db.query(models.User).filter(models.User.email == email).first()
+        # Compare email_hash, not email: `email` holds a Fernet token now, so
+        # the same address never equality-matches itself, let alone another row.
+        digest = email_crypto.lookup_hash(email)
+        clash = (
+            db.query(models.User).filter(models.User.email_hash == digest).first()
+            if digest
+            else None
+        )
         if clash is not None:
             raise HTTPException(
                 status_code=409,
@@ -313,7 +344,11 @@ def google_login(req: GoogleAuthRequest, db: Session = Depends(database.get_db))
             username=email,
             password=NO_PASSWORD,
             google_sub=google_sub,
-            email=email,
+            email=email_crypto.encrypt(email),
+            email_hash=digest,
+            # Google has already proved control of the mailbox, so this account
+            # is verified on arrival and gets its member ID immediately.
+            email_verified=1,
         )
         db.add(user)
         try:
@@ -331,9 +366,13 @@ def google_login(req: GoogleAuthRequest, db: Session = Depends(database.get_db))
             user.google_sub = google_sub
             changed = True
         if not user.email:
-            user.email = email
+            user.email = email_crypto.encrypt(email)
+            user.email_hash = email_crypto.lookup_hash(email)
             changed = True
         if changed:
+            db.commit()
+        if not user.user_id:
+            user.user_id = auth_flow._allocate_user_id(db)
             db.commit()
 
     is_admin = bool(ADMIN_USERNAME) and user.username.lower() == ADMIN_USERNAME.lower()
@@ -406,7 +445,8 @@ def forgot_password(
 
     base = _reset_base_url(request)
     link = f"{base}/reset-password?token={raw}"
-    recipient = user.email or user.username
+    # Decrypt: this column holds a Fernet token, and mailing one would bounce.
+    recipient = email_crypto.decrypt(user.email) or user.username
     mailer.send(
         recipient,
         f"Reset your {sso.APP_NAME if hasattr(sso, 'APP_NAME') else 'Forestry PSC'} password",

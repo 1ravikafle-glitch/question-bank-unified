@@ -62,9 +62,7 @@ class User(Base):
     # Manual registration NEVER verifies the address - by design. The address
     # is only used later to deliver a password-reset code, and possession of an
     # unverified address grants no access to an existing account because the
-    # code has to be read from the mailbox. Kept as a column so that a verified
-    # flow can be added later without a migration. Do not "fix" this by
-    # requiring verification; see AUDIT.md.
+    # code has to be read from the mailbox.
     #
     # INTEGER (0/1), NOT Boolean. This bit us in production: the model said
     # Boolean while auth_migrations had ALTERed the existing table to INTEGER,
@@ -73,6 +71,12 @@ class User(Base):
     # broke ALL registrations. Keep this Integer and the migration DDL in
     # sync. Do not revert.
     email_verified = Column(Integer, nullable=False, default=0, server_default="0")
+    # Keyed HMAC-SHA256 of the normalised address (see email_crypto). The
+    # `email` column above holds a Fernet token, which is non-deterministic and
+    # therefore cannot be searched for equality — this is the column every
+    # "which account owns this address" lookup compares. Unique, so two
+    # accounts can never share one inbox.
+    email_hash = Column(String(64), nullable=True, unique=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -96,6 +100,13 @@ class PasswordResetToken(Base):
     # Failed code submissions. Hard-capped so a short code cannot be brute
     # forced; the cap invalidates the challenge rather than just refusing.
     attempts = Column(Integer, nullable=False, default=0, server_default="0")
+    # What the code authorises: "reset" (change a password) or "verify" (prove
+    # you own the address on a signup, which mints the member ID). The two
+    # codes are stored in the same table, so without this a code typed into the
+    # verification box would also be accepted at the password-reset endpoint.
+    # Defaults to "reset" so every row written before this column existed keeps
+    # its original meaning.
+    purpose = Column(String(16), nullable=False, default="reset", server_default="reset")
     used_at = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

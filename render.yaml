@@ -16,6 +16,19 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
+      # ── Email encryption at rest ──────────────────────────────────────────
+      #
+      # `users.email` holds a Fernet token, not the address. Both keys derive
+      # from SECRET_KEY (generateValue: true, so stable across deploys), which
+      # means nothing extra is required. Set these ONLY if you want to rotate or
+      # manage them independently.
+      #
+      # DANGER: changing either key makes every stored address unreadable -
+      # there is no recovery path. Passwords are bcrypt hashes and unaffected.
+      - key: EMAIL_ENC_KEY
+        sync: false
+      - key: EMAIL_HASH_KEY
+        sync: false
       # ── Optional sign-in options. Both are free; each stays OFF until set.
       #
       # Google Sign-In: create a Web OAuth client in Google Cloud Console
