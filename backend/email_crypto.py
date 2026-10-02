@@ -20,13 +20,32 @@ without the key, so a leaked table cannot be checked against a word list.
 
 Key stability
 -------------
-Both keys derive from `SECRET_KEY`, which on Render is `generateValue: true`
-and therefore stable across deploys. Set `EMAIL_ENC_KEY` / `EMAIL_HASH_KEY`
-explicitly if you would rather rotate them independently. If the key ever
-changes, existing tokens are undecryptable - `decrypt` returns None rather
-than raising, and `migrate_plaintext_emails` will then re-encrypt whatever it
-can still read. There is no recovery path for an address whose key is gone;
-that is the intended trade-off for not storing it in the clear.
+The key is read from, in order: `EMAIL_ENC_KEY`, `SECRET_KEY`,
+`SESSION_SECRET`, `SSO_SECRET`. Only the first was tried originally, and that
+was wrong for this deployment: `render.yaml` declares `SECRET_KEY` with
+`generateValue: true`, but that only applies to services created FROM the
+blueprint, and this service was created through the dashboard before that key
+was declared. So the real deployment had none of them and every address was
+being written in clear text - which `/auth/providers` reported honestly as
+`email_encrypted: false`, while registration kept returning 200.
+
+The fallback order matters because a session secret is equally unsuitable to
+lose: without one the app already falls back to a per-boot random secret and
+logs that sessions will not survive restarts. Reusing it means the most likely
+key to actually be present is the one we reach for, and a deployment that
+already needs it set for sessions gets encryption for free.
+
+With none of them set, the key comes from `secret_store`, which generates one
+on first boot and keeps it in the database. That is deliberately NOT a per-boot
+random value: an ephemeral key would mean yesterday's addresses are undecryptable
+after a restart, which is worse than storing them in the clear because it looks
+like it is working. The database is the only durable store the app already
+depends on, so it is the natural home - and it means encryption works on a
+fresh deployment with no dashboard step.
+
+If the key ever changes, existing tokens are undecryptable and there is no
+recovery path. That is the intended trade-off for not storing addresses in the
+clear, and it is why the key is printed once at boot rather than rotated.
 """
 
 import base64
@@ -42,17 +61,48 @@ from cryptography.fernet import Fernet, InvalidToken
 _FERNET_PREFIX = "enc:v1:"
 
 
-def _secret() -> bytes:
-    s = (os.getenv("SECRET_KEY") or "").strip()
-    if not s:
-        # Without this every encrypt() would raise deep inside a request and
-        # registration would 500 with an opaque error. Say it plainly instead.
-        print(
-            "[AUTH] SECRET_KEY is not set - email encryption has no key. "
-            "Set SECRET_KEY or EMAIL_ENC_KEY before registering users.",
-            file=sys.stderr,
-        )
-    return s.encode("utf-8")
+# Tried in order. See the module docstring for why SECRET_KEY alone was wrong.
+_KEY_ENV_VARS = ("EMAIL_ENC_KEY", "SECRET_KEY", "SESSION_SECRET", "SSO_SECRET")
+
+
+_key_cache: bytes | None = None
+
+
+def _configured_key() -> bytes:
+    """The persistent key: environment first, then the database.
+
+    Environment wins so a properly configured deployment stays authoritative.
+    Cached after the first resolution - the answer cannot change while the
+    process runs, and /auth/providers asks for it more than once per request.
+    """
+    global _key_cache
+    if _key_cache:
+        return _key_cache
+    for name in _KEY_ENV_VARS:
+        raw = (os.getenv(name) or "").strip()
+        if raw:
+            _key_cache = raw.encode("utf-8")
+            return _key_cache
+    try:
+        import secret_store
+
+        _key_cache = secret_store.email_key().encode("utf-8")
+    except Exception:
+        _key_cache = b""
+    return _key_cache
+
+
+def encryption_available() -> bool:
+    """True when a persistent key exists, so addresses can be encrypted."""
+    return bool(_configured_key())
+
+
+def key_source() -> str:
+    """Where the key came from. Operator-facing, never includes the key."""
+    for name in _KEY_ENV_VARS:
+        if (os.getenv(name) or "").strip():
+            return f"env:{name}"
+    return "database" if encryption_available() else "none"
 
 
 def _fernet() -> Fernet | None:
@@ -61,19 +111,16 @@ def _fernet() -> Fernet | None:
     Fernet keys are 32 url-safe base64 bytes. A raw env secret is arbitrary
     text, so it is stretched deterministically rather than truncated.
     """
-    raw = (os.getenv("EMAIL_ENC_KEY") or "").strip()
-    if raw:
-        # Accept either a real Fernet key or arbitrary text.
-        try:
-            if len(base64.urlsafe_b64decode(raw.encode())) == 32:
-                return Fernet(raw.encode())
-        except Exception:
-            pass
-        material = raw.encode("utf-8")
-    else:
-        material = _secret()
+    material = _configured_key()
     if not material:
         return None
+    # Accept either a real Fernet key or arbitrary text, so the same env var
+    # works whether the operator pasted a generated key or a passphrase.
+    try:
+        if len(base64.urlsafe_b64decode(material)) == 32:
+            return Fernet(material)
+    except Exception:
+        pass
     return Fernet(base64.urlsafe_b64encode(hashlib.sha256(material).digest()))
 
 
@@ -81,7 +128,7 @@ def _hash_key() -> bytes:
     raw = (os.getenv("EMAIL_HASH_KEY") or "").strip()
     if raw:
         return raw.encode("utf-8")
-    return _secret() or b"unconfigured-email-hash-key"
+    return _configured_key() or b"unconfigured-email-hash-key"
 
 
 def normalize(email: str | None) -> str:
@@ -126,10 +173,16 @@ def encrypt(email: str | None) -> str | None:
     norm = normalize(raw)
     f = _fernet()
     if f is None:
-        # No key: storing the address in the clear is worse than failing, but
-        # failing registration outright is worse for the user. Keep the old
-        # behaviour and make the absence loud in the log.
-        print("[AUTH] WARNING storing email UNENCRYPTED - no key configured", file=sys.stderr)
+        # No persistent key. Storing the address in the clear is the one outcome
+        # this module exists to prevent, but refusing to register would be worse
+        # for the reader than a warning they cannot see, and the boot check plus
+        # /auth/providers both report it. Log it on every write so the deploy log
+        # is unambiguous about what the column holds.
+        print(
+            "[AUTH] WARNING storing email UNENCRYPTED - set EMAIL_ENC_KEY, "
+            "SECRET_KEY, SESSION_SECRET or SSO_SECRET",
+            file=sys.stderr,
+        )
         return norm
     return _FERNET_PREFIX + f.encrypt(norm.encode("utf-8")).decode("ascii")
 

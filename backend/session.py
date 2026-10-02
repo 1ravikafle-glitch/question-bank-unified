@@ -49,10 +49,21 @@ def session_secret() -> bytes:
         if len(raw) >= 16:
             _secret = raw.encode("utf-8")
             return _secret
+    # No env var: use the durable key from the database rather than a per-boot
+    # random one. The deployed service had neither variable set (render.yaml's
+    # `generateValue: true` never applied to a service created through the
+    # dashboard), so every restart silently signed everyone out.
+    try:
+        import secret_store
+
+        _secret = secret_store.session_secret().encode("utf-8")
+        return _secret
+    except Exception:
+        pass
     _secret = _secrets.token_bytes(32)
     print(
-        "[AUTH] WARNING: neither SESSION_SECRET nor SSO_SECRET is set; "
-        "using an ephemeral secret, so sessions will not survive restarts.",
+        "[AUTH] WARNING: no session secret available anywhere, using an "
+        "ephemeral one - sessions will not survive restarts.",
         file=sys.stderr,
     )
     return _secret

@@ -140,10 +140,29 @@ def _encrypt_legacy_emails() -> None:
                 )
             ).fetchall()
         changed = 0
+        unreadable = []
         for row in rows:
             stored = row[2]
             if email_crypto.is_encrypted(stored):
-                want = email_crypto.lookup_hash(email_crypto.decrypt(stored))
+                plain = email_crypto.decrypt(stored)
+                if plain is None:
+                    # The value IS a token, but this process cannot open it -
+                    # the key differs from the one that wrote it. That is not a
+                    # migration job.
+                    #
+                    # This branch once set email_hash = NULL when the hash could
+                    # not be recomputed, which quietly destroyed the only
+                    # working lookup path for every such row: a wrong key turned
+                    # "address present but unverified" into "address unfindable",
+                    # and login-by-address and reset-by-address both stopped
+                    # working for those accounts permanently.
+                    #
+                    # Leave the row completely untouched and say so loudly. The
+                    # correct fix is to restore the matching key, not to edit
+                    # around it.
+                    unreadable.append(row[1])
+                    continue
+                want = email_crypto.lookup_hash(plain)
                 if want != row[3]:
                     with database.engine.begin() as conn:
                         conn.execute(
@@ -162,6 +181,17 @@ def _encrypt_legacy_emails() -> None:
             changed += 1
         if changed:
             print(f"[AUTH] encrypted/backfilled {changed} email address(es)", file=sys.stderr)
+        if unreadable:
+            print(
+                f"[AUTH] WARNING {len(unreadable)} address(es) are stored as tokens "
+                f"this process cannot decrypt: {unreadable[:10]}"
+                f"{'...' if len(unreadable) > 10 else ''}. Nothing was changed for "
+                "them. This means the encryption key differs from the one that "
+                "wrote them - restore that key (EMAIL_ENC_KEY / SECRET_KEY) to "
+                "make them readable again. Until then those accounts cannot be "
+                "found by address, so sign in by username or member ID.",
+                file=sys.stderr,
+            )
     except Exception as e:
         print(f"[AUTH] email encryption pass skipped: {e}", file=sys.stderr)
 

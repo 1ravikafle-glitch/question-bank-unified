@@ -14,21 +14,37 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      # ── Required: the app's signing/encryption secret ─────────────────────
+      #
+      # This service was created through the Render dashboard, so the keys below
+      # are NOT set automatically: `generateValue: true` only applies to a
+      # service created from this file. That is why a live deployment was storing
+      # email addresses in plain text while everything reported itself healthy.
+      #
+      # SET THIS IN THE DASHBOARD (or `render blueprint launch` on a new service):
+      #   any random string of 32+ characters, e.g.
+      #   python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+      #
+      # It signs sessions AND encrypts stored email addresses. Losing it means
+      # sessions do not survive a restart and stored addresses become unreadable
+      # - there is no recovery path for the addresses. Passwords are bcrypt
+      # hashes and are unaffected either way.
       - key: SECRET_KEY
-        generateValue: true
-      # ── Email encryption at rest ──────────────────────────────────────────
-      #
-      # `users.email` holds a Fernet token, not the address. Both keys derive
-      # from SECRET_KEY (generateValue: true, so stable across deploys), which
-      # means nothing extra is required. Set these ONLY if you want to rotate or
-      # manage them independently.
-      #
-      # DANGER: changing either key makes every stored address unreadable -
-      # there is no recovery path. Passwords are bcrypt hashes and unaffected.
+        sync: false
+      # Optional, independent overrides. Leave unset to derive from SECRET_KEY.
+      # Changing either one invalidates existing stored addresses.
       - key: EMAIL_ENC_KEY
         sync: false
       - key: EMAIL_HASH_KEY
         sync: false
+      # Believe X-Forwarded-For. Required on Render, where every request arrives
+      # from the platform's proxy: without it the per-IP limits count the proxy
+      # as one caller, so a single person exhausts the forgot-password and
+      # register limits and locks out everyone behind the same edge. Safe here
+      # because Render overwrites the header; do NOT enable it on a deployment
+      # where a client can set it directly.
+      - key: TRUST_PROXY
+        value: "1"
       # ── Optional sign-in options. Both are free; each stays OFF until set.
       #
       # Google Sign-In: create a Web OAuth client in Google Cloud Console

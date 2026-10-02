@@ -79,15 +79,29 @@ def _email_crypto_startup_check() -> None:
         token = email_crypto.encrypt(probe)
         if not email_crypto.is_encrypted(token) or email_crypto.decrypt(token) != probe:
             print(
-                "[AUTH] FATAL: email encryption is NOT active - addresses would be "
-                "stored in plain text. Set SECRET_KEY (or EMAIL_ENC_KEY). "
-                "Disabling verification is safer than storing them clear.",
+                "[AUTH] FATAL: email encryption is NOT active - addresses are being "
+                "stored in plain text. Set one of EMAIL_ENC_KEY, SECRET_KEY, "
+                "SESSION_SECRET or SSO_SECRET. SESSION_SECRET is the quickest: the "
+                "app already needs it, since without it sessions do not survive a "
+                "restart.",
                 file=sys.stderr,
             )
         else:
-            print("[AUTH] email encryption active", file=sys.stderr)
+            import email_crypto
+
+            print(
+                f"[AUTH] email encryption active (key from {email_crypto.key_source()})",
+                file=sys.stderr,
+            )
     except Exception as e:
         print(f"[AUTH] email encryption check crashed: {type(e).__name__}: {e}", file=sys.stderr)
+
+    try:
+        import secret_store
+
+        print(f"[SECRET] store: {secret_store.info()}", file=sys.stderr)
+    except Exception as e:
+        print(f"[SECRET] store check failed: {type(e).__name__}: {e}", file=sys.stderr)
 
 
 class CacheControlMiddleware(BaseHTTPMiddleware):

@@ -281,6 +281,9 @@ def auth_providers():
     import email_crypto
 
     st = mailer.status()
+    # Resolve once. This endpoint is called by the login screen on every visit,
+    # and each of these used to be evaluated twice.
+    encrypted = email_crypto.encryption_available()
     return {
         "google": google_auth.enabled(),
         "password_reset": True,
@@ -289,9 +292,15 @@ def auth_providers():
         "email_host": st.get("host"),
         "email_account": st.get("user") or st.get("from"),
         # False means addresses would be stored in plain text, which is a
-        # deployment error worth showing rather than hiding.
-        "email_encrypted": email_crypto.is_encrypted(
-            email_crypto.encrypt("probe@example.com")
+        # deployment error worth showing rather than hiding. This reported false
+        # on a live deployment whose render.yaml declared SECRET_KEY but had
+        # never been created from that file, so nobody noticed registration was
+        # writing clear text.
+        "email_encrypted": encrypted,
+        "email_key_source": email_crypto.key_source() if encrypted else "none",
+        "email_encryption_error": None if encrypted else (
+            "set EMAIL_ENC_KEY, SECRET_KEY, SESSION_SECRET or SSO_SECRET, or make "
+            "sure the database is reachable so a key can be generated"
         ),
     }
 
