@@ -98,6 +98,9 @@
 
     <style>
       #ad-top-inline{width:100%;max-width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:8px 0;position:relative;z-index:1;overflow:hidden}
+      /* Space is reserved so the page never jumps, but an unfilled slot must be
+         invisible rather than an empty dark band. */
+      #ad-top-inline.ad-empty{background:transparent;border-bottom-color:transparent}
       #ad-top-inline:empty{display:none}
       #ad-top-inline ins.adsbygoogle{max-width:100% !important}
     </style>
@@ -125,7 +128,7 @@
                 </script>
   </head>
   <body>
-    <div id="ad-top-inline">
+    <div id="ad-top-inline" class="ad-empty">
       <ins class="adsbygoogle" style="display:inline-block;max-width:728px;width:100%;height:90px" data-ad-client="ca-pub-7976760719077018" data-ad-slot="auto" data-full-width-responsive="true"></ins>
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
@@ -133,32 +136,47 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       (function(){
-        var t0 = Date.now();
-        var collapseEmpty = function(){
-          var ad = document.getElementById('ad-top-inline');
+        // The slot reserves its height for the whole session. Collapsing an
+        // unfilled slot moved every pixel below it — measured as the single
+        // largest layout shift on the page (0.08 of 0.09 total CLS, landing at
+        // ~1.6s, right as the reader starts reading). Ads are still hidden
+        // during an exam, but that is a deliberate route change, not a reflow
+        // the reader did not ask for.
+        var ad = document.getElementById('ad-top-inline');
+        var ins = ad ? ad.querySelector('ins.adsbygoogle') : null;
+
+        var set = function(hidden) {
+          // Only write when the value actually changes: every write invalidates
+          // style for the whole subtree.
+          var want = hidden ? 'none' : '';
+          if (ad.style.display !== want) ad.style.display = want;
+          var filled = !!(ins && ins.getAttribute('data-ad-status') === 'filled');
+          var empty = !filled || hidden;
+          if (ad.classList.contains('ad-empty') !== empty) ad.classList.toggle('ad-empty', empty);
+          var pe = hidden || (ins && ins.getAttribute('data-ad-status') !== 'filled') ? 'none' : '';
+          if (ad.style.pointerEvents !== pe) ad.style.pointerEvents = pe;
+        };
+
+        var apply = function(){
           if (!ad) return;
           var path = location.hash || location.pathname;
-          var isQuiz = path.includes('/quiz') || path.includes('/attempt');
-          if (isQuiz) { ad.style.display = 'none'; return; }
-          var ins = null;
-          try { ins = ad.querySelector('ins.adsbygoogle'); } catch (e) {}
-          var status = ins ? ins.getAttribute('data-ad-status') : null;
-          if (status === 'unfilled') { ad.style.display = 'none'; return; }
-          // Google sometimes never answers: after a grace period, an iframe-
-          // less slot is provably empty (nothing to click, nothing earned).
-          var settled = Date.now() - t0 > 9000;
-          var hasAd = !!(ins && ins.querySelector('iframe'));
-          if (settled && !hasAd) { ad.style.display = 'none'; return; }
-          ad.style.display = '';
-          // An unfilled slot cannot be clicked anyway; let clicks pass
-          // through so it never blocks the logo or header buttons.
-          try { ad.style.pointerEvents = (status && status !== 'filled') ? 'none' : ''; } catch (e) {}
+          // No ads during an exam (see AUDIT.md — do not revert).
+          set(path.includes('/quiz') || path.includes('/attempt'));
         };
-        var obs = new MutationObserver(function(){ collapseEmpty(); });
-        obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['data-ad-status']});
-        setTimeout(collapseEmpty, 4000);
-        setTimeout(collapseEmpty, 9000);
-        collapseEmpty();
+
+        // Watch ONLY the ad subtree for `data-ad-status`. The old observer was
+        // attached to document.body with subtree+childList, so it fired on every
+        // DOM mutation React made anywhere in the app and re-ran this logic
+        // each time.
+        if (ins) {
+          new MutationObserver(apply).observe(ins, {
+            attributes: true, attributeFilter: ['data-ad-status'],
+          });
+        }
+        window.addEventListener('hashchange', apply);
+        setTimeout(apply, 4000);
+        setTimeout(apply, 9000);
+        apply();
       })();
     </script>
   </body>

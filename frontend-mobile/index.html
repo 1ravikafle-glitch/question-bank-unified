@@ -68,12 +68,15 @@
               </script>
     <style>
       #ad-top-mobile{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:6px 0;position:relative;z-index:100}
+      /* Space is reserved so the page never jumps, but an unfilled slot must be
+         invisible rather than an empty dark band. */
+      #ad-top-mobile.ad-empty{background:transparent;border-bottom-color:transparent}
       #ad-top-mobile{max-height:130px;overflow:hidden}
       #ad-top-mobile:empty{display:none}
     </style>
   </head>
   <body>
-    <div id="ad-top-mobile">
+    <div id="ad-top-mobile" class="ad-empty">
       <ins class="adsbygoogle" style="display:inline-block;width:320px;height:50px" data-ad-client="ca-pub-7976760719077018" data-ad-slot="auto"></ins>
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
@@ -81,28 +84,45 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       (function(){
-        var collapseEmpty = function(){
-          var ad = document.getElementById('ad-top-mobile');
+        // The slot keeps its height for the whole session. Collapsing it when
+        // unfilled moved every pixel below — it was the single largest layout
+        // shift on the page (0.08 of 0.09 total CLS, at ~1.6s, just as the
+        // reader starts). Ads stay hidden during an exam, which is a
+        // deliberate route change rather than an unrequested reflow.
+        var ad = document.getElementById('ad-top-mobile');
+        var ins = ad ? ad.querySelector('ins.adsbygoogle') : null;
+
+        var set = function(hidden){
           if (!ad) return;
-          var ins = ad.querySelector('ins.adsbygoogle');
-          if (ins && ins.getAttribute('data-ad-status') === 'unfilled') {
-            ad.style.display = 'none';
-            return;
-          }
-          var path = location.hash || location.pathname;
-          var isQuiz = path.includes('/quiz') || path.includes('/attempt');
-          ad.style.display = isQuiz ? 'none' : '';
-          // An empty slot cannot be tapped anyway; let touches pass through
+          // Only write on change: each write invalidates style for the subtree.
+          var want = hidden ? 'none' : '';
+          if (ad.style.display !== want) ad.style.display = want;
+          var filled = !!(ins && ins.getAttribute('data-ad-status') === 'filled');
+          var empty = !filled || hidden;
+          if (ad.classList.contains('ad-empty') !== empty) ad.classList.toggle('ad-empty', empty);
+          // An unfilled slot cannot be tapped anyway; let touches pass through
           // so it never covers the fixed top bar. Restored when filled.
-          try {
-            var filled = ins && ins.getAttribute('data-ad-status') === 'filled';
-            ad.style.pointerEvents = filled ? '' : 'none';
-          } catch (e) {}
+          var pe = (hidden || (ins && ins.getAttribute('data-ad-status') !== 'filled')) ? 'none' : '';
+          if (ad.style.pointerEvents !== pe) ad.style.pointerEvents = pe;
         };
-        var obs = new MutationObserver(function(){ collapseEmpty(); });
-        obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['data-ad-status']});
-        setTimeout(collapseEmpty, 4000);
-        setTimeout(collapseEmpty, 9000);
+
+        var apply = function(){
+          var path = location.hash || location.pathname;
+          set(path.includes('/quiz') || path.includes('/attempt'));
+        };
+
+        // Watch ONLY the ad subtree for `data-ad-status`. The old observer was
+        // attached to document.body with subtree+childList, so it fired on every
+        // DOM mutation React made anywhere in the app, re-running this each time.
+        if (ins) {
+          new MutationObserver(apply).observe(ins, {
+            attributes: true, attributeFilter: ['data-ad-status'],
+          });
+        }
+        window.addEventListener('hashchange', apply);
+        setTimeout(apply, 4000);
+        setTimeout(apply, 9000);
+        apply();
       })();
     </script>
   </body>

@@ -39,8 +39,15 @@ const OfflineBanner: React.FC = () => {
     // Silent auto-download: bank arrives in small pages with pauses between
     // them, so the UI stays smooth. A progress toast makes the download
     // visible; completion and failure both report (fresh packs stay silent).
+    //
+    // Deferred to idle: the pack is ~240KB of paged XHR plus a progress toast,
+    // and starting it during the first paint competed with the content the
+    // reader actually came for. It is a background nicety, so it now waits for
+    // the main thread to be free.
     let packToast: string | undefined;
-    ensurePack(
+    const startPack = () => {
+      if (!alive) return;
+      ensurePack(
       (skip, limit) => fetchQuestions({ skip, limit }),
       () => fetchQuestionsCount().then((r) => r.count),
       {
@@ -66,6 +73,14 @@ const OfflineBanner: React.FC = () => {
     }).catch(() => {
       if (packToast) toast.dismiss(packToast);
     });
+    };
+    // requestIdleCallback where available; a short timeout everywhere else so
+    // the pack still lands on browsers without it.
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(startPack, { timeout: 4000 });
+    } else {
+      setTimeout(startPack, 1500);
+    }
     const onOnline = async () => {
       setOnline(true);
       await trySync();

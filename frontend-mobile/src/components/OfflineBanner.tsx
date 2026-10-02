@@ -41,7 +41,12 @@ const OfflineBanner: React.FC = () => {
     // pauses between them. Completion and failure both report; fresh packs
     // and by-design skips (offline / data-saver) stay silent.
     let packToast: string | undefined;
-    ensurePack(
+    // Deferred to idle: the pack is ~240KB of paged XHR plus a progress toast,
+    // and starting it during the first paint competed with the content the
+    // reader actually came for. It is a background nicety.
+    const startPack = () => {
+      if (!alive) return;
+      ensurePack(
       (skip, limit) => fetchQuestions({ skip, limit }),
       () => fetchQuestionsCount().then((r) => r.count),
       {
@@ -65,8 +70,14 @@ const OfflineBanner: React.FC = () => {
         toast.dismiss(packToast);
       }
     }).catch(() => {
-      if (packToast) toast.dismiss(packToast);
-    });
+        if (packToast) toast.dismiss(packToast);
+      });
+    };
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(startPack, { timeout: 4000 });
+    } else {
+      setTimeout(startPack, 1500);
+    }
     const onOnline = async () => {
       setOnline(true);
       await trySync();
