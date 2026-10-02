@@ -16,3 +16,6 @@ Thumbs.db
 question_bank.db-shm
 question_bank.db-wal
 skills-lock.json
+
+# Arena tournament scratch: resumable state and per-agent prompts, not source.
+.arena/

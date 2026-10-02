@@ -584,6 +584,10 @@ export const authRegister = async (body: {
     session_token?: string | null;
     next_step: string;
     email_verified: boolean;
+    /** Whether the verification mail actually went out. The UI must not show
+     *  "check your inbox" when this is false. */
+    email_delivery: boolean;
+    delivery_failed: boolean;
   }>('/auth/register', body);
   return response.data;
 };
@@ -613,10 +617,12 @@ export const authUpdateEmail = async (email: string) => {
 
 /** Re-send a verification code to the signed-in account. */
 export const authSendVerification = async (username: string) => {
-  const response = await api.post<{ ok: boolean; sent: boolean; message: string }>(
-    '/auth/send-verification',
-    { username }
-  );
+  const response = await api.post<{
+    ok: boolean;
+    sent: boolean;
+    delivery_failed?: boolean;
+    message: string;
+  }>('/auth/send-verification', { username });
   return response.data;
 };
 

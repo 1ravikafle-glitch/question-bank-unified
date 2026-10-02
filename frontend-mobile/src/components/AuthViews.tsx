@@ -120,6 +120,10 @@ export const RegisterView: React.FC<{
         onDone();
         return;
       }
+      // If the relay refused the message, say so on the code screen instead of
+      // telling the reader to check an inbox that will stay empty. They can
+      // retry, and the account is usable by username meanwhile.
+      setMailOk(!r.delivery_failed);
       setStage('verify');
     } catch (e) {
       setError(errText(e, 'Could not create the account.'));

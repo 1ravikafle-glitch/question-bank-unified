@@ -247,14 +247,23 @@ def _public_profile(user) -> dict:
 # the same way reset codes are.
 
 
-def _issue_verification_code(
-    db: Session, user: models.User, background: BackgroundTasks
-) -> Optional[str]:
-    """Mint and email a verification code. Returns None when it could not be
-    sent, so the caller can tell the user rather than promising a mail."""
+def _issue_verification_code(db: Session, user: models.User) -> bool:
+    """Mint and email a verification code. Returns whether the mail was sent.
+
+    Sent INLINE, not on a background task, so the caller can report what
+    actually happened. This endpoint used to answer `sent: mailer_configured()`
+    - "is SMTP configured" - which stays true after every send fails, so the UI
+    cheerfully said a code was on its way when nothing had been sent. That is
+    the same bug that made the reset screen unusable, and it is exactly what a
+    reader sees as "it just shows enter OTP".
+
+    Inline sending adds the SMTP round trip to the response. That is the right
+    trade here: these are one-time actions (signup, resend), and knowing the code
+    did not arrive is worth more than a second.
+    """
     recipient = _plain_email(user)
     if not recipient:
-        return None
+        return False
 
     now = int(time.time())
     # Only the newest challenge is usable, so a code that leaked by email is
@@ -278,8 +287,7 @@ def _issue_verification_code(
     )
     db.commit()
 
-    background.add_task(
-        mailer_send,
+    sent = mailer_send(
         recipient,
         "Verify your Forestry PSC account",
         (
@@ -291,9 +299,16 @@ def _issue_verification_code(
         ),
     )
     # Also to the operator log, so a deployment with no working relay can still
-    # finish onboarding a user by hand.
+    # finish onboarding a user by hand. The code is printed either way, because
+    # the row exists whether or not the send succeeded.
     print(f"[AUTH] verify code for {user.username} -> {_plain_email(user)}: {code}", file=sys.stderr)
-    return code
+    if not sent:
+        print(
+            f"[AUTH] WARNING verification code for {user.username} was NOT delivered "
+            f"(relay error: {mailer_last_error()})",
+            file=sys.stderr,
+        )
+    return sent
 
 
 class ResendVerificationRequest(BaseModel):
@@ -304,7 +319,6 @@ class ResendVerificationRequest(BaseModel):
 def send_verification(
     req: ResendVerificationRequest,
     request: Request,
-    background: BackgroundTasks,
     db: Session = Depends(database.get_db),
     caller: Tuple[str, bool] = Depends(session.require_user),
 ):
@@ -326,11 +340,17 @@ def send_verification(
             status_code=400,
             detail="Add an email address in Settings first, then verify it.",
         )
-    _issue_verification_code(db, user, background)
+    sent = _issue_verification_code(db, user)
     return {
         "ok": True,
-        "sent": mailer_configured(),
-        "message": "If email is set up on this server, a new code is on its way.",
+        "sent": sent,
+        "delivery_failed": not sent,
+        "message": (
+            "A new code is on its way."
+            if sent
+            else "We could not reach the mail server, so no code was sent. "
+            "Please try again shortly."
+        ),
     }
 
 
@@ -445,13 +465,16 @@ class RegisterResponse(BaseModel):
     # What the client should do next: "verify_email" drives the code screen.
     next_step: str = "verify_email"
     email_verified: bool = False
+    # Whether the verification mail actually went out. The client must not show
+    # "check your inbox" on a delivery that failed.
+    email_delivery: bool = True
+    delivery_failed: bool = False
 
 
 @router.post("/register", response_model=RegisterResponse)
 def register(
     req: RegisterRequest,
     request: Request,
-    background: BackgroundTasks,
     db: Session = Depends(database.get_db),
 ):
     """Create an account against a Gmail address, then verify that address.
@@ -545,8 +568,10 @@ def register(
         )
 
     # Fire the verification code straight away so the user is not left staring
-    # at a "check your email" screen with nothing sent.
-    _issue_verification_code(db, user, background)
+    # at a "check your email" screen with nothing sent. The result is reported:
+    # a signup that says "check your email" when the relay is down is the same
+    # dead end this whole flow was fixed to remove.
+    sent = _issue_verification_code(db, user) if gmail else True
 
     return RegisterResponse(
         ok=True,
@@ -557,6 +582,8 @@ def register(
             else "Account created."
         ),
         next_step="verify_email" if gmail and not member_id else "done",
+        email_delivery=mailer_configured(),
+        delivery_failed=not sent,
         # Signing the new account in immediately. The password was verified a
         # few lines above, so this grants exactly what login would have.
         session_token=session.mint_session(username),
@@ -867,3 +894,11 @@ def mailer_send(to: str, subject: str, body: str) -> bool:
     import mailer
 
     return mailer.send(to, subject, body)
+
+
+def mailer_last_error() -> str | None:
+    """Why the last send failed, for the operator log. Never returned to a
+    client: it can echo back SMTP internals."""
+    import mailer
+
+    return mailer.last_error()
