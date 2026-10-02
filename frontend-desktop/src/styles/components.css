@@ -830,6 +830,20 @@
     justify-content: space-between;
     gap: 1rem;
   }
+  /* Centre the channel icons between the copyright and the credit line.
+     The copyright <p> carries an inline `flex: 1 1 auto`, which made it
+     swallow every spare pixel and shove the icons to the right. Shrink it to
+     its content width (the inline value needs !important to yield) so the
+     auto margins on the middle item actually have free space to share, and
+     the icons end up centred whatever the two text lines measure. */
+  .site-footer-inner > p {
+    flex: 0 1 auto !important;
+  }
+  .site-footer-inner > .footer-social-wrap {
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 0;
+  }
 }
 
 /* ─── Question Index Badge ─── */

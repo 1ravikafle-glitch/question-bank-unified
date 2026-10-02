@@ -46,6 +46,25 @@ const Footer: React.FC = () => {
             </span>
             {' '}· Loksewa MCQ · Success
           </p>
+          {/* Channel links sit BETWEEN the copyright and the credit line, so
+              the branding reads copyright - follow - credit rather than piling
+              every icon off the right edge. */}
+          <div className="footer-social-wrap">
+            <span
+              aria-hidden="true"
+              style={{
+                color: 'hsl(var(--muted-foreground))',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '0.74rem',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                opacity: 0.8,
+              }}
+            >
+              Follow
+            </span>
+            <SocialIcons />
+          </div>
           <p
             style={{
               color: 'hsl(var(--muted-foreground))',
@@ -86,23 +105,6 @@ const Footer: React.FC = () => {
               ravikafle.com.np
             </a>
           </p>
-          {/* Channel links, on every page, right beside the branding. */}
-          <div className="footer-social-wrap">
-            <span
-              aria-hidden="true"
-              style={{
-                color: 'hsl(var(--muted-foreground))',
-                fontFamily: 'var(--font-sans)',
-                fontSize: '0.74rem',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                opacity: 0.8,
-              }}
-            >
-              Follow
-            </span>
-            <SocialIcons />
-          </div>
         </div>
       </div>
     </footer>
