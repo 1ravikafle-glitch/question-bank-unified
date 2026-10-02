@@ -993,8 +993,16 @@ const QuizTaker: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExamMode, loading, questions.length, submitting]);
+  // timeLeft starts at SECONDS_PER_QUESTION (the practice per-question default),
+  // not the exam total — 120s is already under the 45-minute paper's 10-minute
+  // warning threshold, so the reminder used to fire the instant the paper
+  // loaded. Only arm it once a real countdown has been seen running.
+  const examStartedRef = useRef(false);
   useEffect(() => {
-    if (!isExamMode || warnedRef.current || loading || submitting || questions.length === 0) return;
+    if (isExamMode && timeLeft > examWarnSecs) examStartedRef.current = true;
+  }, [isExamMode, timeLeft, examWarnSecs]);
+  useEffect(() => {
+    if (!isExamMode || warnedRef.current || !examStartedRef.current || loading || submitting || questions.length === 0) return;
     if (timeLeft <= examWarnSecs && timeLeft > 0) {
       warnedRef.current = true;
       sfxWarning();
@@ -1809,12 +1817,27 @@ const QuizTaker: React.FC = () => {
         {/* Header row — Practice quiz + controls */}
         <div className="quiz-hero-row lg:mb-5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 13, color: examConfig ? 'hsl(var(--bookmark))' : bookmarkIds.length > 0 ? 'hsl(var(--bookmark))' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
+            <div style={{ fontSize: 13, color: bookmarkIds.length > 0 ? 'hsl(var(--bookmark))' : T.textSecondary, fontWeight: 600, fontFamily: T.font }}>
               {examConfig
                 ? `📝 ${examConfig.title}${examConfig.negative > 0 ? ` · −${examConfig.negative}/wrong` : ''}`
                 : bookmarkIds.length > 0 ? `🔖 Bookmark review · ${questions.length}` : 'Practice quiz'}
             </div>
-            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', fontFamily: T.font, color: T.textPrimary }}>Forestry PSC</div>
+            {/* The mock sheet carries its own "PUBLIC SERVICE COMMISSION"
+                letterhead, so the brand line only has to identify the session —
+                at 22px it wrapped to two lines and pushed the timer controls off
+                the row. */}
+            <div
+              style={{
+                fontSize: examConfig ? 15 : 22,
+                fontWeight: 700,
+                letterSpacing: '-0.01em',
+                fontFamily: T.font,
+                color: T.textPrimary,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Forestry PSC
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
@@ -2219,7 +2242,11 @@ const QuizTaker: React.FC = () => {
         )}
       </div>
 
-      {/* ── Mobile sticky bottom nav bar (phones/tablets only) ── */}
+      {/* ── Mobile sticky bottom nav bar (phones/tablets only) ──
+          Practice only. The mock paper is not a one-question-at-a-time flow,
+          so "Prev" and "Answer to continue" are dead controls there — the sheet
+          carries its own submit bar and the OMR shows answered/total. */}
+      {!isExamMode && (
       <div
         className={
           'quiz-sticky-bar' +
@@ -2355,6 +2382,7 @@ const QuizTaker: React.FC = () => {
           </button>
         )}
       </div>
+      )}
 
       {showExitConfirm && (
         <div

@@ -2416,6 +2416,21 @@
   .psc-keyhint { margin-left: 0; }
 }
 
+/* The exam masthead is desktop furniture: on a phone the giant wrapped title
+   pushed the first question ~600px down, so a candidate opened the paper and
+   saw a letterhead instead of questions. Shrink it to a compact strip. */
+@media (max-width: 700px) {
+  .psc-head { padding-bottom: 9px; margin-bottom: 12px; }
+  .psc-govt { font-size: 11px; margin-bottom: 2px; }
+  .psc-commission { font-size: 14px; line-height: 1.25; margin-bottom: 3px; }
+  .psc-exam-title { font-size: 12.5px; margin-top: 5px; }
+  .psc-sub { font-size: 11px; margin-top: 2px; }
+  .psc-meta { margin-top: 8px; font-size: 11.5px; gap: 4px 10px; }
+  /* Let the title block and the timer/progress chips share the row on a phone
+     instead of crushing the title into two lines. */
+  .quiz-hero-row { flex-wrap: wrap; row-gap: 8px; }
+}
+
 /* =============================================================
    Tone-aware navigation rows
    -------------------------------------------------------------

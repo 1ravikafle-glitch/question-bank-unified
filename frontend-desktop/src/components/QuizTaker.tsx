@@ -1089,8 +1089,16 @@ const QuizTaker: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExamMode, loading, questions.length, submitting]);
+  // timeLeft starts at SECONDS_PER_QUESTION (the practice per-question default),
+  // not the exam total — 120s is already under the 45-minute paper's 10-minute
+  // warning threshold, so the reminder used to fire the instant the paper
+  // loaded. Only arm it once a real countdown has been seen running.
+  const examStartedRef = useRef(false);
   useEffect(() => {
-    if (!isExamMode || warnedRef.current || loading || submitting || questions.length === 0) return;
+    if (isExamMode && timeLeft > examWarnSecs) examStartedRef.current = true;
+  }, [isExamMode, timeLeft, examWarnSecs]);
+  useEffect(() => {
+    if (!isExamMode || warnedRef.current || !examStartedRef.current || loading || submitting || questions.length === 0) return;
     if (timeLeft <= examWarnSecs && timeLeft > 0) {
       warnedRef.current = true;
       sfxWarning();

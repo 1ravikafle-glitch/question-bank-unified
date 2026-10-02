@@ -81,6 +81,13 @@ export default defineConfig({
           if (accept.includes('text/html')) return '/index.html';
         },
       },
+      // Remaining backend prefixes. /bookmarks, /notes and /uploads were never
+      // listed, so those calls hit the Vite server and 404'd in dev — the app
+      // reported "could not update bookmark" for a request production handles
+      // fine. No SPA route collides with these, so no bypass is needed.
+      '/bookmarks': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
+      '/notes': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
+      '/uploads': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
     },
   },
 

@@ -30,7 +30,7 @@ interface ExamPaperProps {
 
 /* PSC-style written-exam sheet: full question paper + OMR answer panel.
    Inspired by real Lok Sewa paper layout, restyled to the app theme
-   (CSS vars, dark-mode paper). Answered questions lock in. */
+   (CSS vars, dark-mode paper). Answers stay editable until submit. */
 const ExamPaper: React.FC<ExamPaperProps> = ({
   questions,
   getShuffled,
@@ -218,8 +218,8 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           <ol>
             <li>This paper contains {num(questions.length)} objective multiple-choice questions.</li>
             <li>Each question carries 1 mark{negative > 0 ? `; ${num(negative)} mark${negative === 1 ? '' : 's'} deducted per wrong answer.` : '.'}</li>
-            <li>Select only one answer per question. Answered questions lock in.</li>
-            <li>Hover an OMR row to locate it on the paper. Press M over a question to bookmark it.</li>
+            <li>Select only one answer per question. You can change an answer any time before you submit.</li>
+            <li>Hover a question (or its OMR row) to highlight it, then press A, B, C or D to answer it. Press M over a question to bookmark it, N to add a note.</li>
             <li>Total time allowed is {num(minutes)} minutes. A reminder sounds before the end.</li>
           </ol>
         </section>
