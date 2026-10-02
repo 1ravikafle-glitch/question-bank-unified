@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLang } from '@/context/LanguageContext';
 import NoteEditor from './NoteEditor';
 import type { Question } from '@/shared/types';
@@ -60,6 +60,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   // True while a click-driven smooth scroll is in flight: the observer
   // must not fight it by flipping the current question mid-flight.
   const scrollLockRef = useRef(false);
+  // The hover-driven auto-scroll below owns these two.
+  const hoverScrollRafRef = useRef<number | null>(null);
+  const hoverScrollLockRef = useRef(false);
 
   const paper = useMemo(
     () =>
@@ -115,6 +118,112 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       scrollLockRef.current = false;
     }, 600);
   };
+
+  /* Hovering an OMR row brings that question on screen when it is off-screen.
+     Native `behavior: smooth` is too abrupt here: the paper is up to 13,000px
+     tall, and a fling across it reads as the page lurching. This tweens it with
+     an ease-in-out over a duration scaled to the distance, 10% longer than a
+     plain smooth scroll (HOVER_SCROLL_SLOWDOWN) so the paper settles rather
+     than snaps.
+
+     Deliberate guards, because an auto-scroll that fights the reader is worse
+     than none:
+       - Only when the question is genuinely outside the comfortable band. A
+         question already on screen is left exactly where it is.
+       - Only on entering a row, never continuously while the pointer rests.
+       - Any wheel, touch or key scroll cancels it immediately, so scrolling
+         by hand always wins.
+       - scrollLockRef is held for the duration so the viewport observer does
+         not fight the tween and bounce the OMR back. */
+  const HOVER_SCROLL_SLOWDOWN = 1.1;
+  const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+  const hoverScrollTo = useCallback(
+    (i: number) => {
+      // Real pointers only. On a touch screen `mouseenter` fires on TAP, and
+      // the phone layout puts the OMR under a 13,000px paper - a tap on a row
+      // would fling the page thousands of pixels and lose the reader's place.
+      // Tapping the question number there already jumps (scrollToQ).
+      try {
+        if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+      } catch {
+        return;
+      }
+      const el = qRefs.current[i];
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const band = Math.min(120, window.innerHeight * 0.15);
+      // Comfortably on screen already? Leave it alone.
+      if (rect.top >= band && rect.bottom <= window.innerHeight - band) return;
+
+      const target = rect.top + window.scrollY - (window.innerHeight - rect.height) / 2;
+      const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const to = Math.min(Math.max(0, target), maxY);
+      const from = window.scrollY;
+      const distance = Math.abs(to - from);
+      if (distance < 2) return;
+
+      if (hoverScrollRafRef.current !== null) cancelAnimationFrame(hoverScrollRafRef.current);
+      scrollLockRef.current = true;
+      hoverScrollLockRef.current = true;
+      setCurrentIdx(i);
+
+      const duration = Math.min(1100, Math.max(320, distance * 0.32)) * HOVER_SCROLL_SLOWDOWN;
+      const start = performance.now();
+      const step = (now: number) => {
+        if (!hoverScrollLockRef.current) return;
+        const p = Math.min(1, (now - start) / duration);
+        // `instant` is essential: the stylesheet sets `scroll-behavior: smooth`
+        // on html, so a bare scrollTo() starts a fresh native animation every
+        // frame. They fought each other and the page crawled to a stop short
+        // of the target. Overriding it makes this the only animation running.
+        window.scrollTo({ top: from + (to - from) * easeInOut(p), behavior: 'instant' as ScrollBehavior });
+        if (p < 1) {
+          hoverScrollRafRef.current = requestAnimationFrame(step);
+        } else {
+          hoverScrollRafRef.current = null;
+          scrollLockRef.current = false;
+          hoverScrollLockRef.current = false;
+        }
+      };
+      hoverScrollRafRef.current = requestAnimationFrame(step);
+    },
+    []
+  );
+
+  // Entering an OMR row arms that question's highlight and, if it is off the
+  // screen, brings it into view.
+  const onOmrHover = useCallback(
+    (i: number) => {
+      setHoverIdx(i);
+      hoverScrollTo(i);
+    },
+    [hoverScrollTo]
+  );
+
+  // The reader's own scrolling always wins over the auto-scroll.
+  useEffect(() => {
+    const cancel = () => {
+      if (hoverScrollRafRef.current !== null) {
+        cancelAnimationFrame(hoverScrollRafRef.current);
+        hoverScrollRafRef.current = null;
+      }
+      if (hoverScrollLockRef.current) {
+        hoverScrollLockRef.current = false;
+        scrollLockRef.current = false;
+      }
+    };
+    const opts = { passive: true } as const;
+    window.addEventListener('wheel', cancel, opts);
+    window.addEventListener('touchmove', cancel, opts);
+    window.addEventListener('keydown', cancel);
+    return () => {
+      window.removeEventListener('wheel', cancel);
+      window.removeEventListener('touchmove', cancel);
+      window.removeEventListener('keydown', cancel);
+      cancel();
+    };
+  }, []);
 
   // Track the question nearest the viewport center.
   useEffect(() => {
@@ -403,7 +512,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                   (hoverIdx === i ? ' hover-linked' : '')
                 }
                 style={{ gridTemplateColumns: `46px repeat(${letters.length}, 1fr)` }}
-                onMouseEnter={() => setHoverIdx(i)}
+                onMouseEnter={() => onOmrHover(i)}
                 onMouseLeave={() => setHoverIdx((h) => (h === i ? null : h))}
               >
                 <button type="button" className="psc-omr-num" onClick={() => scrollToQ(i)} aria-label={`Go to question ${i + 1}`}>
