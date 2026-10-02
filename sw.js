@@ -1,6 +1,16 @@
 /* Forestry offline service worker (scope: whole site). */
-const CACHE = 'forestry-v4';
-const CORE = ['/', '/mobile', '/desktop', '/desktop/forestry-logo.png', '/forestry-logo.png'];
+const CACHE = 'forestry-v5';
+// Only paths that genuinely resolve. /forestry-logo.png was listed here and
+// never did: the SPA catch-all answers every unmatched path with index.html and
+// a 200, so the fetch "succeeded" and cached an HTML body under a .png URL.
+// Icons live under the app prefixes, which is where they are actually served.
+const CORE = [
+  '/',
+  '/mobile',
+  '/desktop',
+  '/mobile/forestry-logo.png',
+  '/desktop/forestry-logo.png',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -24,6 +34,17 @@ self.addEventListener('activate', (event) => {
 
 function isMobileUA() {
   try { return /android|iphone|ipad|mobile/i.test(self.navigator.userAgent); } catch (e) { return false; }
+}
+
+// Does this response actually carry the asset the path claims to name?
+// The SPA catch-all answers any unrecognised path with index.html and a 200, so
+// `res.ok` alone cannot tell an asset from a not-found page dressed as one.
+// An HTML body for a .js/.css/.png URL is the case that matters: it must be
+// passed through uncached rather than stored.
+function isAssetResponse(res) {
+  const type = (res.headers.get('content-type') || '').toLowerCase();
+  if (type.includes('text/html')) return false;
+  return true;
 }
 
 self.addEventListener('fetch', (event) => {
@@ -86,7 +107,16 @@ self.addEventListener('fetch', (event) => {
         (hit) =>
           hit ||
           fetch(req).then((res) => {
-            if (res.ok) {
+            // Only cache a real asset. A path ending in .js/.css/.png that the
+            // server answered with the SPA fallback is NOT that asset - the
+            // catch-all returns index.html with a 200 for anything it does not
+            // recognise. Caching that HTML under the asset's URL poisons the
+            // entry permanently (the cache is checked before the network, so it
+            // never self-heals), and the browser then refuses the script with
+            // "unsupported MIME type ('text/html')" on every later load. This is
+            // reachable: a relative href in index.html resolves against the
+            // current route, so /question/1 asked for /question/logo.png.
+            if (res.ok && isAssetResponse(res)) {
               const copy = res.clone();
               caches.open(CACHE).then((c) => c.put(req, copy));
             }
