@@ -17,90 +17,34 @@ const Footer: React.FC = () => {
       aria-label="Site footer"
     >
       <div>
-        <div className="site-footer-inner">
-          <p
-            style={{
-              color: 'hsl(var(--muted-foreground))',
-              fontFamily: 'var(--font-sans)',
-              fontSize: '0.8rem',
-              fontWeight: 400,
-              letterSpacing: '0.02em',
-              margin: 0,
-              flex: '1 1 auto',
-              minWidth: 0,
-              overflowWrap: 'break-word',
-              lineHeight: 1.5,
-            }}
-          >
-            © {year}{' '}
-            <span
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                color: 'hsl(var(--foreground) / 0.8)',
-                letterSpacing: '-0.005em',
-              }}
-            >
-              Forestry PSC Preparation
-            </span>
-            {' '}· Loksewa MCQ · Success
-          </p>
-          {/* Channel links sit BETWEEN the copyright and the credit line, so
-              the branding reads copyright - follow - credit rather than piling
-              every icon off the right edge. */}
-          <div className="footer-social-wrap">
-            <span
-              aria-hidden="true"
-              style={{
-                color: 'hsl(var(--muted-foreground))',
-                fontFamily: 'var(--font-sans)',
-                fontSize: '0.74rem',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                opacity: 0.8,
-              }}
-            >
-              Follow
-            </span>
-            <SocialIcons />
+        {/* Copyright and the channel icons are one unit: the icons follow the
+            copyright line directly instead of floating free between the two
+            text lines. Previously these were three sibling children of a
+            space-between row, each at a different offset, so the group read as
+            scattered. The brand block keeps them together at any width and the
+            credit sits at the far end. */}
+        <div className="site-footer-row">
+          <div className="site-footer-brand">
+            <p className="site-footer-copy">
+              © {year}{' '}
+              <span className="site-footer-name">Forestry PSC Preparation</span>
+              {' '}· Loksewa MCQ · Success
+            </p>
+            <div className="footer-social-wrap">
+              <span className="footer-social-label" aria-hidden="true">
+                Follow
+              </span>
+              <SocialIcons />
+            </div>
           </div>
-          <p
-            style={{
-              color: 'hsl(var(--muted-foreground))',
-              fontFamily: 'var(--font-sans)',
-              fontSize: '0.79rem',
-              fontWeight: 400,
-              letterSpacing: '0.01em',
-              margin: 0,
-              flex: '0 1 auto',
-              minWidth: 0,
-              overflowWrap: 'break-word',
-              lineHeight: 1.5,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontStyle: 'italic',
-                fontSize: '0.79rem',
-                fontWeight: 500,
-                opacity: 0.75,
-              }}
-            >
-              Crafted for preparation
-            </span>
+          <p className="site-footer-credit">
+            <span className="site-footer-crafted">Crafted for preparation</span>
             {' '}·{' '}
             <a
               href="https://ravikafle.com.np"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:underline underline-offset-2 transition-colors"
-              style={{
-                color: 'hsl(var(--primary))',
-                fontSize: '0.79rem',
-                fontWeight: 500,
-              }}
             >
               ravikafle.com.np
             </a>

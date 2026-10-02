@@ -212,6 +212,20 @@
   --z-overlay: 9990;
   --z-popover: 99999;
   --z-toast: 100000;
+
+  /* --- Platform brand marks ---
+     The only colours in the app that are not derived from the theme. A
+     15px glyph has to be the colour the reader already associates with the
+     platform or it does not read at all — four identical grey circles in a row
+     just look like decoration. Declared as tokens (not literals in the
+     component) so the components stay theme-agnostic and there is exactly one
+     place to retune them. Lightened in the dark block below for contrast
+     against a dark surface. */
+  --brand-tiktok: #fe2c55;
+  --brand-tiktok-alt: #25f4ee;
+  --brand-facebook: #1877f2;
+  --brand-youtube: #ff0000;
+  --brand-gmail: #ea4335;
 }
 
 /* ── Apple Quiz — scoped overrides (reference T) ──────────────
@@ -290,4 +304,13 @@
   --tone-system: 272 70% 72%;
   --tone-system-hover: 272 70% 80%;
   --tone-system-soft: 272 45% 21%;
+
+  /* Brand marks on a dark surface: the darker steps (YouTube #FF0000, Gmail
+     #EA4335) fall below 3:1 against a near-black background at 15px, so each
+     is pushed up in lightness. Same hue family, still recognisably the brand. */
+  --brand-tiktok: #ff5c7c;
+  --brand-tiktok-alt: #6ff2f0;
+  --brand-facebook: #5ea0ff;
+  --brand-youtube: #ff5a5a;
+  --brand-gmail: #ff7a70;
 }

@@ -1,19 +1,17 @@
 import type React from 'react';
 
 /**
- * The one place the channel URLs live. Everything that shows social links —
+ * The one place the channel links live. Everything that shows social links —
  * the About page, the footer on every page — reads from here, so a changed
  * handle is a one-line edit rather than a hunt through four components.
+ *
+ * Order is deliberate and shared: TikTok, Facebook, YouTube, then Gmail as the
+ * contact. It is the display order everywhere, so the footer row and the About
+ * page never disagree.
  */
-export type SocialKey = 'yt' | 'tk' | 'fb';
+export type SocialKey = 'tk' | 'fb' | 'yt' | 'gm';
 
 export const SOCIAL: { key: SocialKey; label: string; short: string; url: string }[] = [
-  {
-    key: 'yt',
-    label: 'YouTube',
-    short: 'ForestryPSCPreparation',
-    url: 'https://www.youtube.com/@ForestryPSCPreparation',
-  },
   {
     key: 'tk',
     label: 'TikTok',
@@ -26,27 +24,78 @@ export const SOCIAL: { key: SocialKey; label: string; short: string; url: string
     short: 'ForestryPSCPreparation',
     url: 'https://www.facebook.com/ForestryPSCPreparation/',
   },
+  {
+    key: 'yt',
+    label: 'YouTube',
+    short: 'ForestryPSCPreparation',
+    url: 'https://www.youtube.com/@ForestryPSCPreparation',
+  },
+  {
+    key: 'gm',
+    label: 'Gmail',
+    short: 'forestrypscpreparation@gmail.com',
+    url: 'mailto:forestrypscpreparation@gmail.com',
+  },
 ];
 
 export const CONTACT_EMAIL = 'forestrypscpreparation@gmail.com';
 
+/** The token that carries each platform's own colour, per the light/dark
+ *  overrides in variables.css. All four wear a brand colour: four identical
+ *  grey circles in a row read as decoration, not as somewhere to go. Gmail
+ *  uses the envelope in Gmail's red rather than the four-colour M-logo, which
+ *  is illegible at this size — the shape already says "mail". */
+const BRAND_VAR: Record<SocialKey, string> = {
+  tk: 'var(--brand-tiktok)',
+  fb: 'var(--brand-facebook)',
+  yt: 'var(--brand-youtube)',
+  gm: 'var(--brand-gmail)',
+};
+
+const BRAND_VAR_ALT: Partial<Record<SocialKey, string>> = {
+  tk: 'var(--brand-tiktok-alt)',
+};
+
 export const SocialIcon: React.FC<{ type: SocialKey; size?: number }> = ({ type, size = 15 }) => {
-  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'currentColor' } as const;
-  if (type === 'fb')
+  const common = { width: size, height: size, viewBox: '0 0 24 24' } as const;
+
+  if (type === 'gm') {
+    // Envelope, not a logo: there is no "Gmail icon" a reader recognises the
+    // way they recognise the other three, and a mailto: link is a message.
     return (
-      <svg {...common} aria-hidden="true">
+      <svg {...common} fill="currentColor" aria-hidden="true">
+        <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4.24-8 5.66-8-5.66V6.4l8 5.66 8-5.66v1.84z" />
+      </svg>
+    );
+  }
+
+  if (type === 'fb') {
+    return (
+      <svg {...common} fill="currentColor" aria-hidden="true">
         <path d="M14 8h3V4h-3c-2.76 0-5 2.24-5 5v3H6v4h3v4h4v-4h3l1-4h-4V9c0-.55.45-1 1-1z" />
       </svg>
     );
-  if (type === 'tk')
+  }
+
+  if (type === 'tk') {
+    // TikTok's mark is the duotone note — cyan behind, red in front. Drawn as
+    // two offset copies rather than a single flat glyph, which is what makes it
+    // read as TikTok and not as a generic music note.
+    const note =
+      'M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V8.93a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.75a8.2 8.2 0 0 0 4.77 1.52V6.84a4.82 4.82 0 0 1-3.01-.15z';
     return (
       <svg {...common} aria-hidden="true">
-        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V8.93a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.75a8.2 8.2 0 004.77 1.52V6.84a4.82 4.82 0 01-3.01-.15z" />
+        <g transform="translate(-0.85 0.85)">
+          <path d={note} fill="var(--social-brand-alt, currentColor)" />
+        </g>
+        <path d={note} fill="var(--social-brand, currentColor)" />
       </svg>
     );
+  }
+
   return (
     <svg {...common} aria-hidden="true">
-      <path d="M23 12s0-3.55-.45-5.27a1.82 1.82 0 00-1.28-1.28C19.55 5 12 5 12 5s-7.55 0-9.27.45A1.82 1.82 0 001.45 6.73C1 8.45 1 12 1 12s0 3.55.45 5.27a1.82 1.82 0 001.28 1.28c1.72.45 9.27.45 9.27.45s7.55 0 9.27-.45a1.82 1.82 0 001.28-1.28C23 15.55 23 12 23 12z" />
+      <path d="M23 12s0-3.55-.45-5.27a1.82 1.82 0 0 0-1.28-1.28C19.55 5 12 5 12 5s-7.55 0-9.27.45A1.82 1.82 0 0 0 1.45 6.73C1 8.45 1 12 1 12s0 3.55.45 5.27a1.82 1.82 0 0 0 1.28 1.28c1.72.45 9.27.45 9.27.45s7.55 0 9.27-.45a1.82 1.82 0 0 0 1.28-1.28C23 15.55 23 12 23 12z" fill="currentColor" />
       {/* The play glyph is punched out rather than filled, so the icon reads on
           both the light footer and the dark About banner without a hardcoded
           background colour that would clash in dark mode. */}
@@ -60,34 +109,35 @@ export const SocialIcon: React.FC<{ type: SocialKey; size?: number }> = ({ type,
  * goes on hover/focus rather than leaving a bare glyph to guess at.
  */
 export const SocialIcons: React.FC<{ tone?: 'light' | 'dark' }> = ({ tone = 'light' }) => (
-  <div className="flex items-center gap-1.5" style={{ flexShrink: 0 }}>
+  <div className="flex items-center" style={{ flexShrink: 0, gap: '0.3rem' }}>
     {SOCIAL.map((s) => (
       <a
         key={s.key}
         href={s.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`${s.label} — ${s.short} (opens in a new tab)`}
+        {...(s.key === 'gm' ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+        aria-label={`${s.label} — ${s.short}${s.key === 'gm' ? '' : ' (opens in a new tab)'}`}
         title={`${s.label} · ${s.short}`}
         className="footer-social"
-        style={{
-          display: 'grid',
-          placeItems: 'center',
-          width: '1.75rem',
-          height: '1.75rem',
-          borderRadius: '999px',
-          background:
-            tone === 'dark' ? 'hsl(0 0% 100% / 0.08)' : 'hsl(var(--foreground) / 0.05)',
-          border:
-            tone === 'dark'
-              ? '1px solid hsl(0 0% 100% / 0.14)'
-              : '1px solid hsl(var(--border) / 0.9)',
-          color:
-            tone === 'dark' ? 'hsl(0 0% 100% / 0.92)' : 'hsl(var(--foreground) / 0.78)',
-          '--social-knockout': tone === 'dark' ? 'hsl(150 18% 11%)' : 'hsl(var(--card))',
-          transition: 'background 0.18s ease, color 0.18s ease, transform 0.18s ease',
-          transform: 'translateZ(0)',
-        } as React.CSSProperties}
+        style={
+          {
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: '999px',
+            background:
+              tone === 'dark' ? 'hsl(0 0% 100% / 0.08)' : 'hsl(var(--foreground) / 0.05)',
+            border:
+              tone === 'dark'
+                ? '1px solid hsl(0 0% 100% / 0.14)'
+                : '1px solid hsl(var(--border) / 0.9)',
+            // Each glyph wears its own platform colour.
+            color: BRAND_VAR[s.key],
+            '--social-brand': BRAND_VAR[s.key],
+            '--social-brand-alt': BRAND_VAR_ALT[s.key] ?? 'currentColor',
+            '--social-knockout': tone === 'dark' ? 'hsl(150 18% 11%)' : 'hsl(var(--card))',
+            transition: 'background 0.18s ease, transform 0.18s ease',
+            transform: 'translateZ(0)',
+          } as React.CSSProperties
+        }
       >
         <SocialIcon type={s.key} size={15} />
       </a>
@@ -102,23 +152,26 @@ export const SocialList: React.FC = () => (
       <a
         key={s.key}
         href={s.url}
-        target="_blank"
-        rel="noopener noreferrer"
+        {...(s.key === 'gm' ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
         className="flex items-center gap-2 group"
         style={{ color: 'hsl(0 0% 100% / 0.92)', fontFamily: 'var(--font-sans)', fontWeight: 600 }}
       >
         <span
           className="grid place-items-center shrink-0"
-          style={{
-            width: '1.6rem',
-            height: '1.6rem',
-            borderRadius: '999px',
-            background: 'hsl(0 0% 100% / 0.1)',
-            border: '1px solid hsl(0 0% 100% / 0.16)',
-            color: 'hsl(90 40% 97%)',
-            '--social-knockout': 'hsl(150 18% 11%)',
-            transition: 'background 0.18s ease',
-          } as React.CSSProperties}
+          style={
+            {
+              width: '1.6rem',
+              height: '1.6rem',
+              borderRadius: '999px',
+              background: 'hsl(0 0% 100% / 0.1)',
+              border: '1px solid hsl(0 0% 100% / 0.16)',
+              color: BRAND_VAR[s.key],
+              '--social-brand': BRAND_VAR[s.key],
+              '--social-brand-alt': BRAND_VAR_ALT[s.key] ?? 'currentColor',
+              '--social-knockout': 'hsl(150 18% 11%)',
+              transition: 'background 0.18s ease',
+            } as React.CSSProperties
+          }
         >
           <SocialIcon type={s.key} size={14} />
         </span>

@@ -4,7 +4,7 @@ import { fetchQuestionsCount, fetchCategories } from '../services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ForestryLogo } from '@/components/ForestryLogo';
-import { SOCIAL, SocialIcon, SocialList, CONTACT_EMAIL } from '@/components/SocialLinks';
+import { SocialIcons, SocialList, CONTACT_EMAIL } from '@/components/SocialLinks';
 import { motion, type Variants } from 'framer-motion';
 
 // Real profile URLs go here — empty string renders the icon without a link.
@@ -245,25 +245,11 @@ const About: React.FC = () => {
               <div>
                 <p className="text-[0.7rem] font-bold uppercase tracking-widest mb-2.5" style={{ color: 'hsl(0 0% 100% / 0.95)', fontFamily: 'var(--font-display)', letterSpacing: '0.08em', textShadow: '0 1px 2px hsl(0 0% 0% / 0.2)' }}>Connect</p>
                 <div className="flex items-center gap-1.5 mb-3">
-                  {SOCIAL.map((s) => (
-                    <a
-                      key={s.key}
-                      href={s.url}
-                      aria-label={`${s.label} — ${s.short} (opens in a new tab)`}
-                      title={`${s.label} · ${s.short}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-7 h-7 rounded-full grid place-items-center transition-all hover:scale-105 focus-visible:scale-105"
-                      style={{
-                        background: 'hsl(0 0% 100% / 0.07)',
-                        border: '1px solid hsl(0 0% 100% / 0.1)',
-                        color: 'hsl(90 40% 97%)',
-                        '--social-knockout': 'hsl(150 18% 11%)',
-                      } as React.CSSProperties}
-                    >
-                      <SocialIcon type={s.key} size={14} />
-                    </a>
-                  ))}
+                  {/* Reuses the shared row rather than repeating the markup:
+                      a copied loop drifts, and it was already missing Gmail and
+                      gave every glyph the same colour. The shared version also
+                      drops target="_blank" on the mailto: link. */}
+                  <SocialIcons tone="dark" />
                 </div>
                 <div className="space-y-1">
                   <SocialList />

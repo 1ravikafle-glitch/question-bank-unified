@@ -2439,53 +2439,150 @@
   .quiz-hero-row { flex-wrap: wrap; row-gap: 8px; }
 }
 
+/* =============================================================
+   Site footer
+   -------------------------------------------------------------
+   Two units, not three: the copyright and the channel icons travel
+   together as one brand block, and the credit sits at the far end. These
+   are plain class rules on purpose — the previous version leaned on
+   Tailwind's `items-center`/`justify-between` utilities on the row, and
+   in the phone media query that set `flex-direction: column`, so
+   `align-items: center` centred each child horizontally instead of
+   vertically. The copyright sat at the page padding, the icons at
+   x=116 and the credit at x=67, which is what made the group look
+   scattered rather than aligned.
+   ============================================================= */
+.site-footer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 1.25rem;
+  width: 100%;
+}
+.site-footer-brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.7rem;
+  min-width: 0;
+}
+.site-footer-copy,
+.site-footer-credit {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
+.site-footer-copy {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+.site-footer-name {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: hsl(var(--foreground) / 0.8);
+  letter-spacing: -0.005em;
+}
+.site-footer-credit {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.79rem;
+  white-space: nowrap;
+}
+.site-footer-credit a {
+  color: hsl(var(--primary));
+  font-size: 0.79rem;
+  font-weight: 500;
+}
+.site-footer-crafted {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.79rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
 /* Channel icons beside the branding, on every page. The hit area is padded
-   past the 28px glyph so it clears a ~44px touch target. */
+   past the glyph so it clears a ~44px touch target. */
 .footer-social-wrap {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-left: auto;
+  gap: 0.45rem;
+  flex-shrink: 0;
 }
-/* Phones: the footer is a column. The two text lines carried
-   `white-space: nowrap`, so the copyright ran off the right edge and pushed
-   the icons behind the fixed bottom nav — clipped, not scrollable. Let them
-   wrap, and give the icons their own full-width row. */
+.footer-social-label {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+/* Phones: stack the two units and left-align both. The two text lines used
+   to carry `white-space: nowrap`, so the copyright ran off the right edge and
+   pushed the icons under the fixed bottom nav — clipped, not scrollable. */
 @media (max-width: 640px) {
   .site-footer-row {
     flex-direction: column;
     align-items: flex-start;
-    row-gap: 0.4rem;
+    justify-content: flex-start;
+    row-gap: 0.45rem;
+    padding-bottom: 0.5rem;
   }
-  .site-footer-row > p {
-    white-space: normal !important;
-    line-height: 1.5 !important;
+  .site-footer-brand {
+    flex-direction: column;
+    align-items: flex-start;
+    row-gap: 0.45rem;
   }
-  .footer-social-wrap {
-    margin-left: 0;
-    margin-top: 0.15rem;
+  .site-footer-copy,
+  .site-footer-credit {
+    white-space: normal;
+  }
+  .site-footer-credit {
+    font-size: 0.76rem;
   }
   /* The footer is a sibling of <main>, so main's pb-20 does not cover it: the
      bottom nav is fixed and would otherwise sit on top of the channel icons.
      Clear its 56px bar plus the device inset. */
-  .site-footer-row { padding-bottom: 0.5rem; }
   #mobile-site-footer {
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 }
 .footer-social-wrap a {
   position: relative;
+  /* Size lives here, not inline, so the touch breakpoint can change it. */
+  width: 2rem;
+  height: 2rem;
 }
+/* A pointer device can aim at a small glyph if the hit area reaches ~44px.
+   On touch the tile itself grows to 44px (below) and the padding is dropped,
+   because 9px of bleed on each side with a 7px gap would let neighbouring
+   icons swallow each other's taps. */
 .footer-social-wrap a::after {
   content: "";
   position: absolute;
-  inset: -9px;
+  inset: 6px;
+}
+@media (max-width: 767px) {
+  .footer-social-wrap a {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .footer-social-wrap a::after {
+    inset: 0;
+  }
 }
 @media (hover: hover) {
+  /* Lift the tile, not the glyph: recolouring on hover would throw away the
+     platform colour the row is there to convey. */
   .footer-social-wrap a:hover {
-    background: hsl(var(--primary) / 0.12) !important;
-    border-color: hsl(var(--primary) / 0.4) !important;
-    color: hsl(var(--primary)) !important;
+    background: hsl(var(--foreground) / 0.1) !important;
+    border-color: hsl(var(--foreground) / 0.28) !important;
+    transform: translateY(-1px);
   }
 }
 .footer-social-wrap a:focus-visible {
@@ -2495,6 +2592,9 @@
 @media (prefers-reduced-motion: reduce) {
   .footer-social-wrap a {
     transition: none !important;
+  }
+  .footer-social-wrap a:hover {
+    transform: none;
   }
 }
 
