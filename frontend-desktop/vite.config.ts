@@ -86,9 +86,34 @@ export default defineConfig({
       // Remaining backend prefixes. /bookmarks, /notes and /uploads were never
       // listed, so those calls hit the Vite server and 404'd in dev — the app
       // reported "could not update bookmark" for a request production handles
-      // fine. No SPA route collides with these, so no bypass is needed.
-      '/bookmarks': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
-      '/notes': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
+      // fine. /bookmarks and /notes are also SPA routes, so they need the
+      // HTML bypass below.
+      '/bookmarks': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+        // Dev-only: this path is BOTH an SPA route and a backend API prefix.
+        // Browser navigations (Accept: text/html) must serve the app; only data
+        // requests proxy to the backend. Without this, opening /bookmarks in a
+        // dev browser returned the API's raw {"detail":"Not Found"}.
+        bypass(req) {
+          const accept = req.headers.accept || '';
+          if (accept.includes('text/html')) return '/index.html';
+        },
+      },
+      '/notes': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+        // Dev-only: this path is BOTH an SPA route and a backend API prefix.
+        // Browser navigations (Accept: text/html) must serve the app; only data
+        // requests proxy to the backend. Without this, opening /bookmarks in a
+        // dev browser returned the API's raw {"detail":"Not Found"}.
+        bypass(req) {
+          const accept = req.headers.accept || '';
+          if (accept.includes('text/html')) return '/index.html';
+        },
+      },
       '/uploads': { target: 'http://localhost:8000', changeOrigin: true, secure: false },
     },
   },

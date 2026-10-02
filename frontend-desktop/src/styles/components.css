@@ -769,13 +769,16 @@
   animation: pulse 1.4s ease-in-out infinite;
 }
 
-/* ── Site footer: stacked (never clipped) below xl, row on wide screens ── */
+/* ── Site footer ─────────────────────────────────────────────────────
+   Always rendered. It used to be `display: none` below 1024px, so a desktop
+   window narrower than that had no footer on any page at all - the comment
+   above it even claimed the footer stacks there. The sidebar offset still
+   applies only once the sidebar is actually shown. */
 .site-footer-wrap {
-  display: none;
+  display: block;
 }
 @media (min-width: 1024px) {
   .site-footer-wrap {
-    display: block;
     margin-left: var(--sidebar-w);
   }
 }

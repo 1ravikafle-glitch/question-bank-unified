@@ -189,8 +189,9 @@ function AppShell() {
           </div>
         </main>
 
-        {/* Footer — hidden on quiz, hidden on mobile (bottom nav takes its place) */}
-        {!isLogin && !isQuiz && (
+        {/* Footer — on every page of the app, quiz included. Only the login screen
+            omits it: that is a focused auth screen, not a page of the app. */}
+        {!isLogin && (
           <div className={showLayout ? 'site-footer-wrap' : ''}>
             <Footer />
           </div>
