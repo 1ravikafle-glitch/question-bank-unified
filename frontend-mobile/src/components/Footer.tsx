@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom';
+import { SocialIcons } from '@/components/SocialLinks';
 
 const Footer: React.FC = () => {
   const year = new Date().getFullYear();
@@ -7,13 +8,15 @@ const Footer: React.FC = () => {
 
   return (
     <footer
+      id="mobile-site-footer"
       className="w-full"
       style={{
         background: 'transparent',
         borderTop: '1px solid hsl(var(--border) / 0.35)',
         opacity: isQuiz ? 0.18 : 1,
         marginTop: '0.35rem',
-        paddingBottom: '1px',
+        // No inline padding-bottom: the stylesheet owns it, since it has to
+        // clear the fixed bottom nav on phones and an inline value would win.
       }}
       role="contentinfo"
       aria-label="Site footer"
@@ -25,7 +28,7 @@ const Footer: React.FC = () => {
           paddingRight: '5%',
         }}
       >
-        <div className="flex flex-row items-center justify-between gap-1 flex-wrap">
+        <div className="site-footer-row flex flex-row items-center justify-between gap-1 flex-wrap">
           <p
             className="whitespace-nowrap leading-none"
             style={{
@@ -88,6 +91,23 @@ const Footer: React.FC = () => {
               ravikafle.com.np
             </a>
           </p>
+          {/* Channel links, on every page, right beside the branding. */}
+          <div className="footer-social-wrap">
+            <span
+              aria-hidden="true"
+              style={{
+                color: 'hsl(var(--muted-foreground))',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '0.74rem',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                opacity: 0.8,
+              }}
+            >
+              Follow
+            </span>
+            <SocialIcons />
+          </div>
         </div>
       </div>
     </footer>

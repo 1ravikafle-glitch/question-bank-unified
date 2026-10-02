@@ -2433,6 +2433,65 @@
   .quiz-hero-row { flex-wrap: wrap; row-gap: 8px; }
 }
 
+/* Channel icons beside the branding, on every page. The hit area is padded
+   past the 28px glyph so it clears a ~44px touch target. */
+.footer-social-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+/* Phones: the footer is a column. The two text lines carried
+   `white-space: nowrap`, so the copyright ran off the right edge and pushed
+   the icons behind the fixed bottom nav — clipped, not scrollable. Let them
+   wrap, and give the icons their own full-width row. */
+@media (max-width: 640px) {
+  .site-footer-row {
+    flex-direction: column;
+    align-items: flex-start;
+    row-gap: 0.4rem;
+  }
+  .site-footer-row > p {
+    white-space: normal !important;
+    line-height: 1.5 !important;
+  }
+  .footer-social-wrap {
+    margin-left: 0;
+    margin-top: 0.15rem;
+  }
+  /* The footer is a sibling of <main>, so main's pb-20 does not cover it: the
+     bottom nav is fixed and would otherwise sit on top of the channel icons.
+     Clear its 56px bar plus the device inset. */
+  .site-footer-row { padding-bottom: 0.5rem; }
+  #mobile-site-footer {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+}
+.footer-social-wrap a {
+  position: relative;
+}
+.footer-social-wrap a::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+@media (hover: hover) {
+  .footer-social-wrap a:hover {
+    background: hsl(var(--primary) / 0.12) !important;
+    border-color: hsl(var(--primary) / 0.4) !important;
+    color: hsl(var(--primary)) !important;
+  }
+}
+.footer-social-wrap a:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .footer-social-wrap a {
+    transition: none !important;
+  }
+}
+
 /* =============================================================
    Tone-aware navigation rows
    -------------------------------------------------------------

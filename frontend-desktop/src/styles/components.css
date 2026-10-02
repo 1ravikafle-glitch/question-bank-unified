@@ -788,6 +788,41 @@
   min-width: 0;
   padding: 3px var(--page-gutter) 2px;
 }
+
+/* Channel icons beside the branding. A tap/click target has to clear ~44px on
+   a phone, so the hit area is padded well past the 28px glyph. */
+.footer-social-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+.footer-social-wrap > a,
+.site-footer-inner .footer-social-wrap a {
+  position: relative;
+}
+/* Grow the touch target without changing the visual size of the circle. */
+.site-footer-inner .footer-social-wrap a::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+@media (hover: hover) {
+  .site-footer-inner .footer-social-wrap a:hover {
+    background: hsl(var(--primary) / 0.12) !important;
+    border-color: hsl(var(--primary) / 0.4) !important;
+    color: hsl(var(--primary)) !important;
+  }
+}
+.site-footer-inner .footer-social-wrap a:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-footer-inner .footer-social-wrap a {
+    transition: none !important;
+  }
+}
 @media (min-width: 1280px) {
   .site-footer-inner {
     flex-direction: row;

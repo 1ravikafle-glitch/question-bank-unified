@@ -189,9 +189,12 @@ function AppShell() {
           </div>
         </main>
 
-        {/* Footer — hidden on quiz, hidden on mobile (bottom nav takes its place) */}
+        {/* Footer — hidden on login and during a quiz. Visible on phones too: the
+            copyright branding and the channel icons belong on every page, and
+            the bottom nav does not carry them. Still offset for the sidebar
+            once it appears at lg. */}
         {!isLogin && !isQuiz && (
-          <div className={showLayout ? 'hidden lg:block lg:ml-[280px]' : ''}>
+          <div className={showLayout ? 'lg:ml-[280px]' : ''}>
             <Suspense fallback={<Null />}>
               <Footer />
             </Suspense>

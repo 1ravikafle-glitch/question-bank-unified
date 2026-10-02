@@ -1,4 +1,5 @@
 import type React from 'react';
+import { SocialIcons } from '@/components/SocialLinks';
 
 const Footer: React.FC = () => {
   const year = new Date().getFullYear();
@@ -85,6 +86,23 @@ const Footer: React.FC = () => {
               ravikafle.com.np
             </a>
           </p>
+          {/* Channel links, on every page, right beside the branding. */}
+          <div className="footer-social-wrap">
+            <span
+              aria-hidden="true"
+              style={{
+                color: 'hsl(var(--muted-foreground))',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '0.74rem',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                opacity: 0.8,
+              }}
+            >
+              Follow
+            </span>
+            <SocialIcons />
+          </div>
         </div>
       </div>
     </footer>

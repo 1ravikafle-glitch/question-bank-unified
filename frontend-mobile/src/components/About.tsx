@@ -4,29 +4,10 @@ import { fetchQuestionsCount, fetchCategories } from '../services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ForestryLogo } from '@/components/ForestryLogo';
+import { SOCIAL, SocialIcon, SocialList, CONTACT_EMAIL } from '@/components/SocialLinks';
 import { motion, type Variants } from 'framer-motion';
 
 // Real profile URLs go here — empty string renders the icon without a link.
-const SOCIAL_URLS: Record<'fb' | 'ig' | 'tk' | 'yt', string> = {
-  fb: '',
-  ig: '',
-  tk: '',
-  yt: '',
-};
-const socialLinks = [
-  { label: 'Facebook', icon: 'fb' },
-  { label: 'Instagram', icon: 'ig' },
-  { label: 'TikTok', icon: 'tk' },
-  { label: 'YouTube', icon: 'yt' },
-];
-const SocialIconSm: React.FC<{ type: string }> = ({ type }) => {
-  const common = { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'currentColor' } as const;
-  if (type === 'fb') return <svg {...common} aria-hidden="true"><path d="M14 8h3V4h-3c-2.76 0-5 2.24-5 5v3H6v4h3v4h4v-4h3l1-4h-4V9c0-.55.45-1 1-1z" /></svg>;
-  if (type === 'ig') return <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none" /></svg>;
-  if (type === 'tk') return <svg {...common} aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V8.93a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.75a8.2 8.2 0 004.77 1.52V6.84a4.82 4.82 0 01-3.01-.15z" /></svg>;
-  return <svg {...common} aria-hidden="true"><path d="M23 12s0-3.55-.45-5.27a1.82 1.82 0 00-1.28-1.28C19.55 5 12 5 12 5s-7.55 0-9.27.45A1.82 1.82 0 00 1.45 6.73C1 8.45 1 12 1 12s0 3.55.45 5.27a1.82 1.82 0 001.28 1.28c1.72.45 9.27.45 9.27.45s7.55 0 9.27-.45a1.82 1.82 0 001.28-1.28C23 15.55 23 12 23 12z" /><path d="M10 15l5-3-5-3z" fill="#0a2e1f" /></svg>;
-};
-
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -262,33 +243,35 @@ const About: React.FC = () => {
               <div>
                 <p className="text-[0.7rem] font-bold uppercase tracking-widest mb-2.5" style={{ color: 'hsl(0 0% 100% / 0.95)', fontFamily: 'var(--font-display)', letterSpacing: '0.08em', textShadow: '0 1px 2px hsl(0 0% 0% / 0.2)' }}>Connect</p>
                 <div className="flex items-center gap-1.5 mb-3">
-                  {socialLinks.map((s) => {
-                    const href = SOCIAL_URLS[s.icon as keyof typeof SOCIAL_URLS];
-                    return (
-                      <a
-                        key={s.label}
-                        href={href || undefined}
-                        aria-label={s.label}
-                        aria-disabled={!href || undefined}
-                        onClick={(e) => { if (!href) e.preventDefault(); }}
-                        target={href ? '_blank' : undefined}
-                        rel={href ? 'noopener noreferrer' : undefined}
-                        className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-105"
-                        style={{
-                          background: 'hsl(0 0% 100% / 0.07)',
-                          border: '1px solid hsl(0 0% 100% / 0.1)',
-                          color: 'hsl(90 40% 97%)',
-                          opacity: href ? 1 : 0.45,
-                          cursor: href ? 'pointer' : 'default',
-                        }}
-                      >
-                        <SocialIconSm type={s.icon} />
-                      </a>
-                    );
-                  })}
+                  {SOCIAL.map((s) => (
+                    <a
+                      key={s.key}
+                      href={s.url}
+                      aria-label={`${s.label} — ${s.short} (opens in a new tab)`}
+                      title={`${s.label} · ${s.short}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-7 h-7 rounded-full grid place-items-center transition-all hover:scale-105 focus-visible:scale-105"
+                      style={{
+                        background: 'hsl(0 0% 100% / 0.07)',
+                        border: '1px solid hsl(0 0% 100% / 0.1)',
+                        color: 'hsl(90 40% 97%)',
+                        '--social-knockout': 'hsl(150 18% 11%)',
+                      } as React.CSSProperties}
+                    >
+                      <SocialIcon type={s.key} size={14} />
+                    </a>
+                  ))}
                 </div>
                 <div className="space-y-1">
-                  <a href="mailto:forestrypscpreparation@gmail.com" className="block text-[0.78rem] hover:text-white transition-colors break-all" style={{ color: 'hsl(0 0% 100% / 0.92)', fontFamily: 'var(--font-sans)', fontWeight: 600 }}>forestrypscpreparation@gmail.com</a>
+                  <SocialList />
+                  <a
+                    href={`mailto:${CONTACT_EMAIL}`}
+                    className="block text-[0.78rem] hover:text-white transition-colors break-all"
+                    style={{ color: 'hsl(0 0% 100% / 0.92)', fontFamily: 'var(--font-sans)', fontWeight: 600 }}
+                  >
+                    {CONTACT_EMAIL}
+                  </a>
                   <a href="https://ravikafle.com.np" target="_blank" rel="noopener noreferrer" className="block text-[0.78rem] hover:text-white transition-colors break-all" style={{ color: 'hsl(0 0% 100% / 0.92)', fontFamily: 'var(--font-sans)', fontWeight: 600 }}>ravikafle.com.np</a>
                   <p className="text-[0.78rem]" style={{ color: 'hsl(0 0% 100% / 0.75)', fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontWeight: 500 }}>Kathmandu, Nepal</p>
                 </div>
