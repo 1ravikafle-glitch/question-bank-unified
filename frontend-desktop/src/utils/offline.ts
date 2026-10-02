@@ -291,7 +291,7 @@ export async function primeCache(): Promise<void> {
     // Must match CACHE in the repo-root sw.js. The worker's activate handler
     // evicts every forestry-* cache that is not its own, so a stale literal here
     // silently discards everything this function just wrote.
-    const cache = await caches.open('forestry-v5');
+    const cache = await caches.open('forestry-v6');
     await Promise.allSettled(
       [...urls].map((u) =>
         cache.match(u).then((hit) => (hit ? null : cache.add(u).catch(() => null)))
