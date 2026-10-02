@@ -133,21 +133,48 @@ seed_database()
 # ── Create FastAPI app ─────────────────────────────────────────────────────────
 app = FastAPI(title="Question Bank API")
 
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# The frontend is served from Cloudflare Workers while this API stays on Render,
+# so the browser makes CROSS-ORIGIN calls and every authenticated one is
+# preflighted (Authorization is not a CORS-safelisted header).
+#
+# An origin missing from this list gets a 400 with NO access-control-allow-origin
+# header, and the browser blocks the call — which surfaces as "login just doesn't
+# work", not as a CORS error. Keep in sync with whatever serves index.html.
+#
+# Set CORS_ALLOW_ORIGINS (comma-separated) to add origins without a redeploy.
+_CORS_DEFAULT_ORIGINS = [
+    # Same-origin: Render serving its own frontend
+    "https://question-bank-app.onrender.com",
+    "https://forestry-pscpreparation.onrender.com",
+    "https://forestry-loksewapreparation.onrender.com",
+    "https://elfakgisstudio.onrender.com",
+    # Cloudflare Pages
+    "https://ravikafle.pages.dev",
+    "https://15877980.ravikafle.pages.dev",
+    # Custom domains
+    "https://ravikafle.com.np",
+    "https://www.ravikafle.com.np",
+    # Cloudflare Workers — the deployed Worker names. The regex below also covers
+    # renames; these are listed explicitly so the common case stays greppable.
+    "https://forestrypscprep.1ravikafle.workers.dev",
+    "https://forestryloksewapreparation.1ravikafle.workers.dev",
+    # Local dev
+    "http://localhost:5173",
+    "http://localhost:8000",
+]
+
+_CORS_ENV = os.getenv("CORS_ALLOW_ORIGINS", "")
+CORS_ALLOW_ORIGINS = [o.strip() for o in _CORS_ENV.split(",") if o.strip()] or _CORS_DEFAULT_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://question-bank-app.onrender.com",
-        "https://forestry-pscpreparation.onrender.com",
-        "https://forestry-loksewapreparation.onrender.com",
-        "https://elfakgisstudio.onrender.com",
-        "https://ravikafle.com.np",
-        "https://ravikafle.pages.dev",
-        "https://15877980.ravikafle.pages.dev",
-        "https://ravikafle.com.np",
-        "https://www.ravikafle.com.np",
-        "http://localhost:5173",
-        "http://localhost:8000",
-    ],
+    allow_origins=CORS_ALLOW_ORIGINS,
+    # Any *.workers.dev host, so renaming/adding a Worker needs no code change.
+    # A regex and a literal "*" cannot be combined: with allow_credentials=True a
+    # literal "*" makes Starlette omit the allow-origin header entirely, which is
+    # exactly what broke preflight before this was explicit.
+    allow_origin_regex=r"https://[a-z0-9\-]+\.workers\.dev",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

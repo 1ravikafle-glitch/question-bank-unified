@@ -91,14 +91,18 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
   // the mouse leaves. Never two greens at once.
   const hovering = hoverIdx !== null;
 
-  const scrollOmrTo = (i: number) => {
+  // `smooth` is only for an explicit jump (tapping a question number). While the
+  // reader is scrolling, the track must track the pointer 1:1 — animating it on
+  // every question boundary crossed left it still sliding after they stopped,
+  // which is exactly the jittery feel on a 50-question paper.
+  const scrollOmrTo = (i: number, smooth = false) => {
     const box = omrRef.current;
     const row = box?.querySelector(`[data-omr="${i}"]`);
     // Manual container scroll: scrollIntoView would also yank the page.
     if (box && row) {
       const target =
         (row as HTMLElement).offsetTop - box.clientHeight / 2 + (row as HTMLElement).offsetHeight / 2;
-      box.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      box.scrollTo({ top: Math.max(0, target), behavior: smooth ? 'smooth' : 'auto' });
     }
   };
 
@@ -106,7 +110,7 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     scrollLockRef.current = true;
     setCurrentIdx(i);
     qRefs.current[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    scrollOmrTo(i);
+    scrollOmrTo(i, true);
     window.setTimeout(() => {
       scrollLockRef.current = false;
     }, 600);
@@ -127,7 +131,11 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
           const idx = Number((e.target as HTMLElement).dataset.qidx);
           if (!best || d < best.d) best = { idx, d };
         }
-        if (best) setCurrentIdx(best.idx);
+        // Only commit an actual change. This callback fires constantly during a
+        // scroll (50 elements × 3 thresholds), and re-rendering the whole sheet
+        // for an index that has not moved was pure waste — it showed up as
+        // hundreds of recalcs and 300ms+ long tasks.
+        if (best) setCurrentIdx((prev) => (prev === best!.idx ? prev : best!.idx));
       },
       { threshold: [0.15, 0.35, 0.55] }
     );
