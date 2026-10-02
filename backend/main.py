@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 import os
+import sys
 import models
 import database
 import questions_router
@@ -43,6 +44,23 @@ app.include_router(notes_router.router)
 app.include_router(uploads_router.router)
 
 app.add_middleware(GZipMiddleware, minimum_size=500)
+
+
+@app.on_event("startup")
+def _mail_startup_selftest() -> None:
+    """Prove the password-reset mailer can actually authenticate, once, at boot.
+
+    A wrong Gmail app password used to be invisible: every send failed, the API
+    still answered "a reset code is on its way", and nothing in the service log
+    said why until someone reported the code never arrived. One line here makes
+    the cause obvious at deploy time.
+    """
+    try:
+        import mailer
+
+        mailer.selftest()
+    except Exception as e:
+        print(f"[MAIL] selftest crashed: {type(e).__name__}: {e}", file=sys.stderr)
 
 
 class CacheControlMiddleware(BaseHTTPMiddleware):

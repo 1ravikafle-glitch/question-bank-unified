@@ -161,7 +161,17 @@ const Login: React.FC = () => {
 
         {/* Form */}
         {view === 'register' ? (
-          <RegisterView onDone={() => setView('login')} onSwitchToLogin={() => setView('login')} />
+          <RegisterView
+            onDone={() => setView('login')}
+            onSwitchToLogin={() => setView('login')}
+            onAuthenticated={(id, token) => {
+              // Signup already verified the password and minted a session, so
+              // land straight in the app instead of asking for it again.
+              setUserId(id);
+              setSessionToken(token);
+              navigate('/');
+            }}
+          />
         ) : view === 'forgot' ? (
           <ResetPasswordView onDone={() => setView('login')} />
         ) : (

@@ -42,9 +42,10 @@ const errText = (e: unknown, fallback: string) => {
 /* Create an account: username, optional member ID, password, email.
    The email is stored but never verified - it is only used later to deliver a
    password-reset code. Say so on the form rather than hiding it. */
-export const RegisterView: React.FC<{ onDone: () => void; onSwitchToLogin: () => void }> = ({
+export const RegisterView: React.FC<{ onDone: () => void; onSwitchToLogin: () => void; onAuthenticated?: (userId: string, token: string) => void }> = ({
   onDone,
   onSwitchToLogin,
+  onAuthenticated,
 }) => {
   const [username, setUsername] = useState('');
   const [userId, setUserId] = useState('');
@@ -84,7 +85,14 @@ export const RegisterView: React.FC<{ onDone: () => void; onSwitchToLogin: () =>
         user_id: userId.trim() || undefined,
       });
       toast.success(`Account created. Your member ID is ${r.user_id}`);
-      onDone();
+      // The server mints a session at signup, so a new account goes straight
+      // in. Previously signup returned no token and dropped the user back on
+      // the login form to type the password they had just chosen.
+      if (r.session_token && onAuthenticated) {
+        onAuthenticated(r.user_id, r.session_token);
+      } else {
+        onDone();
+      }
     } catch (e) {
       setError(errText(e, 'Could not create the account.'));
     } finally {

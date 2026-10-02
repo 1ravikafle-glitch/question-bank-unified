@@ -209,6 +209,10 @@ class RegisterResponse(BaseModel):
     ok: bool
     user_id: str
     message: str
+    # Minted at registration so the app can drop the user straight into the
+    # app. This was missing, so finishing signup threw the new account back to
+    # the login form and made them type the password they had just chosen.
+    session_token: Optional[str] = None
 
 
 @router.post("/register", response_model=RegisterResponse)
@@ -293,7 +297,10 @@ def register(
     return RegisterResponse(
         ok=True,
         user_id=member_id,
-        message="Account created. You can sign in now.",
+        message="Account created.",
+        # Signing the new account in immediately. The password was verified a
+        # few lines above, so this grants exactly what login would have.
+        session_token=session.mint_session(username),
     )
 
 

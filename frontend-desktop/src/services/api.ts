@@ -572,10 +572,13 @@ export const authRegister = async (body: {
   gmail?: string | null;
   user_id?: string;
 }) => {
-  const response = await api.post<{ ok: boolean; user_id: string; message: string }>(
-    '/auth/register',
-    body
-  );
+  const response = await api.post<{
+    ok: boolean;
+    user_id: string;
+    message: string;
+    // Minted at signup so the app can sign the new account straight in.
+    session_token?: string | null;
+  }>('/auth/register', body);
   return response.data;
 };
 
