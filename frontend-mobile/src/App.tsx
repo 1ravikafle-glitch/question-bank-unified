@@ -1,4 +1,22 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+
+/**
+ * Router basename for this app.
+ *
+ * The two apps are served from one origin under their own prefixes (`/desktop/`
+ * and `/mobile/`), and every route in this file is written as a bare path such
+ * as `/questions`. Without a basename the router compared the full URL - so
+ * `/desktop/questions` matched nothing, fell through to the `*` catch-all, and
+ * redirected to `/`. The effect was that every deep link, on both apps, landed
+ * on the home page: bookmarks, shared links, a refresh on any route, and every
+ * offline navigation.
+ *
+ * `import.meta.env.BASE_URL` is Vite's own `base` setting - the same value the
+ * build uses for asset URLs and the one already correct for this. It is `/` in
+ * dev, so the basename is empty there and local routing is unchanged.
+ */
+const BASENAME = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
 import { useState, useEffect, lazy, Suspense, useCallback, useMemo } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { Toaster, toast } from 'react-hot-toast';
@@ -213,7 +231,7 @@ function ScrollToTop() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={BASENAME}>
       <ScrollToTop />
       <MotionConfig reducedMotion="user">
       <ThemeProvider>
