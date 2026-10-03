@@ -211,8 +211,10 @@ function AppShell() {
         {/* Desktop Sidebar — hidden on mobile via its own CSS */}
         {showLayout && <DesktopSidebar />}
 
-        {/* Header — hidden on mobile (MobileBottomNav handles navigation) */}
-        {!isLogin && !isQuiz && <Header />}
+        {/* Header on every screen including quiz: date, time, and user.
+            The sidebar already navigates in quiz mode, so this adds no new
+            exit path; it keeps time and identity visible during papers. */}
+        {!isLogin && <Header />}
 
         {/* Main Content — ml-[280px] only on lg+ when sidebar is visible */}
         <main
@@ -225,9 +227,7 @@ function AppShell() {
             }
             style={
               showLayout
-                ? isQuiz
-                  ? undefined
-                  : { paddingLeft: 'var(--page-gutter)', paddingRight: 'var(--page-gutter)', paddingTop: 'calc(var(--header-h) + 4px)' }
+                ? { paddingLeft: 'var(--page-gutter)', paddingRight: 'var(--page-gutter)', paddingTop: 'calc(var(--header-h) + 4px)' }
                 : { paddingLeft: 'var(--page-gutter)', paddingRight: 'var(--page-gutter)' }
             }
           >

@@ -201,8 +201,9 @@ function AppShell() {
           </Suspense>
         )}
 
-        {/* Header — hidden on mobile (MobileBottomNav handles navigation) */}
-        {!isLogin && !isQuiz && (
+        {/* Header on every screen including quiz (desktop widths only;
+            the CSS hides it on phones where the bottom nav rules). */}
+        {!isLogin && (
           <Suspense fallback={<Null />}>
             <Header />
           </Suspense>
