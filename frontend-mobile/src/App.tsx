@@ -36,6 +36,9 @@ const ResultsScreen = lazy(() => import('./components/ResultsScreen'));
 const ProgressTracker = lazy(() => import('./components/ProgressTracker'));
 const AdminUpload = lazy(() => import('./components/AdminUpload'));
 const About = lazy(() => import('./components/About'));
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./components/TermsOfService'));
+const CookiePolicy = lazy(() => import('./components/CookiePolicy'));
 const Login = lazy(() => import('./components/Login'));
 // Desktop-only chrome: rendered on lg+ screens, hidden by CSS on phones —
 // load on demand so mobile never downloads/parses it (incl. framer-motion).
@@ -189,6 +192,10 @@ function AppShell() {
               <Route path="/progress" element={userId ? <ProgressTracker /> : <Navigate to="/login" replace />} />
               <Route path="/admin" element={userId && isAdmin(userId) ? <AdminUpload /> : <Navigate to="/" replace />} />
               <Route path="/about" element={<About />} />
+              {/* Legal pages: public, lazy, and outside auth like /about. */}
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/cookies" element={<CookiePolicy />} />
               <Route path="*" element={userId ? <Navigate to="/" replace /> : <Navigate to="/login" replace />} />
               </Routes>
             </Suspense>

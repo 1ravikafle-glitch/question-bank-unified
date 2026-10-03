@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { SocialIcons } from '@/components/SocialLinks';
 
 const Footer: React.FC = () => {
@@ -42,6 +42,13 @@ const Footer: React.FC = () => {
               © {year}{' '}
               <span className="site-footer-name">Forestry PSC Preparation</span>
               {' '}· Loksewa MCQ · Success
+            </p>
+            <p className="site-footer-policies">
+              <Link to="/privacy">Privacy</Link>
+              {' '}·{' '}
+              <Link to="/terms">Terms</Link>
+              {' '}·{' '}
+              <Link to="/cookies">Cookies</Link>
             </p>
             <div className="footer-social-wrap">
               <span className="footer-social-label" aria-hidden="true">

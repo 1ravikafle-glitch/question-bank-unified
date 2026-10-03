@@ -36,6 +36,9 @@ const AdminUpload = React.lazy(() => import('./components/AdminUpload'));
 const Settings = React.lazy(() => import('./components/Settings'));
 const Login = React.lazy(() => import('./components/Login'));
 const About = React.lazy(() => import('./components/About'));
+const PrivacyPolicy = React.lazy(() => import('./components/PrivacyPolicy'));
+const TermsOfService = React.lazy(() => import('./components/TermsOfService'));
+const CookiePolicy = React.lazy(() => import('./components/CookiePolicy'));
 import Header from './components/Header';
 import RouteSkeleton from './components/RouteSkeleton';
 import DesktopSidebar from './components/DesktopSidebar';
@@ -196,6 +199,10 @@ function AppShell() {
               <Route path="/admin" element={userId && isAdmin(userId) ? <AdminUpload /> : <Navigate to="/" replace />} />
               <Route path="/settings" element={userId ? <Settings /> : <Navigate to="/login" replace />} />
               <Route path="/about" element={<About />} />
+              {/* Legal pages: public, lazy, and outside auth like /about. */}
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/cookies" element={<CookiePolicy />} />
               <Route path="*" element={userId ? <Navigate to="/" replace /> : <Navigate to="/login" replace />} />
             </Routes>
             </Suspense>

@@ -843,6 +843,30 @@
   font-size: 0.79rem;
   font-weight: 500;
 }
+/* Legal links under the copyright line. Small and muted: they must be
+   findable, not prominent. */
+.site-footer-policies {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.85;
+}
+.site-footer-policies a {
+  color: hsl(var(--muted-foreground));
+  text-decoration: none;
+}
+.site-footer-policies a:hover {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.site-footer-policies a:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
 .site-footer-crafted {
   font-family: var(--font-display);
   font-style: italic;
