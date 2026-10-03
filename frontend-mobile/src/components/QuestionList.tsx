@@ -105,17 +105,29 @@ const itemVariants = {
 };
 
 /* ── Dashboard Component ────────────────────────────────────────── */
+interface HomeSnapshot {
+  total: number;
+  categories: string[];
+  attempted: number;
+  correct: number;
+}
+// Snapshot of the last successful load, held outside the component so a
+// remount (back navigation) renders content on its very first paint instead
+// of flashing a skeleton while already-known data resolves. Refreshed on
+// every successful load.
+let homeSnapshot: HomeSnapshot | null = null;
+
 const Dashboard: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(() => !homeSnapshot);
+  const [total, setTotal] = useState(() => homeSnapshot?.total ?? 0);
   const [quizCount, setQuizCount] = useState(10);
   const [beastMode, setBeastMode] = useState(false);
   const [category, setCategory] = useState<string>('');
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(() => homeSnapshot?.categories ?? []);
   const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
   const [accuracy, setAccuracy] = useState<number | null>(null);
-  const [attempted, setAttempted] = useState(0);
-  const [correct, setCorrect] = useState(0);
+  const [attempted, setAttempted] = useState(() => homeSnapshot?.attempted ?? 0);
+  const [correct, setCorrect] = useState(() => homeSnapshot?.correct ?? 0);
   const [catStats, setCatStats] = useState<{ category: string; attempted: number; correct: number; accuracy: number }[]>([]);
   const [questionCounts, setQuestionCounts] = useState<Map<string, number>>(new Map());
   const [recentAttempts, setRecentAttempts] = useState<{ id: number; score: number; total_questions: number; percentage: number; completed_at: string }[]>([]);
@@ -136,7 +148,9 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
+      // No skeleton on remount: snapshot state already renders content, and
+      // the fetch below refreshes it behind. Only true first loads flash.
+      if (!homeSnapshot) setLoading(true);
       try {
         // All independent reads go out together. fetchCategoryCounts used to
         // run after this batch finished, adding a full round trip (~0.5s on a
@@ -152,6 +166,12 @@ const Dashboard: React.FC = () => {
         ]);
 
         setQuestionCounts(new Map(Object.entries(dash.category_counts || {})));
+        homeSnapshot = {
+          total: dash.total,
+          categories: dash.categories,
+          attempted: dash.progress?.attempted || 0,
+          correct: dash.progress?.correct || 0,
+        };
         setTotal(dash.total);
         setCategories(dash.categories);
 

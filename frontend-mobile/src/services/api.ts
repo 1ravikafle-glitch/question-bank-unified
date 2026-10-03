@@ -66,6 +66,18 @@ const SWR_TTL = 60_000;
 // *second* call if the first has already resolved.
 const _inflight = new Map<string, Promise<unknown>>();
 
+/**
+ * Synchronous peek into the session cache. Lets a remounting page initialize
+ * its state FROM cache on the very first render - no loading flash, no
+ * skeleton - instead of showing a spinner while an already-known answer
+ * resolves asynchronously. Returns undefined on miss (true first load).
+ */
+export function peekCache<T>(key: string): T | undefined {
+  const hit = _swr.get(key);
+  if (hit && Date.now() - hit.ts < SWR_TTL) return hit.val as T;
+  return undefined;
+}
+
 async function swr<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = _swr.get(key);
   const now = Date.now();
@@ -233,7 +245,13 @@ export const fetchCategories = async (): Promise<string[]> => {
  * ignores any user parameter by design.
  */
 export const fetchDashboard = async () => {
-  const response = await api.get<{
+  // Session memory cache (same swr as the individual fetchers): a back
+  // navigation re-mounts the home component, and without this every return
+  // to home re-paid a full network round trip for data fetched seconds ago.
+  // Stale serves instantly with background revalidation, so back-nav renders
+  // from memory in milliseconds and freshness follows behind.
+  return swr('dashboard', async () => {
+    const response = await api.get<{
     total: number;
     categories: string[];
     category_counts: Record<string, number>;
@@ -248,7 +266,8 @@ export const fetchDashboard = async () => {
     wrong_count: number;
     bookmark_ids: number[];
   }>('/quiz/dashboard');
-  return response.data;
+    return response.data;
+  });
 };
 
 export const fetchUserProgress = async (userIdentifier: string) => {
