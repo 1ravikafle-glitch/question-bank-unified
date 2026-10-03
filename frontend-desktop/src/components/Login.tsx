@@ -152,7 +152,7 @@ const Login: React.FC = () => {
           style={{
             maxWidth: '400px',
             width: '100%',
-            padding: '40px',
+            padding: '28px 32px',
             borderRadius: 'var(--apple-radius-xl)',
             boxShadow: 'var(--shadow-lg)',
           }}
@@ -203,11 +203,11 @@ const Login: React.FC = () => {
       >
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <ForestryLogo size={36} />
+          <ForestryLogo size={30} />
           <span
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '1.125rem',
+              fontSize: '1rem',
               fontWeight: 600,
               color: 'hsl(var(--foreground))',
             }}
@@ -217,7 +217,7 @@ const Login: React.FC = () => {
         </div>
 
         {/* Subtitle */}
-        <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '28px' }}>
+        <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '18px' }}>
           {t('login.subtitle')}
         </p>
 
@@ -350,32 +350,10 @@ const Login: React.FC = () => {
             </div>
           </>
         )}
-
-        {/* Sign-in hint, login view only (registration has its own copy) */}
-        {view === 'login' && <p
-          style={{
-            fontSize: '0.75rem',
-            color: 'hsl(var(--muted-foreground))',
-            textAlign: 'center',
-            marginTop: '20px',
-            lineHeight: 1.5,
-          }}
-        >
-          {t('login.hint')}
-        </p>}
-
-        {/* Language — English / Nepali */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
-          <div style={{ width: 'min(320px, 100%)' }}>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                textAlign: 'center',
-                color: 'hsl(var(--muted-foreground))',
-                marginBottom: 6,
-              }}
-            >
+        {/* Language + Appearance in one compact row */}
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '14px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, textAlign: 'center', color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
               Language
             </div>
             <div style={{ display: 'flex', background: 'hsl(var(--muted))', borderRadius: 12, padding: 3, gap: 2 }} role="group" aria-label="Language">
@@ -397,21 +375,9 @@ const Login: React.FC = () => {
               ))}
             </div>
           </div>
-        </div>
-
-        {/* Appearance — Light / Dark / System */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
-          <div style={{ width: 'min(320px, 100%)' }}>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                textAlign: 'center',
-                color: 'hsl(var(--muted-foreground))',
-                marginBottom: 6,
-              }}
-            >
-              {t('login.appearance')}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, textAlign: 'center', color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
+              Appearance
             </div>
             <ThemeSegmented />
           </div>

@@ -1,0 +1,1 @@
+import{d as a}from"./index-Bi5aDGKT.js";const r=async()=>(await a.get("/feedback/mine")).data,o=async e=>(await a.post("/feedback",{message:e})).data,d=async()=>(await a.get("/feedback/admin/all")).data,p=async(e,s,n)=>(await a.post(`/feedback/admin/${e}/reply`,{reply:s,status:n})).data;export{r as a,d as f,p as r,o as s};

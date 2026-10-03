@@ -8,7 +8,6 @@ declare global {
           initialize: (cfg: {
             client_id: string;
             callback: (r: { credential: string }) => void;
-            use_fedcm_for_prompt?: boolean;
             error_callback?: (e: unknown) => void;
           }) => void;
           renderButton: (parent: HTMLElement, cfg: Record<string, unknown>) => void;
@@ -70,10 +69,7 @@ const GoogleSignInButton: React.FC<{
         window.google.accounts.id.initialize({
           client_id: id,
           callback: (r) => onCredential(r.credential),
-          // FedCM migration flag: harmless for the button popup flow, required
-          // if Google ever routes through One Tap. Without it newer Chrome
-          // silently drops the credential and the user sees nothing happen.
-          use_fedcm_for_prompt: true,
+
           // Surface popup/origin failures instead of dying silently. The most
           // common one is an unauthorized origin: the Render domain must be
           // listed in the OAuth client's authorized JavaScript origins, or

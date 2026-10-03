@@ -161,7 +161,7 @@ const Login: React.FC = () => {
           style={{
             maxWidth: '400px',
             width: '100%',
-            padding: '40px',
+            padding: '28px 32px',
             borderRadius: 'var(--apple-radius-xl)',
             boxShadow: 'var(--shadow-lg)',
           }}
@@ -213,11 +213,11 @@ const Login: React.FC = () => {
       >
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <ForestryLogo size={36} />
+          <ForestryLogo size={30} />
           <span
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '1.125rem',
+              fontSize: '1rem',
               fontWeight: 600,
               color: 'hsl(var(--foreground))',
             }}
@@ -364,10 +364,9 @@ const Login: React.FC = () => {
             </div>
           </>
         )}
-
-        {/* Language — English / Nepali */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
-          <div style={{ width: 'min(320px, 100%)' }}>
+        {/* Language + Appearance in one compact row */}
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '14px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 600, textAlign: 'center', color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
               Language
             </div>
