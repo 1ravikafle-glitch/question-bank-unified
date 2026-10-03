@@ -12,7 +12,7 @@ import {
   fetchBookmarkIds,
   toggleBookmark,
   fetchNotes, fetchQuestions, refreshAfterSubmit, refreshBookmarksSnapshot} from '../services/api';
-import { ensureBank, peekBank, pickRandom, pickByIds, pickById, bankFacets } from '@/utils/bankStore';
+import { ensureBank, peekBank, pickRandom, pickByIds, pickById, bankFacets, bankSize, ensureSessionBank } from '@/utils/bankStore';
 import { savePage, readPage } from '@/utils/pageStore';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
@@ -115,7 +115,10 @@ const QuizTaker: React.FC = () => {
     });
     return () => cancelAnimationFrame(raf);
   }, [exitShot]);
-  const [loading, setLoading] = useState(true);
+  // Snapshot-aware: the setup menu renders instantly from stored numbers;
+  // only true first loads (or active question fetching) show the skeleton.
+  // showSetup starts false and flips after the setup branch below.
+  const [loading, setLoading] = useState(() => !readPage('quiz-setup-total'));
   const [submitting, setSubmitting] = useState(false);
   const [announcement, setAnnouncement] = useState<string>('');
   const timerRef = useRef<number | null>(null);
@@ -325,25 +328,16 @@ const QuizTaker: React.FC = () => {
             return;
           }
         }
-    // Session bank: one memory fill per tab lifetime, then every pick below
-    // is synchronous. Falls back to the API only when no pack exists yet
-    // (first-ever visit) - and that fill then serves the rest of the session.
-    const ensureSessionBank = async () => {
-      try {
-        if ((peekBank() || []).length) return true;
-        const got = await ensureBank(
-          (skip, limit) => fetchQuestions({ skip, limit }),
-          () => fetchQuestionsCount().then((r) => r.count)
-        );
-        return (got || []).length > 0;
-      } catch {
-        return false;
-      }
-    };
+    // Session bank via the shared store helper (bankStore.ts).
+    const ensureBankReady = () =>
+      ensureSessionBank(
+        (skip, limit) => fetchQuestions({ skip, limit }),
+        () => fetchQuestionsCount().then((r) => r.count)
+      );
 
         let questionsData: Question[];
         if (examConfig) {
-          await ensureSessionBank();
+          await ensureBankReady();
           questionsData = pickRandom(examConfig.count, examConfig.category || undefined);
           if (!questionsData.length) {
             questionsData = await fetchRandomQuestions({
@@ -353,11 +347,11 @@ const QuizTaker: React.FC = () => {
           }
           setAnnouncement(`${examConfig.title} started: ${questionsData.length} questions, ${examConfig.minutes} minutes.`);
         } else if (bookmarkIds.length > 0) {
-          await ensureSessionBank();
+          await ensureBankReady();
           questionsData = pickByIds(bookmarkIds);
           if (!questionsData.length) questionsData = await fetchQuestionsByIds(bookmarkIds);
         } else if (isPracticeWrongMode && wrongQuestionIds.length > 0) {
-          await ensureSessionBank();
+          await ensureBankReady();
           const pool = wrongPool.length > 0 ? wrongPool : (() => {
             const fromBank = pickByIds(wrongQuestionIds);
             return fromBank.length ? fromBank : null;
@@ -368,11 +362,11 @@ const QuizTaker: React.FC = () => {
           const queue = await fetchWrongQueue(userId || 'anonymous', wrongCategory || undefined);
           questionsData = queue.questions || [];
         } else if (questionIdFromUrl) {
-          await ensureSessionBank();
+          await ensureBankReady();
           const specificQuestion = pickById(parseInt(questionIdFromUrl))
             ?? await fetchQuestionById(parseInt(questionIdFromUrl));
           const remainingCount = countParam ? Math.max(0, parseInt(countParam) - 1) : 9;
-          await ensureSessionBank();
+          await ensureBankReady();
           const randomQuestions =
             remainingCount > 0
               ? (() => {
@@ -384,7 +378,7 @@ const QuizTaker: React.FC = () => {
           questionsData = [specificQuestion, ...rest];
         } else {
           const count = countParam ? parseInt(countParam) : 10;
-          await ensureSessionBank();
+          await ensureBankReady();
           questionsData = pickRandom(count, categoryParam || undefined);
           if (!questionsData.length) {
             questionsData = await fetchRandomQuestions({ count, category: categoryParam || undefined });
@@ -556,11 +550,23 @@ const QuizTaker: React.FC = () => {
     try { localStorage.removeItem(QUIZ_STORAGE_KEY); } catch {}
     setLoading(true);
     try {
-      const questionsData = await fetchRandomQuestions({
-        // Beast Mode → count 0 = full set (whole bank or whole category)
-        count: setupBeastMode ? 0 : setupQuizCount,
-        category: setupCategory || undefined,
-      });
+      // Bank-first: the session store usually holds all questions already,
+      // so starting is synchronous. API only on first-ever visits.
+      await ensureSessionBank(
+        (skip, limit) => fetchQuestions({ skip, limit }),
+        () => fetchQuestionsCount().then((r) => r.count)
+      );
+      let questionsData = pickRandom(
+        setupBeastMode ? bankSize() : setupQuizCount,
+        setupCategory || undefined
+      );
+      if (!questionsData.length) {
+        questionsData = await fetchRandomQuestions({
+          // Beast Mode → count 0 = full set (whole bank or whole category)
+          count: setupBeastMode ? 0 : setupQuizCount,
+          category: setupCategory || undefined,
+        });
+      }
       setQuestions(shuffleArray(questionsData));
       setSelected({});
       setCurrentIndex(0);

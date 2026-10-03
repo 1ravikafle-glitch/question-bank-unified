@@ -117,3 +117,17 @@ export function bankFacets(): { categories: string[]; counts: Record<string, num
   }
   return { categories: Object.keys(counts).sort(), counts, total: bank.length };
 }
+
+/** Ensure the session bank is filled; true when usable. No-op when warm. */
+export async function ensureSessionBank(
+  fill: (skip: number, limit: number) => Promise<Question[]>,
+  total: () => Promise<number>
+): Promise<boolean> {
+  try {
+    if ((peekBank() || []).length) return true;
+    const got = await ensureBank(fill, total);
+    return (got || []).length > 0;
+  } catch {
+    return false;
+  }
+}

@@ -165,7 +165,7 @@ const About: React.FC = () => {
   // matches the current bank (no hardcoded counts).
   const [totalQuestions, setTotalQuestions] = useState<number>(() => readPage<number>('about-stats-q') ?? 0);
   const [totalCategories, setTotalCategories] = useState<number>(() => readPage<number>('about-stats-c') ?? 0);
-  const [references, setReferences] = useState<{ id: number; title: string; author?: string | null; detail?: string | null; url?: string | null }[]>([]);
+  const [references, setReferences] = useState<{ id: number; title: string; author?: string | null; detail?: string | null; url?: string | null }[]>(() => readPage<any[]>('about-refs') ?? []);
 
   useEffect(() => {
     if (!readPage('about-stats-q')) {
