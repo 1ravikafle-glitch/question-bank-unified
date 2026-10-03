@@ -198,6 +198,25 @@ class CategoryMeta(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
+class Reference(Base):
+    """Book and source credits shown in the About section.
+
+    The question bank draws heavily on published forestry references; this
+    table is the admin-managed list the About page renders. Empty by design
+    until the admin adds entries - About shows a placeholder meanwhile.
+    """
+
+    __tablename__ = "references"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(300), nullable=False)
+    author = Column(String(300), nullable=True)
+    detail = Column(String(300), nullable=True)
+    url = Column(String(500), nullable=True)
+    position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Quote(Base):
     """Motivational line shown on the dashboard (random pick)."""
 

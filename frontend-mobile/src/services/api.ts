@@ -187,6 +187,25 @@ export const getCachedStats = (): { count: number; cats: number } | null => {
   }
 };
 
+/**
+ * Tiny freshness probe for the offline pack: total + a version string derived
+ * from the bank contents. Bytes, not megabytes - this is what lets the pack
+ * skip re-downloading 3,300 questions when nothing changed.
+ */
+export const fetchSyncVersion = async (): Promise<{ total: number; version: string }> => {
+  const response = await api.get('/questions/sync/version');
+  return response.data;
+};
+
+/**
+ * Only the questions the client does not already have, by id. The server
+ * caps pages at 500; callers loop until a short page arrives.
+ */
+export const fetchSyncDelta = async (knownIds: number[], limit = 500): Promise<unknown[]> => {
+  const response = await api.post('/questions/sync/delta', { known_ids: knownIds, limit });
+  return response.data;
+};
+
 export const fetchQuestionsCount = async (
   params: { category?: string; difficulty?: string } = {}
 ) => {
@@ -366,6 +385,42 @@ export const fetchCategoryMeta = async (): Promise<Record<string, string>> => {
 // Admin: set/clear a category emoji
 export const setCategoryEmoji = async (category: string, emoji: string) => {
   const response = await api.put('/admin/category-meta', { category, emoji });
+  return response.data;
+};
+
+export interface ReferenceItem {
+  id: number;
+  title: string;
+  author?: string | null;
+  detail?: string | null;
+  url?: string | null;
+  position?: number;
+}
+
+/** Public book/source credits for the About page. Same for every user. */
+export const fetchReferences = async (): Promise<{ references: ReferenceItem[] }> => {
+  const response = await api.get('/questions/references/');
+  return response.data;
+};
+
+// Admin: manage the About-page credits.
+export const fetchAdminReferences = async (): Promise<{ references: ReferenceItem[] }> => {
+  const response = await api.get('/admin/references');
+  return response.data;
+};
+
+export const addReference = async (r: { title: string; author: string; detail: string; url: string; position: number }) => {
+  const response = await api.post('/admin/references', r);
+  return response.data;
+};
+
+export const updateReference = async (id: number, r: { title: string; author: string; detail: string; url: string; position: number }) => {
+  const response = await api.put(`/admin/references/${id}`, r);
+  return response.data;
+};
+
+export const deleteReference = async (id: number) => {
+  const response = await api.delete(`/admin/references/${id}`);
   return response.data;
 };
 

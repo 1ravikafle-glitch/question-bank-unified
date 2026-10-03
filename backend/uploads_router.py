@@ -209,6 +209,12 @@ async def import_upload(
         try:
             db.commit()
             app_cache.delete_prefix("q:")
+            try:
+                import questions_router
+
+                questions_router.warm_bank_cache(db)
+            except Exception:
+                pass
         except Exception:
             db.rollback()
             results.append({"filename": upload.filename, "error": "Database commit failed"})

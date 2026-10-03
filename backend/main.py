@@ -47,6 +47,30 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 @app.on_event("startup")
+def _bank_cache_warmup() -> None:
+    """Fill the question-bank cache before the first request arrives.
+
+    The bank is identical for every user and changes only via admin writes
+    (which bust the cache), so there is no reason any visitor should ever pay
+    cold queries. One GROUP BY here serves every home/questions load until the
+    next admin change. Slow or failed warmup is harmless: endpoints fill the
+    cache on demand exactly as before.
+    """
+    try:
+        import database
+        import questions_router
+
+        db = database.SessionLocal()
+        try:
+            total = questions_router.warm_bank_cache(db)
+        finally:
+            db.close()
+        print(f"[CACHE] bank warmed: {total} questions", file=sys.stderr)
+    except Exception as e:
+        print(f"[CACHE] warmup skipped: {type(e).__name__}: {e}", file=sys.stderr)
+
+
+@app.on_event("startup")
 def _mail_startup_selftest() -> None:
     """Prove the password-reset mailer can actually authenticate, once, at boot.
 

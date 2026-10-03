@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { submitQuiz, fetchQuestions, fetchQuestionsCount, clearWrongQueue, flushBookmarkOutbox } from '@/services/api';
+import { submitQuiz, fetchQuestions, fetchQuestionsCount, clearWrongQueue, flushBookmarkOutbox, fetchSyncVersion, fetchSyncDelta } from '@/services/api';
 import { isOnline, pendingCount, syncOutbox, packInfo, ensurePack } from '@/utils/offline';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -57,6 +57,10 @@ const OfflineBanner: React.FC = () => {
           if (packToast) toast.loading(msg, { id: packToast });
           else packToast = toast.loading(msg);
         },
+        // Version probe + delta: a matching version means zero download, and a
+        // stale pack merges only the new questions (see offline.ts).
+        getVersion: () => fetchSyncVersion().catch(() => null),
+        getDelta: async (ids: number[]) => (await fetchSyncDelta(ids)) as any,
       }
     ).then((res) => {
       if (!alive) return;

@@ -45,6 +45,81 @@ class CategoryMetaRequest(BaseModel):
     emoji: Optional[str] = None
 
 
+class ReferenceRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
+    author: Optional[str] = Field(default=None, max_length=300)
+    detail: Optional[str] = Field(default=None, max_length=300)
+    url: Optional[str] = Field(default=None, max_length=500)
+    position: int = 0
+
+
+@router.get("/references")
+def admin_list_references(db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
+    rows = db.query(models.Reference).order_by(models.Reference.position, models.Reference.id).all()
+    return {"references": [
+        {"id": r.id, "title": r.title, "author": r.author, "detail": r.detail,
+         "url": r.url, "position": r.position} for r in rows
+    ]}
+
+
+@router.post("/references")
+def admin_add_reference(payload: ReferenceRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
+    try:
+        row = models.Reference(
+            title=payload.title.strip(),
+            author=(payload.author or "").strip() or None,
+            detail=(payload.detail or "").strip() or None,
+            url=(payload.url or "").strip() or None,
+            position=int(payload.position or 0),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        app_cache.delete("q:references")
+        return {"id": row.id}
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to add reference")
+
+
+@router.put("/references/{ref_id}")
+def admin_update_reference(ref_id: int, payload: ReferenceRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
+    try:
+        row = db.query(models.Reference).filter(models.Reference.id == ref_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Reference not found")
+        row.title = payload.title.strip()
+        row.author = (payload.author or "").strip() or None
+        row.detail = (payload.detail or "").strip() or None
+        row.url = (payload.url or "").strip() or None
+        row.position = int(payload.position or 0)
+        db.commit()
+        app_cache.delete("q:references")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update reference")
+
+
+@router.delete("/references/{ref_id}")
+def admin_delete_reference(ref_id: int = Path(...), db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
+    try:
+        row = db.query(models.Reference).filter(models.Reference.id == ref_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Reference not found")
+        db.delete(row)
+        db.commit()
+        app_cache.delete("q:references")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete reference")
+
+
 @router.get("/category-meta")
 def admin_get_category_meta(db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     rows = db.query(models.CategoryMeta).all()
@@ -133,6 +208,12 @@ async def upload_docx(
         try:
             db.commit()
             app_cache.delete_prefix("q:")
+            try:
+                import questions_router
+
+                questions_router.warm_bank_cache(db)
+            except Exception:
+                pass
         except Exception:
             db.rollback()
             results.append({
@@ -217,11 +298,23 @@ def rename_category(payload: RenameCategoryRequest, db: Session = Depends(databa
                 meta.category = new
         db.commit()
         app_cache.delete_prefix("q:")
+        try:
+            import questions_router
+
+            questions_router.warm_bank_cache(db)
+        except Exception:
+            pass
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to rename category")
     try:
         app_cache.delete_prefix("q:")
+        try:
+            import questions_router
+
+            questions_router.warm_bank_cache(db)
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -261,11 +354,23 @@ def merge_categories(payload: MergeCategoryRequest, db: Session = Depends(databa
                 smeta.category = target
         db.commit()
         app_cache.delete_prefix("q:")
+        try:
+            import questions_router
+
+            questions_router.warm_bank_cache(db)
+        except Exception:
+            pass
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to merge categories")
     try:
         app_cache.delete_prefix("q:")
+        try:
+            import questions_router
+
+            questions_router.warm_bank_cache(db)
+        except Exception:
+            pass
     except Exception:
         pass
     return {"merged_from": source, "merged_to": target, "questions_moved": moved}
@@ -285,11 +390,23 @@ def delete_category(category_name: str, db: Session = Depends(database.get_db), 
         deleted = db.query(models.Question).filter(models.Question.category == category_name).delete()
         db.commit()
         app_cache.delete_prefix("q:")
+        try:
+            import questions_router
+
+            questions_router.warm_bank_cache(db)
+        except Exception:
+            pass
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to delete category")
     try:
         app_cache.delete_prefix("q:")
+        try:
+            import questions_router
+
+            questions_router.warm_bank_cache(db)
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -333,6 +450,12 @@ def update_question(payload: dict, question_id: int = Path(..., ge=1, le=9223372
             setattr(question, field, value)
         db.commit()
         app_cache.delete_prefix("q:")
+        try:
+            import questions_router
+
+            questions_router.warm_bank_cache(db)
+        except Exception:
+            pass
         db.refresh(question)
     except Exception:
         db.rollback()
@@ -483,6 +606,12 @@ def approve_contribution(
     try:
         db.commit()
         app_cache.delete_prefix("q:")
+        try:
+            import questions_router
+
+            questions_router.warm_bank_cache(db)
+        except Exception:
+            pass
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail="Database commit failed")

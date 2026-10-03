@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { uploadQuestionBankDocx, fetchQuestions, fetchQuestionsCount, fetchCategories, updateQuestion, fetchAdminCategories, renameCategory, deleteCategory, fetchCategoryMeta, setCategoryEmoji, fetchAdminUsers, fetchAdminUserProgress, deleteAdminUser } from '../services/api';
+import { uploadQuestionBankDocx, fetchQuestions, fetchQuestionsCount, fetchCategories, updateQuestion, fetchAdminCategories, renameCategory, deleteCategory, fetchCategoryMeta, setCategoryEmoji, fetchAdminUsers, fetchAdminUserProgress, deleteAdminUser, fetchAdminReferences, addReference, updateReference, deleteReference } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { type Question } from '@/shared/types';
 import { sortCategories } from '@/utils/categorySort';
 import { motion } from 'framer-motion';
 import AdminReviewQueue from './AdminReviewQueue';
+import ReferencesManager from './ReferencesManager';
 
 interface FileResult {
   filename: string;
@@ -763,6 +764,14 @@ Answer key:
             </button>
           </div>
         )}
+      </div>
+      <div style={{ marginTop: '1rem' }}>
+        <ReferencesManager
+          list={fetchAdminReferences}
+          add={addReference}
+          update={updateReference}
+          remove={deleteReference}
+        />
       </div>
     </motion.div>
   );

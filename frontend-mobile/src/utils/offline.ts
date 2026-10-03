@@ -6,6 +6,8 @@ const DB_VERSION = 1;
 export interface OfflinePackInfo {
   total: number;
   savedAt: number;
+  /** Server bank version the pack was built from; null when unknown (pre-upgrade packs). */
+  version?: string | null;
 }
 
 export interface QueuedAttempt {
@@ -44,7 +46,8 @@ function req<T>(r: IDBRequest<T>): Promise<T> {
 /** Download the full bank for offline practice. */
 export async function downloadPack(
   fetcher: () => Promise<Question[]>,
-  onProgress?: (stage: string) => void
+  onProgress?: (stage: string) => void,
+  version?: string
 ): Promise<OfflinePackInfo> {
   onProgress?.('downloading');
   const questions = await fetcher();
@@ -55,12 +58,12 @@ export async function downloadPack(
       db
         .transaction(['kv'], 'readwrite')
         .objectStore('kv')
-        .put({ k: 'bank', questions, savedAt: Date.now(), total: questions.length })
+        .put({ k: 'bank', questions, savedAt: Date.now(), total: questions.length, version: version || null })
     );
   } finally {
     db.close();
   }
-  return { total: questions.length, savedAt: Date.now() };
+  return { total: questions.length, savedAt: Date.now(), version: version || null };
 }
 
 // ── Chunked background download ──────────────────────────────────────
@@ -92,7 +95,8 @@ const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export async function downloadPackPaged(
   page: (skip: number, limit: number) => Promise<Question[]>,
   total: number,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  version?: string
 ): Promise<OfflinePackInfo> {
   const questions: Question[] = [];
   const want = Math.max(0, Math.floor(total) || 0);
@@ -111,7 +115,7 @@ export async function downloadPackPaged(
       db
         .transaction(['kv'], 'readwrite')
         .objectStore('kv')
-        .put({ k: 'bank', questions, savedAt: Date.now(), total: questions.length })
+        .put({ k: 'bank', questions, savedAt: Date.now(), total: questions.length, version: version || null })
     );
   } finally {
     db.close();
@@ -141,7 +145,7 @@ export async function packInfo(): Promise<OfflinePackInfo | null> {
     const db = await openDB();
     try {
       const rec: any = await req(db.transaction(['kv'], 'readonly').objectStore('kv').get('bank'));
-      return { total: bank.length, savedAt: rec?.savedAt || 0 };
+      return { total: bank.length, savedAt: rec?.savedAt || 0, version: rec?.version || null };
     } finally {
       db.close();
     }
@@ -254,23 +258,113 @@ function saveDataMode(): boolean {
 export async function ensurePack(
   pager: (skip: number, limit: number) => Promise<Question[]>,
   counter: () => Promise<number>,
-  opts: { maxAgeDays?: number; onProgress?: (done: number, total: number) => void } = {}
+  opts: {
+    maxAgeDays?: number;
+    onProgress?: (done: number, total: number) => void;
+    // Tiny version probe + delta fetcher. When supplied, a pack whose version
+    // matches the server is used as-is with ZERO download, and a stale pack
+    // merges only the missing questions instead of re-downloading the bank.
+    getVersion?: () => Promise<{ total: number; version: string } | null>;
+    getDelta?: (knownIds: number[]) => Promise<Question[]>;
+  } = {}
 ): Promise<'ok' | 'downloaded' | 'skipped' | 'failed'> {
   try {
     if (!isOnline() || saveDataMode()) return 'skipped';
-    const maxAge = (opts.maxAgeDays ?? 7) * 86400000;
+    const maxAge = (opts.maxAgeDays ?? 30) * 86400000;
     const info = await packInfo();
+
+    // Fast path: server version matches the stored pack. Nothing changed, so
+    // nothing downloads - not even the count query. One tiny probe replaces
+    // megabytes.
+    if (info && opts.getVersion) {
+      const probe = await opts.getVersion().catch(() => null);
+      if (probe && probe.version && info.version === probe.version) {
+        return 'ok';
+      }
+      // Version mismatch with an existing pack: merge only what is new.
+      if (probe && opts.getDelta) {
+        const merged = await mergeDelta(opts.getDelta, probe.version).catch(() => null);
+        if (merged) return 'downloaded';
+        // Delta failed: fall through to the age/count logic below, which may
+        // still decide a full download is needed.
+      }
+    }
+
     const total = await counter().catch(() => 0);
     if (info && Date.now() - info.savedAt < maxAge) {
       // Fresh pack: re-download only if the server bank changed size
       if (!total || total === info.total) return 'ok';
     }
     if (!total) return 'skipped';
-    const pack = await downloadPackPaged(pager, total, opts.onProgress);
+    // Full download also records the version when a probe is available, so
+    // the next boot takes the fast path above.
+    let version: string | undefined;
+    if (opts.getVersion) {
+      const probe = await opts.getVersion().catch(() => null);
+      if (probe?.version) version = probe.version;
+    }
+    const pack = await downloadPackPaged(pager, total, opts.onProgress, version);
     return pack.total > 0 ? 'downloaded' : 'failed';
   } catch {
     return 'failed';
   }
+}
+
+/**
+ * Merge server-side additions into the stored pack without re-downloading it.
+ * Returns true when the pack was updated (or was already current).
+ */
+export async function mergeDelta(
+  getDelta: (knownIds: number[]) => Promise<Question[]>,
+  version: string
+): Promise<boolean> {
+  const bank = await getBank();
+  if (!bank) return false;
+  const known = new Set(bank.map((q: any) => q.id));
+  const fresh: Question[] = [];
+  // The server pages deltas at 500; loop until a short page ends it.
+  for (let guard = 0; guard < 20; guard++) {
+    if (!isOnline()) return false;
+    const page = await getDelta([...known, ...fresh.map((q: any) => q.id)]);
+    if (!page || page.length === 0) break;
+    fresh.push(...(page as Question[]));
+    if (page.length < 500) break;
+  }
+  if (!fresh.length) {
+    // Nothing new, but the version moved (e.g. an edit, not an addition):
+    // stamp the pack current so the probe passes next boot.
+    await stampVersion(version);
+    return true;
+  }
+  const merged = [...bank, ...(fresh as Question[])];
+  const db = await openDB();
+  try {
+    await req(
+      db
+        .transaction(['kv'], 'readwrite')
+        .objectStore('kv')
+        .put({ k: 'bank', questions: merged, savedAt: Date.now(), total: merged.length, version })
+    );
+  } finally {
+    db.close();
+  }
+  return true;
+}
+
+async function stampVersion(version: string): Promise<void> {
+  try {
+    const db = await openDB();
+    try {
+      const rec: any = await req(db.transaction(['kv'], 'readonly').objectStore('kv').get('bank'));
+      if (!rec) return;
+      await req(
+        db.transaction(['kv'], 'readwrite').objectStore('kv')
+          .put({ ...rec, version })
+      );
+    } finally {
+      db.close();
+    }
+  } catch { /* stamp is advisory; next boot re-probes */ }
 }
 
 /** Proactively cache this page + its scripts/styles so offline works

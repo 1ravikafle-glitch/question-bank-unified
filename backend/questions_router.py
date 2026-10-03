@@ -10,14 +10,48 @@ import json
 import app_cache
 
 # Read-only endpoints share one cache (memory now, Redis via REDIS_URL).
-# TTL 60s; admin upload invalidates the whole "q:" namespace.
-_QTTL = 60
+#
+# The question bank changes ONLY through admin upload/category edits, and every
+# one of those busts the whole "q:" namespace (see admin_router). So the TTL
+# is not the correctness mechanism - invalidation is. 24h merely bounds
+# staleness if a bust is ever missed. Per-user data has its own keys/TTLs.
+_QTTL = 86400
 
 def _get_cached(key: str):
     return app_cache.get("q:" + key)
 
 def _set_cached(key: str, val):
     app_cache.set("q:" + key, val, _QTTL)
+
+
+def warm_bank_cache(db) -> int:
+    """Load every bank fact into the cache in a single GROUP BY.
+
+    Called once at startup (see main.py) and after every admin write that
+    busts the namespace. Returns the question total. Failure is silent by
+    design: an unwarm cache is merely slow, never wrong - the endpoints
+    populate it on demand exactly as before.
+    """
+    from sqlalchemy import func as _func
+
+    try:
+        rows = (
+            db.query(models.Question.category, _func.count(models.Question.id))
+            .group_by(models.Question.category)
+            .all()
+        )
+    except Exception:
+        return 0
+    counts = {r[0] or "Uncategorized": r[1] for r in rows}
+    total = sum(counts.values())
+    cats = sorted(c for c in counts if c != "Uncategorized")
+    try:
+        _set_cached("category-counts", counts)
+        _set_cached("count:None:None", {"count": total})
+        _set_cached("categories", cats)
+    except Exception:
+        pass
+    return total
 
 
 def _normalize_options(questions):
@@ -149,6 +183,32 @@ def get_random_quote(db: Session = Depends(database.get_db)):
     if row is None:
         return {"text": ""}
     return {"text": row.text}
+
+
+@router.get("/references")
+def get_references(db: Session = Depends(database.get_db)):
+    """Book/source credits for the About section. Same for every user and
+    changed only by admin writes (which bust the key), so it is cached like
+    the other bank facts."""
+    cached = _get_cached("references")
+    if cached is not None:
+        return cached
+    try:
+        rows = (
+            db.query(models.Reference)
+            .order_by(models.Reference.position, models.Reference.id)
+            .all()
+        )
+        result = {"references": [
+            {"id": r.id, "title": r.title, "author": r.author,
+             "detail": r.detail, "url": r.url} for r in rows
+        ]}
+    except Exception:
+        # Table predates this deployment (create_all runs at boot, but a
+        # request can arrive first): empty list, not a 500.
+        result = {"references": []}
+    _set_cached("references", result)
+    return result
 
 
 @router.get("/category-meta")

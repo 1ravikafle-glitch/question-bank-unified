@@ -5,6 +5,7 @@ import BookmarkButton from '@/components/BookmarkButton';
 import NoteButton from '@/components/NoteButton';
 import NoteEditor from '@/components/NoteEditor';
 import { type Question } from '@/shared/types';
+import { getBank } from '@/utils/offline';
 import { toast } from 'react-hot-toast';
 
 import { sortCategories } from '@/utils/categorySort';
@@ -78,6 +79,8 @@ const QuestionsBank: React.FC = () => {
 
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
+  // Total the pack claimed, so the background confirmation can compare.
+  const packTotalRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [page, setPage] = useState(0);
@@ -159,13 +162,57 @@ const QuestionsBank: React.FC = () => {
   useEffect(() => { try { localStorage.setItem('qbank-shuffle', String(shuffleOptions)); } catch {} }, [shuffleOptions]);
 
   useEffect(() => {
+    let alive = true;
+    const fromPack = async (): Promise<boolean> => {
+      // Instant path: the offline pack holds the whole bank on this device.
+      // The boot version-probe keeps it fresh, so reading it first is correct,
+      // not merely fast - and it turns a 16-request mount into zero requests.
+      try {
+        const bank = await getBank();
+        if (!alive || !bank || !bank.length) return false;
+        const cats = [...new Set(bank.map((q) => q.category).filter(Boolean))] as string[];
+        const sorted = [...new Set(sortCategories(cats))];
+        const counts: Record<string, number> = {};
+        for (const q of bank) {
+          const c = q.category || 'Uncategorized';
+          counts[c] = (counts[c] || 0) + 1;
+        }
+        if (!alive) return false;
+        setAllCategories(sorted);
+        setTotalCount(bank.length);
+        packTotalRef.current = bank.length;
+        setCategoryCounts(counts);
+        setLoading(false);
+        return true;
+      } catch {
+        return false;
+      }
+    };
     const load = async () => {
+      // Pack first: content on screen in milliseconds.
+      if (await fromPack()) {
+        // Background confirmation: a single cheap count tells us whether the
+        // pack the probe blessed is still what the server holds. Mismatch
+        // falls back to the full API load below.
+        try {
+          const countData = await fetchQuestionsCount({});
+          if (!alive) return;
+          if (countData.count !== packTotalRef.current) {
+            await loadFromApi();
+          }
+        } catch { /* pack stands; next boot re-probes */ }
+        return;
+      }
+      await loadFromApi();
+    };
+    const loadFromApi = async () => {
       setLoading(true);
       try {
         const [cats, countData] = await Promise.all([
           fetchCategories(),
           fetchQuestionsCount({}),
         ]);
+        if (!alive) return;
         const sorted = [...new Set(sortCategories(cats))];
         setAllCategories(sorted);
         setTotalCount(countData.count);
@@ -177,15 +224,17 @@ const QuestionsBank: React.FC = () => {
             counts[cat] = r.count;
           } catch { counts[cat] = 0; }
         }));
+        if (!alive) return;
         setCategoryCounts(counts);
       } catch (error) {
         console.error('Error loading categories:', error);
         toast.error('Could not load categories.');
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     };
     load();
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
@@ -199,29 +248,49 @@ const QuestionsBank: React.FC = () => {
   }, [search]);
 
   useEffect(() => {
+    let alive = true;
     const loadQuestions = async () => {
       setLoadingQuestions(true);
       setPage(0);
       setRawSelections({});
       setRawLocked({});
+      // Pack first: filter the on-device bank instantly. The API stays as the
+      // fallback for first-ever visits and as confirmation when the pack is
+      // absent - same pattern as the category mount above.
+      try {
+        const bank = await getBank().catch(() => null);
+        if (alive && bank && bank.length) {
+          const subset = selectedCategory
+            ? bank.filter((q) => (q.category || 'Uncategorized') === selectedCategory)
+            : bank;
+          const data = subset.slice(0, FETCH_LIMIT);
+          setAllQuestions(data);
+          setShuffledQuestions(shuffleArray(data));
+          setLoadingQuestions(false);
+          return;
+        }
+      } catch { /* fall through to API */ }
       try {
         const data = await fetchQuestions({
           skip: 0,
           limit: FETCH_LIMIT,
           category: selectedCategory || undefined,
         });
+        if (!alive) return;
         setAllQuestions(data);
         setShuffledQuestions(shuffleArray(data));
       } catch (error) {
         console.error('Error loading questions:', error);
         toast.error('Could not load questions.');
+        if (!alive) return;
         setAllQuestions([]);
         setShuffledQuestions([]);
       } finally {
-        setLoadingQuestions(false);
+        if (alive) setLoadingQuestions(false);
       }
     };
     loadQuestions();
+    return () => { alive = false; };
   }, [selectedCategory]);
 
   const filteredQuestions = useCallback(() => {

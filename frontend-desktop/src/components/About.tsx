@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { fetchQuestionsCount, fetchCategories } from '../services/api';
+import { fetchQuestionsCount, fetchCategories, fetchReferences } from '../services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ForestryLogo } from '@/components/ForestryLogo';
@@ -164,10 +164,12 @@ const About: React.FC = () => {
   // matches the current bank (no hardcoded counts).
   const [totalQuestions, setTotalQuestions] = useState<number>(0);
   const [totalCategories, setTotalCategories] = useState<number>(0);
+  const [references, setReferences] = useState<{ id: number; title: string; author?: string | null; detail?: string | null; url?: string | null }[]>([]);
 
   useEffect(() => {
     fetchQuestionsCount().then((r) => setTotalQuestions(r.count)).catch(() => {});
     fetchCategories().then((c) => setTotalCategories(c.length)).catch(() => {});
+    fetchReferences().then((r) => setReferences(r.references || [])).catch(() => {});
   }, []);
 
   const stats = [
@@ -452,6 +454,40 @@ const About: React.FC = () => {
                 </div>
               ))}
             </motion.div>
+
+            <div
+              className="rounded-xl border mt-4"
+              style={{ background: 'hsl(var(--muted))', borderColor: 'hsl(var(--border))', padding: '1rem 1.1rem' }}
+            >
+              <h3
+                className="text-sm font-bold text-foreground mb-3 flex items-center gap-2"
+                style={{ fontFamily: 'var(--font-display)' }}
+              >
+                <span aria-hidden="true">📚</span>
+                References
+              </h3>
+              {references.length === 0 ? (
+                <p className="text-[0.8rem] text-muted-foreground leading-relaxed m-0">
+                  References will be listed here. Most practice questions in this bank are drawn from
+                  standard forestry books for Loksewa preparation; the full source list will be
+                  published by the admin.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2 m-0" style={{ paddingLeft: '1.1rem', listStyle: 'disc' }}>
+                  {references.map((r) => (
+                    <li key={r.id} className="text-[0.8rem] text-muted-foreground leading-relaxed">
+                      <span className="font-semibold text-foreground">{r.title}</span>
+                      {[r.author, r.detail].filter(Boolean).length > 0 && (
+                        <>, {[r.author, r.detail].filter(Boolean).join(', ')}</>
+                      )}
+                      {r.url && (
+                        <> · <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--primary))' }}>link</a></>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             <p className="text-xs text-muted-foreground text-center mt-5 leading-relaxed">
               Everything above works the same on desktop and mobile. Only the navigation differs:
