@@ -61,9 +61,16 @@ api.interceptors.response.use(
 const _swr = new Map<string, { val: any; ts: number }>();
 const SWR_TTL = 60_000;
 
+// Promises currently in flight, by key. Two components mounting together
+// must share one request, not fire two: the cache above only helps the
+// *second* call if the first has already resolved.
+const _inflight = new Map<string, Promise<unknown>>();
+
 async function swr<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = _swr.get(key);
   const now = Date.now();
+  const flying = _inflight.get(key);
+  if (flying) return flying as Promise<T>;
   if (hit && now - hit.ts < SWR_TTL) {
     fetcher().then(
       (v) => _swr.set(key, { val: v, ts: Date.now() }),
@@ -71,9 +78,19 @@ async function swr<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
     );
     return hit.val as T;
   }
-  const val = await fetcher();
-  _swr.set(key, { val, ts: now });
-  return val;
+  const p = fetcher().then(
+    (val) => {
+      _swr.set(key, { val, ts: Date.now() });
+      _inflight.delete(key);
+      return val;
+    },
+    (err) => {
+      _inflight.delete(key);
+      throw err;
+    },
+  );
+  _inflight.set(key, p);
+  return p;
 }
 
 export const fetchQuestions = async (

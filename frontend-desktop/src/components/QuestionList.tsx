@@ -136,18 +136,21 @@ const Dashboard: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [totalResp, categoriesResp, progressResp, wrongQueueResp] = await Promise.all([
+        // All independent reads go out together. fetchCategoryCounts used to
+        // run after this batch finished, adding a full round trip (~0.5s on a
+        // remote database) to every home-page load for no reason.
+        const [totalResp, categoriesResp, progressResp, wrongQueueResp, countsResp] = await Promise.all([
           fetchQuestionsCount(),
           fetchCategories(),
           fetchUserProgress(userId || 'anonymous'),
           fetchWrongQueue(userId || 'anonymous'),
           fetchCategoryEmoji().then((m) => { setEmojiMeta(m); return null; }).catch(() => null),
+          fetchCategoryCounts().catch(() => null),
         ]);
 
-        try {
-          const counts = await fetchCategoryCounts();
-          setQuestionCounts(new Map(Object.entries(counts || {})));
-        } catch {}
+        if (countsResp) {
+          setQuestionCounts(new Map(Object.entries(countsResp || {})));
+        }
 
         setTotal(totalResp.count);
         setCategories(categoriesResp);
