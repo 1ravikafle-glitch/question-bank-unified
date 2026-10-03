@@ -402,7 +402,7 @@ export const RegisterView: React.FC<{
         </p>
       </div>
       <AInput id="reg-user" label="Display name" value={username} onChange={setUsername}
-        autoComplete="username" placeholder="e.g. ravi.kafle" required />
+        autoComplete="username" placeholder="e.g. forest.lover" required />
       <div>
         <AInput id="reg-pw" label="Password" type={showPassword ? 'text' : 'password'}
           value={password} onChange={setPassword}

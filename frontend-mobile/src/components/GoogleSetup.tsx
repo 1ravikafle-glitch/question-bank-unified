@@ -93,7 +93,7 @@ const GoogleSetup: React.FC<{
         label="Userid"
         value={username}
         onChange={(v) => { setUsername(v); setError(''); }}
-        placeholder="e.g. ravi.kafle"
+        placeholder="e.g. forest.lover"
         autoComplete="username"
         required
         autoFocus
