@@ -150,11 +150,11 @@
                   document.head.appendChild(s);
                 })();
                 </script>
-    <script type="module" crossorigin src="/desktop/assets/index-Cd2KSduk.js"></script>
+    <script type="module" crossorigin src="/desktop/assets/index-49Yt3PNr.js"></script>
     <link rel="modulepreload" crossorigin href="/desktop/assets/vendor-CZcxUxbq.js">
     <link rel="modulepreload" crossorigin href="/desktop/assets/motion-CySNjzh6.js">
     <link rel="modulepreload" crossorigin href="/desktop/assets/data-DSCjmRMB.js">
-    <link rel="stylesheet" crossorigin href="/desktop/assets/index-DkriGBhJ.css">
+    <link rel="stylesheet" crossorigin href="/desktop/assets/index-DpVeKtcT.css">
   </head>
   <body>
     <div id="ad-slot-inline">
@@ -230,11 +230,24 @@
         // same element and property though, so the last writer wins: re-assert
         // after every write. The guard keeps it idempotent.
         var PIN = '107px';
-        var pinned = function() {
+
+        // Space is reserved only once an ad has actually filled. Reserving
+        // it unconditionally is what left a permanent 107px hole between
+        // the header and the first card on every page where no ad ever showed;
+        // releasing it late instead just trades that hole for a layout shift.
+        // `filled` is the only state where holding space is right, so it is the
+        // only state where it is held: no ad means no reserved space, and
+        // nothing on the page moves.
+        var noAdComing = function () {
+          if (!ins) return true;
+          return ins.getAttribute('data-ad-status') !== 'filled';
+        };
+var pinned = function() {
           if (!slot) return;
-          if (slot.style.getPropertyValue('height') !== PIN ||
+          var want = noAdComing() ? '0px' : PIN;
+          if (slot.style.getPropertyValue('height') !== want ||
               slot.style.getPropertyPriority('height') !== 'important') {
-            slot.style.setProperty('height', PIN, 'important');
+            slot.style.setProperty('height', want, 'important');
           }
         };
         if (slot) {
@@ -261,6 +274,10 @@
           var path = location.hash || location.pathname;
           // No ads during an exam (see AUDIT.md — do not revert).
           set(path.includes('/quiz') || path.includes('/attempt'));
+          // Re-assert: this is the hook the 4s/9s retries and every
+          // data-ad-status change go through, so the slot takes its space when an
+          // ad fills and gives it back when one does not.
+          pinned();
         };
 
         // Watch ONLY the ad subtree for `data-ad-status`. The old observer was

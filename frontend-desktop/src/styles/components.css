@@ -923,7 +923,11 @@
   .site-footer-brand {
     flex-direction: row;
     align-items: center;
-    gap: 0.4rem 0.75rem;
+    /* Row gap unchanged; the column gap gained exactly one inch (96px, written
+       in px so it does not drift if the root font size changes) so the FOLLOW
+       label and channel icons sit a full inch clear of the copyright line
+       instead of crowding it. */
+    gap: 0.4rem calc(0.75rem + 96px);
   }
   .site-footer-credit {
     white-space: nowrap;

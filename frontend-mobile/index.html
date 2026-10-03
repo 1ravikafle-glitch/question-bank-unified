@@ -171,11 +171,24 @@
         // genuinely constant. The guard makes this idempotent, so re-writing
         // does not re-trigger the observer.
         var PIN = '69px';
+
+        // Space is reserved only once an ad has actually filled. Reserving
+        // it unconditionally is what left a permanent 69px hole between
+        // the header and the first card on every page where no ad ever showed;
+        // releasing it late instead just trades that hole for a layout shift.
+        // `filled` is the only state where holding space is right, so it is the
+        // only state where it is held: no ad means no reserved space, and
+        // nothing on the page moves.
+        var noAdComing = function () {
+          if (!ins) return true;
+          return ins.getAttribute('data-ad-status') !== 'filled';
+        };
         var pinned = function(){
           if (!slot) return;
-          if (slot.style.getPropertyValue('height') !== PIN ||
+          var want = noAdComing() ? '0px' : PIN;
+          if (slot.style.getPropertyValue('height') !== want ||
               slot.style.getPropertyPriority('height') !== 'important') {
-            slot.style.setProperty('height', PIN, 'important');
+            slot.style.setProperty('height', want, 'important');
           }
         };
         if (slot) {
@@ -201,6 +214,10 @@
         var apply = function(){
           var path = location.hash || location.pathname;
           set(path.includes('/quiz') || path.includes('/attempt'));
+          // Re-assert: this is the hook the 4s/9s retries and every
+          // data-ad-status change go through, so the slot takes its space when an
+          // ad fills and gives it back when one does not.
+          pinned();
         };
 
         // Watch ONLY the ad subtree for `data-ad-status`. The old observer was
