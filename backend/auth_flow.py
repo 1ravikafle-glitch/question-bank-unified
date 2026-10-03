@@ -681,26 +681,21 @@ class ResetWithTokenRequest(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=200)
 
 
-def _generic_forgot_reply(email_delivery: bool, sent: bool | None = None) -> dict:
+def _generic_forgot_reply(email_delivery: bool) -> dict:
     """Identical whether or not the account exists, so the response cannot be
     used to enumerate who is registered here.
 
-    `sent` is the one thing that may differ, and it is safe to expose: a broken
-    relay is our problem, not a fact about the account. The previous reply
-    reported `email_delivery` - "is SMTP configured" - which stayed `true` while
-    every send failed, so the UI cheerfully promised a code that never came.
+    Deliberately reports NOTHING about whether the send succeeded: the miss
+    path never attempts a send, so any failure signal here would differ by
+    account existence and become an oracle the moment the relay has a bad day.
+    Honest delivery reporting lives on the authenticated endpoints (register,
+    resend), where the caller can only ask about their own address, plus the
+    operator log and /auth/providers.
     """
-    reply = {
+    return {
         "message": "If that account exists, a reset code is on its way.",
         "email_delivery": email_delivery,
     }
-    if sent is False:
-        reply["delivery_failed"] = True
-        reply["message"] = (
-            "We could not reach the mail server, so no code was sent. "
-            "Please try again shortly."
-        )
-    return reply
 
 
 @router.post("/forgot-password-otp")
@@ -775,7 +770,7 @@ def forgot_password_otp(
     # The code reaches the operator log too, so recovery still works on a
     # deployment with no mail configured (and in local dev).
     print(f"[AUTH] reset code for {user.username}: {code}", file=sys.stderr)
-    return _generic_forgot_reply(delivery, sent=sent)
+    return _generic_forgot_reply(delivery)
 
 
 @router.post("/verify-reset-code")
