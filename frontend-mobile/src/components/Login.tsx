@@ -18,7 +18,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { setUserId, setSessionToken } = useContext(AuthContext);
+  const { userId, setUserId, setSessionToken } = useContext(AuthContext);
   const { lang, setLang } = useLang();
 
   // 'login' | 'register' | 'forgot'
@@ -31,6 +31,16 @@ const Login: React.FC = () => {
   // First-time Google signup: verified claims wait here while the user picks
   // a userid. Returning Google users skip this entirely (straight session).
   const [googleSetup, setGoogleSetup] = useState<{ token: string; email: string; suggested: string } | null>(null);
+  // Safety net for the post-login race (see handleSubmit): if this screen
+  // holds a valid session with nothing left to do, go home. Register's
+  // verify stage and Google setup are excluded by their own view/state.
+  useEffect(() => {
+    if (view !== 'login' || googleSetup) return;
+    try {
+      if (userId && localStorage.getItem('fpsc-session')) navigate('/');
+    } catch { /* private mode: Login handles it */ }
+  }, [view, userId, googleSetup, navigate]);
+
   const [totalQuestions, setTotalQuestions] = useState<number | null>(null);
   const [totalCategories, setTotalCategories] = useState<number | null>(null);
 
