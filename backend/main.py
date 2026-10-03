@@ -8,6 +8,7 @@ import sys
 import models
 import database
 import questions_router
+import feedback_router
 import quiz_router
 import admin_router
 import auth_router
@@ -42,6 +43,7 @@ app.include_router(auth_router.router)
 app.include_router(bookmarks_router.router)
 app.include_router(notes_router.router)
 app.include_router(uploads_router.router)
+app.include_router(feedback_router.router)
 
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
