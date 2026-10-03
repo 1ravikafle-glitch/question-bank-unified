@@ -429,18 +429,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                     );
                   })}
                 </div>
-                {/* Keyboard affordance: these letters answer THIS question while
-                    the pointer is on it. Hover-scoped, so it only ever shows on
-                    the one armed question. */}
-                {hoverIdx === i && (
-                  <div className="psc-keyhint" aria-hidden="true">
-                    {items.map(([k]) => (
-                      <kbd key={k}>{k}</kbd>
-                    ))}
-                    <span className="psc-keyhint-sep" />
-                    <span className="psc-keyhint-lbl">Select</span>
-                  </div>
-                )}
               </article>
             );
           })}

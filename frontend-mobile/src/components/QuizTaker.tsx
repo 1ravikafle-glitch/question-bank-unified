@@ -953,8 +953,16 @@ const QuizTaker: React.FC = () => {
   // candidate who switches apps or pockets the phone effectively gets a
   // longer paper. The deadline is captured once, when the paper actually
   // appears, and every tick recomputes from Date.now().
+  // One-time hint: the hover A-D badges are gone by design, so keyboard
+  // answering needs teaching. Fires where the exam clock starts - the paper
+  // is on screen and the keys are live from this moment.
+  const keyHintToastRef = useRef(false);
   useEffect(() => {
     if (!isExamMode || loading || questions.length === 0 || submitting) return;
+    if (!keyHintToastRef.current) {
+      keyHintToastRef.current = true;
+      toast('Press A B C D to select the option', { duration: 3000 });
+    }
     warnedRef.current = false;
     const deadline = Date.now() + examTotalSecs * 1000;
     const sync = () => {
