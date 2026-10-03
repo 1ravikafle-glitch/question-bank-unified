@@ -1,5 +1,5 @@
 /* Forestry offline service worker (scope: whole site). */
-const CACHE = 'forestry-v6';
+const CACHE = 'forestry-v7';
 // Only paths that genuinely resolve. /forestry-logo.png was listed here and
 // never did: the SPA catch-all answers every unmatched path with index.html and
 // a 200, so the fetch "succeeded" and cached an HTML body under a .png URL.
@@ -161,7 +161,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // API reads: network-first, serve stale cache offline
+  // API reads: stale-while-revalidate. The cached answer returns
+  // IMMEDIATELY (no network wait) while a background fetch refreshes the
+  // entry for next time. Repeat visits therefore render from cache in
+  // milliseconds; first-ever visits have no entry and simply wait like before.
+  //
+  // Safe because every cached body is either bank facts (identical for all
+  // users, busted server-side on admin writes, revalidated here on every
+  // single read) or per-user data scoped by URL (user id in the path, so one
+  // account can never be served another's entry). Mutations are POST/PUT/
+  // DELETE and never reach this branch (non-GET returns at the top), and
+  // /auth/* is not matched by any prefix below, so sessions and codes are
+  // never cached anywhere in this worker.
   if (
     path.indexOf('/questions') === 0 ||
     path.indexOf('/quiz') === 0 ||
@@ -170,15 +181,24 @@ self.addEventListener('fetch', (event) => {
     path === '/robots.txt'
   ) {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) {
+      caches.match(req).then((hit) => {
+        const network = fetch(req).then((res) => {
+          if (res.ok && isAssetResponse(res)) {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(req, copy));
           }
           return res;
-        })
-        .catch(() => caches.match(req))
+        });
+        if (hit) {
+          // Answer now; the network copy refreshes the entry behind.
+          network.catch(() => {});
+          return hit;
+        }
+        // No entry: this read IS the network (offline => undefined => the
+        // app's own offline pack and error paths take over, as before).
+        return network.catch(() => undefined);
+      })
     );
+    return;
   }
 });
