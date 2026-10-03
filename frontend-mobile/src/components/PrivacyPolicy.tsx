@@ -98,11 +98,15 @@ export default function PrivacyPolicy() {
           <p>Write to <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'hsl(var(--primary))' }}>{CONTACT_EMAIL}</a> from the address on your account and we will: tell you what we hold about you, correct what is wrong, or delete your account and study data entirely. Deletion is manual today. There is deliberately no self-serve button yet, so this policy does not pretend one exists. We answer within a reasonable time and never charge for it.</p>
         </Section>
 
-        <Section title="6. Children">
+        <Section title="6. Feedback you send">
+          <p>Suggestions sent through the Feedback page are stored with your account so you can see the thread and any admin reply, and so the limit (2 per 6 hours) works. The admin sees the message and reply history only: never your username, address, or any identifier. Nobody else sees your feedback at all.</p>
+        </Section>
+
+        <Section title="7. Children">
           <p>This is a Public Service Commission preparation app, built for adult aspirants. We do not knowingly collect data from children under 13; if you believe a child has registered, contact us and we will remove the account.</p>
         </Section>
 
-        <Section title="7. Changes and contact">
+        <Section title="8. Changes and contact">
           <p>Material changes appear here with a new date, and the app will point at them. Questions about anything above: <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'hsl(var(--primary))' }}>{CONTACT_EMAIL}</a>.</p>
         </Section>
       </div>

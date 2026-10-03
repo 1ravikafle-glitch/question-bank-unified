@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchNotes, fetchQuestionsByIds, saveNote } from '../services/api';
+import { savePage, readPage, isDirty, clearDirty } from '@/utils/pageStore';
 import { sortCategories } from '@/utils/categorySort';
 import { type Question } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
@@ -16,9 +17,9 @@ const Notes: React.FC = () => {
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
   const { t, num } = useLang();
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [notes, setNotes] = useState<Record<number, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [questions, setQuestions] = useState<Question[]>(() => readPage<Question[]>('notes-data') ?? []);
+  const [notes, setNotes] = useState<Record<number, string>>(() => readPage<Record<number, string>>('notes-map') ?? {});
+  const [loading, setLoading] = useState(() => !readPage('notes-data'));
   const [catFilter, setCatFilter] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
@@ -29,16 +30,34 @@ const Notes: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       if (!userId) return;
+      const snap = readPage<Question[]>('notes-data');
+      if (snap && !isDirty('notes-data')) {
+        setQuestions(snap);
+        const m = readPage<Record<number, string>>('notes-map');
+        if (m) setNotes(m);
+        setLoading(false);
+        fetchNotes(userId).then((res) => {
+          const map = res.notes || {};
+          setNotes(map);
+          savePage('notes-map', map);
+        }).catch(() => {});
+        return;
+      }
+      clearDirty('notes-data');
       setLoading(true);
       try {
         const res = await fetchNotes(userId);
         const map = res.notes || {};
         setNotes(map);
+        savePage('notes-map', map);
         const ids = Object.keys(map).map(Number).filter((n) => !Number.isNaN(n));
         if (ids.length > 0) {
-          setQuestions(await fetchQuestionsByIds(ids));
+          const qs = await fetchQuestionsByIds(ids);
+          setQuestions(qs);
+          savePage('notes-data', qs);
         } else {
           setQuestions([]);
+          savePage('notes-data', []);
         }
       } catch {
         setQuestions([]);
@@ -48,6 +67,14 @@ const Notes: React.FC = () => {
     };
     load();
   }, [userId]);
+
+  // Persist local edits so back-nav restores them instantly.
+  useEffect(() => {
+    if (Object.keys(notes).length || readPage('notes-map')) savePage('notes-map', notes);
+  }, [notes]);
+  useEffect(() => {
+    if (questions.length) savePage('notes-data', questions);
+  }, [questions]);
 
   const handleSaved = useCallback(
     (qid: number, text: string) => {

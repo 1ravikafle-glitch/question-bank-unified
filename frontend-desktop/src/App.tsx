@@ -18,7 +18,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 const BASENAME = import.meta.env.BASE_URL.replace(/\/+$/, '');
 
 import React, { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
-import { MotionConfig } from 'framer-motion';
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
+import { useDisplayHz, hzDuration } from '@/utils/displayHz';
 import { Toaster, toast } from 'react-hot-toast';
 // Route screens load lazily so first paint only downloads Login + shell.
 // Vendor libs ride in their own long-cached chunks (see vite.config.ts).
@@ -39,6 +40,7 @@ const About = React.lazy(() => import('./components/About'));
 const PrivacyPolicy = React.lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfService = React.lazy(() => import('./components/TermsOfService'));
 const CookiePolicy = React.lazy(() => import('./components/CookiePolicy'));
+const FeedbackPage = React.lazy(() => import('./components/FeedbackPage'));
 import Header from './components/Header';
 import RouteSkeleton from './components/RouteSkeleton';
 import DesktopSidebar from './components/DesktopSidebar';
@@ -90,6 +92,33 @@ function warmBankOnce() {
     if ('requestIdleCallback' in window) (window as any).requestIdleCallback(run, { timeout: 8000 });
     else setTimeout(run, 2500);
   } catch { /* warmup is advisory */ }
+}
+
+
+/* Route change transition: a quick push-fade, Apple-style. Transform and
+   opacity only so the compositor carries every frame at 60fps+; content
+   cross-fades while sliding 12px, fast enough to read as instant (180ms at
+   60Hz, scaled down on faster panels). Skipped entirely under
+   prefers-reduced-motion via the app MotionConfig, and skipped for quiz/exam
+   routes where any motion during a timed paper would be a distraction. */
+function RouteTransition({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+  const hz = useDisplayHz();
+  const exam = pathname.startsWith('/quiz') || pathname.startsWith('/mock');
+  if (exam) return <>{children}</>;
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={pathname}
+        initial={{ opacity: 0, x: 14 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -10 }}
+        transition={{ duration: hzDuration(hz, 0.18), ease: [0.32, 0.72, 0, 1] }}
+        style={{ willChange: 'transform, opacity' }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
 }
 
 function AppShell() {
@@ -206,6 +235,7 @@ function AppShell() {
             <Suspense
               fallback={<RouteSkeleton />}
             >
+            <RouteTransition pathname={location.pathname}>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={userId ? <QuestionList /> : <Navigate to="/login" replace />} />
@@ -226,8 +256,10 @@ function AppShell() {
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/cookies" element={<CookiePolicy />} />
+              <Route path="/feedback" element={userId ? <FeedbackPage /> : <Navigate to="/login" replace />} />
               <Route path="*" element={userId ? <Navigate to="/" replace /> : <Navigate to="/login" replace />} />
             </Routes>
+            </RouteTransition>
             </Suspense>
             </ErrorBoundary>
           </div>

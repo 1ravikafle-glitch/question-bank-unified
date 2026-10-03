@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchCategories, fetchQuestionsCount } from '../services/api';
+import { savePage, readPage } from '@/utils/pageStore';
 import type { ExamConfig } from '@/shared/types';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
@@ -40,8 +41,8 @@ const MockExam: React.FC = () => {
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
   const { t, num } = useLang();
-  const [categories, setCategories] = useState<string[]>([]);
-  const [total, setTotal] = useState(0);
+  const [categories, setCategories] = useState<string[]>(() => readPage<string[]>('mock-setup-cats') ?? []);
+  const [total, setTotal] = useState(() => readPage<number>('mock-setup-total') ?? 0);
   const [category, setCategory] = useState('');
   const [count, setCount] = useState(50);
   // Fixed exam-hall table — the paper length always decides the clock.
@@ -49,8 +50,15 @@ const MockExam: React.FC = () => {
   const [negative, setNegative] = useState(0.2);
 
   useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => {});
-    fetchQuestionsCount().then((r) => setTotal(r.count)).catch(() => {});
+    // Snapshot renders instantly; numbers refresh behind only if unset.
+    // Category/total change solely on admin writes, so a stored set stands
+    // until the tab closes.
+    if (!readPage('mock-setup-cats')) {
+      fetchCategories().then((c) => { setCategories(c); savePage('mock-setup-cats', c); }).catch(() => {});
+    }
+    if (!readPage('mock-setup-total')) {
+      fetchQuestionsCount().then((r) => { setTotal(r.count); savePage('mock-setup-total', r.count); }).catch(() => {});
+    }
   }, []);
 
   const start = (cfg: ExamConfig) => {

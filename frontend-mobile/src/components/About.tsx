@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { fetchQuestionsCount, fetchCategories, fetchReferences } from '../services/api';
+import { savePage, readPage } from '@/utils/pageStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ForestryLogo } from '@/components/ForestryLogo';
@@ -160,14 +161,22 @@ const whatWeDo = [
 
 const About: React.FC = () => {
   const navigate = useNavigate();
-  const [totalQuestions, setTotalQuestions] = useState<number>(0);
-  const [totalCategories, setTotalCategories] = useState<number>(0);
+  const [totalQuestions, setTotalQuestions] = useState<number>(() => readPage<number>('about-stats-q') ?? 0);
+  const [totalCategories, setTotalCategories] = useState<number>(() => readPage<number>('about-stats-c') ?? 0);
   const [references, setReferences] = useState<{ id: number; title: string; author?: string | null; detail?: string | null; url?: string | null }[]>([]);
 
   useEffect(() => {
-    fetchQuestionsCount().then((r) => setTotalQuestions(r.count)).catch(() => {});
-    fetchCategories().then((c) => setTotalCategories(c.length)).catch(() => {});
-    fetchReferences().then((r) => setReferences(r.references || [])).catch(() => {});
+    if (!readPage('about-stats-q')) {
+      fetchQuestionsCount().then((r) => { setTotalQuestions(r.count); savePage('about-stats-q', r.count); }).catch(() => {});
+    }
+    if (!readPage('about-stats-c')) {
+      fetchCategories().then((c) => { setTotalCategories(c.length); savePage('about-stats-c', c.length); }).catch(() => {});
+    }
+    if (readPage('about-refs')) {
+      setReferences(readPage('about-refs') as any);
+    } else {
+      fetchReferences().then((r) => { setReferences(r.references || []); savePage('about-refs', r.references || []); }).catch(() => {});
+    }
   }, []);
 
   const stats = [
@@ -487,6 +496,9 @@ const About: React.FC = () => {
               )}
             </div>
 
+            <p className="text-xs text-muted-foreground text-center mt-5 leading-relaxed">
+              Have a suggestion? Send private anonymous feedback from the <Link to="/feedback" style={{ color: 'hsl(var(--primary))' }}>Feedback page</Link> and the admin will reply to you there.
+            </p>
             <p className="text-xs text-muted-foreground text-center mt-5 leading-relaxed">
               Everything above works the same on desktop and mobile. Only the navigation differs:
               the sidebar on desktop, the bottom bar and menu on mobile.

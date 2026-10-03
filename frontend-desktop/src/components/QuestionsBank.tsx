@@ -112,8 +112,8 @@ const QuestionsBank: React.FC = () => {
   const [shuffleOptions, setShuffleOptions] = useState(() => {
     try { return localStorage.getItem('qbank-shuffle') !== 'false'; } catch { return true; }
   });
-  const [rawSelections, setRawSelections] = useState<Record<number, string>>({});
-  const [rawLocked, setRawLocked] = useState<Record<number, boolean>>({});
+  const [rawSelections, setRawSelections] = useState<Record<number, string>>(() => readPage<QBSnapshot>(QB_KEY)?.selections ?? {});
+  const [rawLocked, setRawLocked] = useState<Record<number, boolean>>(() => readPage<QBSnapshot>(QB_KEY)?.locked ?? {});
   // Master/detail selection (desktop split pane). Defaults to the first
   // visible question; resets when the page or filter changes.
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -185,6 +185,14 @@ const QuestionsBank: React.FC = () => {
 
   useEffect(() => {
     let alive = true;
+    // Snapshot short-circuit: a previous visit left the full list state.
+    // Render from it (initializers above already did) and skip every fetch.
+    // Only user actions - search, category, page, new-set - load again.
+    if (hasPage(QB_KEY)) {
+      setLoading(false);
+      setLoadingQuestions(false);
+      return () => { alive = false; };
+    }
     const fromPack = async (): Promise<boolean> => {
       // Instant path: the offline pack holds the whole bank on this device.
       // The boot version-probe keeps it fresh, so reading it first is correct,
@@ -352,6 +360,18 @@ const QuestionsBank: React.FC = () => {
   }, [allQuestions, sfxClick]);
 
   useEffect(() => { setPage(0); }, [searchDebounced]);
+
+  // Persist the whole list state on every change: returning to Questions
+  // restores the SAME set, page, filters, and answers instantly.
+  useEffect(() => {
+    if (!allQuestions.length && !shuffledQuestions.length) return;
+    savePage(QB_KEY, {
+      allQuestions, shuffledQuestions,
+      categories: allCategories, counts: categoryCounts, total: totalCount,
+      page, search, category: selectedCategory,
+      selections: rawSelections, locked: rawLocked,
+    } as QBSnapshot);
+  }, [allQuestions, shuffledQuestions, allCategories, categoryCounts, totalCount, page, search, selectedCategory, rawSelections, rawLocked]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

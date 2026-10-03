@@ -86,6 +86,7 @@ export default function TermsOfService() {
             <li>Do not probe, flood, or automate the sign-in, registration, or password-reset endpoints. Automated abuse is refused by rate limits and can get the account behind it suspended.</li>
             <li>Do not upload anything illegal, or anything you do not have the right to share, through Contribute or Past Papers, including papers whose publisher forbids redistribution.</li>
             <li>Do not pretend to be another user, a moderator, or the site itself.</li>
+            <li>Feedback is for genuine suggestions about the app. Spam, abuse, or illegal content sent as feedback is removed, and repeat misuse loses posting access. Replies from the admin are private to you.</li>
           </ul>
         </Section>
 

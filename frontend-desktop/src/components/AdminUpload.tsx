@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { uploadQuestionBankDocx, fetchQuestions, fetchQuestionsCount, fetchCategories, updateQuestion, fetchAdminCategories, renameCategory, deleteCategory, fetchCategoryMeta, setCategoryEmoji, fetchAdminUsers, fetchAdminUserProgress, deleteAdminUser, fetchAdminReferences, addReference, updateReference, deleteReference} from '../services/api';
+import { uploadQuestionBankDocx, fetchQuestions, fetchQuestionsCount, fetchCategories, updateQuestion, fetchAdminCategories, renameCategory, deleteCategory, fetchCategoryMeta, setCategoryEmoji, fetchAdminUsers, fetchAdminUserProgress, deleteAdminUser, fetchAdminReferences, addReference, updateReference, deleteReference, fetchAdminFeedback, replyFeedback} from '../services/api';
 import ReferencesManager from './ReferencesManager';
+import FeedbackInbox from './FeedbackInbox';
 import { toast } from 'react-hot-toast';
 import { type Question } from '@/shared/types';
 import { sortCategories } from '@/utils/categorySort';
@@ -82,7 +83,7 @@ const AdminUpload: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [userProgress, setUserProgress] = useState<any>(null);
   const [userProgressLoading, setUserProgressLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'questions' | 'categories' | 'users' | 'references'>('questions');
+  const [activeTab, setActiveTab] = useState<'questions' | 'categories' | 'users' | 'references' | 'feedback'>('questions');
 
   const emptyOptions = { a: '', b: '', c: '', d: '' };
 
@@ -370,7 +371,7 @@ const AdminUpload: React.FC = () => {
 
       {/* Tabs: Questions | Categories | Users */}
       <div role="tablist" aria-label="Admin sections" style={{ display: 'flex', gap: '0.5rem', background: 'hsl(var(--muted))', borderRadius: 'var(--apple-radius-lg)', padding: '4px' }}>
-        {(['questions', 'categories', 'users', 'references'] as const).map((t) => (
+        {(['questions', 'categories', 'users', 'references', 'feedback'] as const).map((t) => (
           <button
             key={t}
             role="tab"
@@ -674,6 +675,12 @@ Answer key:
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'feedback' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <FeedbackInbox list={fetchAdminFeedback} reply={replyFeedback} />
         </div>
       )}
 

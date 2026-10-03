@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { AuthContext } from '@/context/AuthContext';
@@ -9,7 +9,7 @@ import { useSfx } from '@/hooks/useSfx';
 import { useLang, type Lang } from '@/context/LanguageContext';
 import { useQuizPrefs } from '@/quizPrefs';
 import { staggerParent, sectionRise, useReducedMotion } from '@/motion';
-import { authMe, authUpdateEmail, authSendVerification, authConfirmEmail } from '@/services/api';
+import { authMe, authUpdateEmail, authSendVerification, authConfirmEmail, fetchMyFeedback, sendFeedback } from '@/services/api';
 
 const row: React.CSSProperties = {
   display: 'flex',
@@ -155,6 +155,16 @@ const Settings: React.FC = () => {
 
       {/* Language */}
       <LanguageSection />
+      {/* Anonymous suggestions live on their own page; link from here. */}
+      <div className="card" style={{ padding: '0.9rem' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'hsl(var(--foreground))', marginBottom: '0.25rem' }}>Feedback</h2>
+        <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
+          Private, anonymous suggestions with admin replies.
+        </p>
+        <Link to="/feedback" className="btn btn-outline btn-sm" style={{ padding: '6px 12px', textDecoration: 'none' }}>
+          Open feedback
+        </Link>
+      </div>
       {/* Sound */}
       <motion.section variants={reduced ? undefined : sectionRise} style={{ marginBottom: 16 }} aria-label="Sound">
         <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
