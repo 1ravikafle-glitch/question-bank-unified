@@ -74,7 +74,10 @@ MIN_QUESTIONS_FOR_TRACKING = 5
 # Per-user progress: read on every dashboard visit, changed only on submit.
 # Shared cache (memory now, Redis via REDIS_URL) with 10s TTL + invalidation
 # on write, so bursts of reloads don't re-scan the progress table.
-_PROGRESS_TTL = 10
+# Progress is dropped on every write (submit, attempt delete), so this TTL only
+# bounds staleness when two processes race - not normal reads. 10s re-ran the
+# heaviest per-user query on nearly every page load; 120s keeps home fast.
+_PROGRESS_TTL = 120
 
 def _progress_get(user: str):
     return app_cache.get("prog:" + user)
@@ -245,6 +248,7 @@ def submit_quiz(
         # 4. COMMIT — if this fails, nothing is saved (atomic)
         db.commit()
         _progress_drop(username)
+        drop_dashboard_cache(username)
         print(f"[QUIZ] {username}: {score}/{total} ({percentage}%) — committed", file=sys.stderr)
 
     except HTTPException:
@@ -581,7 +585,130 @@ def clear_wrong_queue(
             models.WrongQuestionQueue.cleared_at.is_(None),
         ).update({"cleared_at": sqlfunc.now()}, synchronize_session="fetch")
         db.commit()
+        drop_dashboard_cache(caller[0])
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to clear queue")
     return {"cleared": len(payload.question_ids)}
+
+
+@router.get("/dashboard")
+def get_dashboard(
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_user),
+):
+    """Everything the home screen needs, in one round trip.
+
+    The home page used to fire six to nine independent requests (total count,
+    categories, category counts, progress, wrong-queue size, bookmark ids, and
+    more from sibling components). Against a local database that is free;
+    against a remote Postgres where every round trip costs half a second or
+    more, it is the entire 3-to-5-second load time. This endpoint runs all of
+    those reads inside one request on one pooled connection, so the network
+    cost is paid once.
+
+    Identity comes from the session, never from a parameter: the old
+    per-endpoint `user_identifier` path parameter invited reading other users'
+    stats, and every endpoint here has since been scoped to the caller. The
+    aggregate keeps that property by construction.
+
+    Shared bank data (count, categories, counts) reuses the 60-second
+    "q:" cache; per-user progress reuses its own cache. Only the small
+    user-specific reads (wrong-queue size, bookmark ids) always hit the
+    database, and both are indexed single-column selects.
+    """
+    import questions_router
+
+    user = caller[0]
+
+    # Shared bank facts in ONE query. COUNT(*), DISTINCT category, and the
+    # per-category GROUP BY are three views of the same table; three round
+    # trips for them made the dashboard pay the remote-database latency three
+    # times over. One GROUP BY answers all three, and the result is written
+    # back through the same "q:" cache keys the standalone endpoints read, so
+    # the aggregate and the individual routes can never disagree.
+    cached_counts = questions_router._get_cached("category-counts")
+    cached_total = questions_router._get_cached("count:None:None")
+    if cached_counts is not None and cached_total is not None:
+        counts = cached_counts
+        total_n = cached_total.get("count", 0) if isinstance(cached_total, dict) else 0
+        categories = sorted(counts.keys())
+    else:
+        rows = (
+            db.query(models.Question.category, sqlfunc.count(models.Question.id))
+            .group_by(models.Question.category)
+            .all()
+        )
+        counts = {r[0] or "Uncategorized": r[1] for r in rows}
+        total_n = sum(counts.values())
+        categories = sorted(counts.keys())
+        questions_router._set_cached("category-counts", counts)
+        questions_router._set_cached("count:None:None", {"count": total_n})
+        # Standalone get_categories excludes NULLs; match it exactly.
+        questions_router._set_cached(
+            "categories", [c for c in categories if c != "Uncategorized"]
+        )
+
+    # Per-user progress, same shape and cache as GET /quiz/progress/{user}.
+    progress = get_user_progress(user, db=db, caller=caller)
+
+    # Wrong-queue SIZE only. The full endpoint loads every queued question's
+    # row; home renders a single number, so a COUNT is all it needs. Cached per
+    # user for the same reason as bookmarks: submit and clear drop the key.
+    wq_key = f"dash:wq:{user}"
+    wq_cached = app_cache.get(wq_key)
+    if wq_cached is not None:
+        wrong_count = wq_cached
+    else:
+        wrong_count = (
+            db.query(sqlfunc.count(models.WrongQuestionQueue.question_id))
+            .filter(
+                models.WrongQuestionQueue.user_identifier == user,
+                models.WrongQuestionQueue.cleared_at.is_(None),
+            )
+            .scalar()
+            or 0
+        )
+        app_cache.set(wq_key, wrong_count, 120)
+
+    # Bookmark ids for the list markers and "practice saved" entry point.
+    # Cached per user: toggles and clears drop the key (see bookmarks_router),
+    # so a longer TTL is safe and this indexed select stops costing a round
+    # trip on every home load.
+    bm_key = f"dash:bm:{user}"
+    bm_cached = app_cache.get(bm_key)
+    if bm_cached is not None:
+        bm_ids = bm_cached
+    else:
+        bm_rows = (
+            db.query(models.Bookmark.question_id)
+            .filter(models.Bookmark.user_identifier == user)
+            .all()
+        )
+        bm_ids = [r[0] for r in bm_rows]
+        app_cache.set(bm_key, bm_ids, 120)
+
+    return {
+        "total": total_n,
+        # Match get_categories exactly: NULL category is counted under
+        # "Uncategorized" in counts but never listed as a category.
+        "categories": [c for c in categories if c != "Uncategorized"],
+        "category_counts": counts,
+        "progress": progress,
+        "wrong_count": wrong_count,
+        "bookmark_ids": bm_ids,
+    }
+
+
+def drop_dashboard_cache(user: str) -> None:
+    """Forget one user's dashboard reads after a write.
+
+    Called by bookmark toggles/clears and by wrong-queue submit/clear paths.
+    Progress has its own key and dropper; this covers the two small reads the
+    dashboard caches alongside it.
+    """
+    try:
+        app_cache.delete(f"dash:bm:{user}")
+        app_cache.delete(f"dash:wq:{user}")
+    except Exception:
+        pass

@@ -172,6 +172,34 @@ export const fetchCategories = async (): Promise<string[]> => {
   });
 };
 
+/**
+ * Everything the home screen needs, in one round trip.
+ *
+ * Replaces six separate requests (total, categories, category counts,
+ * progress, wrong-queue size, bookmark ids). Against a remote database each
+ * of those costs a full round trip, so the batch is the difference between a
+ * ~1s and a ~5s home load. Identity comes from the session; the server
+ * ignores any user parameter by design.
+ */
+export const fetchDashboard = async () => {
+  const response = await api.get<{
+    total: number;
+    categories: string[];
+    category_counts: Record<string, number>;
+    progress: {
+      attempted: number;
+      correct: number;
+      accuracy: number;
+      category_breakdown: { category: string; attempted: number; correct: number; accuracy: number }[];
+      wrong_count: number;
+      recent_attempts: { id: number; score: number; total_questions: number; percentage: number; completed_at: string }[];
+    };
+    wrong_count: number;
+    bookmark_ids: number[];
+  }>('/quiz/dashboard');
+  return response.data;
+};
+
 export const fetchUserProgress = async (userIdentifier: string) => {
   const response = await api.get(`/quiz/progress/${encodeURIComponent(userIdentifier)}`);
   return response.data;

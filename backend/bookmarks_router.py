@@ -127,6 +127,11 @@ def toggle_bookmark(
         app_cache.delete("prog:" + user_identifier)
     except Exception:
         pass
+    try:
+        import quiz_router
+        quiz_router.drop_dashboard_cache(caller[0])
+    except Exception:
+        pass
     return {"bookmarked": bookmarked, "count": count}
 
 
@@ -152,6 +157,11 @@ def clear_bookmarks(
         import app_cache
 
         app_cache.delete("prog:" + user_identifier)
+    except Exception:
+        pass
+    try:
+        import quiz_router
+        quiz_router.drop_dashboard_cache(caller[0])
     except Exception:
         pass
     return {"cleared": cleared}

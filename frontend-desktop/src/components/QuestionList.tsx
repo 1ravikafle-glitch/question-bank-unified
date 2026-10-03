@@ -1,7 +1,6 @@
 import { useEffect, useState, useContext, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchQuestionsCount, fetchCategories, fetchUserProgress, fetchWrongQueue, fetchQuestions,
-  fetchCategoryCounts,} from '../services/api';
+import { fetchQuestions, fetchDashboard } from '../services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import { sortCategories } from '@/utils/categorySort';
@@ -9,7 +8,6 @@ import { fetchCategoryEmoji } from '@/utils/categoryEmoji';
 import { scoreColor, scoreLabel } from '@/utils/scoreColor';
 import PracticeSetupBody from '@/components/PracticeSetupBody';
 import { useLang } from '@/context/LanguageContext';
-import { fetchBookmarkIds } from '../services/api';
 import { motion } from 'framer-motion';
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -136,25 +134,21 @@ const Dashboard: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // All independent reads go out together. fetchCategoryCounts used to
-        // run after this batch finished, adding a full round trip (~0.5s on a
-        // remote database) to every home-page load for no reason.
-        const [totalResp, categoriesResp, progressResp, wrongQueueResp, countsResp] = await Promise.all([
-          fetchQuestionsCount(),
-          fetchCategories(),
-          fetchUserProgress(userId || 'anonymous'),
-          fetchWrongQueue(userId || 'anonymous'),
+        // One request for everything. This used to be six independent calls
+        // (total, categories, counts, progress, wrong-queue, bookmarks), each
+        // paying a full remote-database round trip - the entire 3-to-5-second
+        // home load. GET /quiz/dashboard runs them server-side in one request.
+        // Emoji metadata is local and stays parallel.
+        const [dash, emojiResult] = await Promise.all([
+          fetchDashboard(),
           fetchCategoryEmoji().then((m) => { setEmojiMeta(m); return null; }).catch(() => null),
-          fetchCategoryCounts().catch(() => null),
         ]);
 
-        if (countsResp) {
-          setQuestionCounts(new Map(Object.entries(countsResp || {})));
-        }
+        setQuestionCounts(new Map(Object.entries(dash.category_counts || {})));
+        setTotal(dash.total);
+        setCategories(dash.categories);
 
-        setTotal(totalResp.count);
-        setCategories(categoriesResp);
-
+        const progressResp = dash.progress;
         if (progressResp) {
           setAttempted(progressResp.attempted || 0);
           setCorrect(progressResp.correct || 0);
@@ -164,13 +158,11 @@ const Dashboard: React.FC = () => {
           setRecentAttempts(progressResp.recent_attempts || []);
         }
 
-        if (wrongQueueResp) {
-          setWrongCount(wrongQueueResp.count || wrongQueueResp.questions?.length || 0);
+        if (typeof dash.wrong_count === 'number') {
+          setWrongCount(dash.wrong_count);
         }
 
-        fetchBookmarkIds(userId || 'anonymous')
-          .then((r) => setBmIds(r.ids))
-          .catch(() => {});
+        setBmIds(dash.bookmark_ids || []);
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
       } finally {
