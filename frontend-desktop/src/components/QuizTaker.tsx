@@ -13,6 +13,7 @@ import {
   toggleBookmark,
   fetchNotes, fetchQuestions, refreshAfterSubmit, refreshBookmarksSnapshot} from '../services/api';
 import { ensureBank, peekBank, pickRandom, pickByIds, pickById, bankFacets } from '@/utils/bankStore';
+import { savePage, readPage } from '@/utils/pageStore';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { type Question, type QuizResult, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
@@ -190,11 +191,11 @@ const QuizTaker: React.FC = () => {
     wrongCategory && wrongCatCounts[wrongCategory] != null
       ? wrongCatCounts[wrongCategory]
       : wrongTotal;
-  const [setupCategories, setSetupCategories] = useState<string[]>([]);
+  const [setupCategories, setSetupCategories] = useState<string[]>(() => readPage<string[]>('quiz-setup-cats') ?? []);
   const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
   useEffect(() => { fetchCategoryEmoji().then(setEmojiMeta).catch(() => {}); }, []);
-  const [setupTotal, setSetupTotal] = useState(0);
-  const [setupWrongCount, setSetupWrongCount] = useState(0);
+  const [setupTotal, setSetupTotal] = useState(() => readPage<number>('quiz-setup-total') ?? 0);
+  const [setupWrongCount, setSetupWrongCount] = useState(() => readPage<number>('quiz-setup-wrong') ?? 0);
   const [setupQuizCount, setSetupQuizCount] = useState(10);
   const [setupBmIds, setSetupBmIds] = useState<number[]>([]);
 
@@ -528,6 +529,10 @@ const QuizTaker: React.FC = () => {
     setQuestions([]);
     setShowSetup(true);
     setLoading(false);
+    // Snapshot first: setup numbers change only when the bank grows (admin)
+    // or the wrong queue changes (submit/practice). A stored set renders
+    // instantly; only a missing snapshot pays the network, then saves.
+    if (readPage('quiz-setup-total') !== null) return;
     // Reload setup data
     Promise.all([
       fetchQuestionsCount(),
@@ -535,8 +540,12 @@ const QuizTaker: React.FC = () => {
       fetchWrongQueue(userId || 'anonymous'),
     ]).then(([totalResp, categoriesResp, wrongQueueResp]) => {
       setSetupTotal(totalResp.count);
+      savePage('quiz-setup-total', totalResp.count);
       setSetupCategories(categoriesResp);
-      setSetupWrongCount(wrongQueueResp.questions?.length || 0);
+      savePage('quiz-setup-cats', categoriesResp);
+      const wq = wrongQueueResp.questions?.length || 0;
+      setSetupWrongCount(wq);
+      savePage('quiz-setup-wrong', wq);
     }).catch(() => {});
   }, [userId]);
 

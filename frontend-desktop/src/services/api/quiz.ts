@@ -75,8 +75,12 @@ export function refreshAfterSubmit(userIdentifier: string): void {
           attempted: progress?.attempted || 0,
           correct: progress?.correct || 0,
         });
-        // Wrong-queue shrank (practised questions cleared): drop, don't guess.
+        // Wrong-queue shrank (practised questions cleared): refresh the count
+        // the quiz setup screen shows, so it is new-data-instant too.
         store.markDirty('progress-wrong');
+        fetchWrongQueue(userIdentifier).then((q) => {
+          store.savePage('quiz-setup-wrong', q.count || q.questions?.length || 0);
+        }).catch(() => store.markDirty('quiz-setup-wrong'));
       } catch { /* next visit fetches */ }
       // Dashboard swr: trigger its background revalidation path.
       try { fetchDashboard().catch(() => {}); } catch { /* ignore */ }

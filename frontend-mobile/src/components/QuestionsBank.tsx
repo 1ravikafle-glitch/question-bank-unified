@@ -99,7 +99,8 @@ const QuestionsBank: React.FC = () => {
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>(() => (readPage<QBSnapshot>(QB_KEY)?.shuffledQuestions as Question[]) ?? []);
   // Total the pack claimed, so the background confirmation can compare.
   const packTotalRef = useRef(0);
-  const [loading, setLoading] = useState(true);
+  // Snapshot renders instantly: only true first loads flash the skeleton.
+  const [loading, setLoading] = useState(() => !hasPage(QB_KEY));
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [page, setPage] = useState(() => readPage<QBSnapshot>(QB_KEY)?.page ?? 0);
 
@@ -274,8 +275,21 @@ const QuestionsBank: React.FC = () => {
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
   }, [search]);
 
+  // Previous category: distinguishes a remount (same value, skip everything)
+  // from a real filter change (new value, reload). Effects always run on
+  // mount, so without this every return to Questions reshuffled the list.
+  const prevCategoryRef = useRef<string | null>(null);
   useEffect(() => {
     let alive = true;
+    // Remount with the same category and a saved set: keep everything.
+    // Only a first visit (no snapshot) or an actual category change loads.
+    const snap = readPage<QBSnapshot>(QB_KEY);
+    if (snap && snap.category === selectedCategory && snap.shuffledQuestions?.length) {
+      prevCategoryRef.current = selectedCategory;
+      setLoadingQuestions(false);
+      return () => { alive = false; };
+    }
+    prevCategoryRef.current = selectedCategory;
     const loadQuestions = async () => {
       setLoadingQuestions(true);
       setPage(0);
