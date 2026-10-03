@@ -48,12 +48,27 @@ export function refreshAfterSubmit(userIdentifier: string): void {
         store.savePage('results-data', attempts);
         store.clearDirty('results-data');
         // Home numbers.
-        store.savePage('home-data', {
-          total: progress?.total_questions || store.readPage<any>('home-data')?.total || 0,
-          categories: store.readPage<any>('home-data')?.categories || [],
-          attempted: progress?.attempted || 0,
-          correct: progress?.correct || 0,
-        });
+        // Full home shape (see HomeSnapshot): numbers the practice card
+        // shows must refresh here, not just progress internals.
+        (() => {
+          const prev = store.readPage<any>('home-data') || {};
+          // Bank totals per category never change on submit: keep stored.
+          store.savePage('home-data', {
+            total: progress?.total_questions || prev.total || 0,
+            categories: prev.categories || [],
+            attempted: progress?.attempted || 0,
+            correct: progress?.correct || 0,
+            accuracy: progress?.accuracy ?? prev.accuracy ?? null,
+            wrongCount: progress?.wrong_count ?? prev.wrongCount ?? 0,
+            catStats: progress?.category_breakdown || prev.catStats || [],
+            questionCounts: prev.questionCounts || [],
+            recentAttempts: (attempts || []).map((a: any) => ({
+              id: a.id, score: a.score, total_questions: a.total_questions,
+              percentage: a.percentage, completed_at: a.completed_at,
+            })),
+            bmIds: prev.bmIds || [],
+          });
+        })();
         // Wrong-queue shrank (practised questions cleared): refresh the count
         // the quiz setup screen shows, so it is new-data-instant too.
         store.markDirty('progress-wrong');

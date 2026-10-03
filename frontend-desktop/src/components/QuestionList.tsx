@@ -111,6 +111,12 @@ interface HomeSnapshot {
   categories: string[];
   attempted: number;
   correct: number;
+  accuracy: number | null;
+  wrongCount: number;
+  catStats: { category: string; attempted: number; correct: number; accuracy: number }[];
+  questionCounts: [string, number][];
+  recentAttempts: { id: number; score: number; total_questions: number; percentage: number; completed_at: string }[];
+  bmIds: number[];
 }
 // Home lives in the shared page store (not a module var) so quiz submit can
 // refresh it in the background: the next home visit then renders NEW data
@@ -127,14 +133,14 @@ const Dashboard: React.FC = () => {
   const [category, setCategory] = useState<string>('');
   const [categories, setCategories] = useState<string[]>(() => readHome()?.categories ?? []);
   const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
-  const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(() => readHome()?.accuracy ?? null);
   const [attempted, setAttempted] = useState(() => readHome()?.attempted ?? 0);
   const [correct, setCorrect] = useState(() => readHome()?.correct ?? 0);
-  const [catStats, setCatStats] = useState<{ category: string; attempted: number; correct: number; accuracy: number }[]>([]);
-  const [questionCounts, setQuestionCounts] = useState<Map<string, number>>(new Map());
-  const [recentAttempts, setRecentAttempts] = useState<{ id: number; score: number; total_questions: number; percentage: number; completed_at: string }[]>([]);
-  const [wrongCount, setWrongCount] = useState(0);
-  const [bmIds, setBmIds] = useState<number[]>([]);
+  const [catStats, setCatStats] = useState<{ category: string; attempted: number; correct: number; accuracy: number }[]>(() => readHome()?.catStats ?? []);
+  const [questionCounts, setQuestionCounts] = useState<Map<string, number>>(() => new Map(readHome()?.questionCounts ?? []));
+  const [recentAttempts, setRecentAttempts] = useState<{ id: number; score: number; total_questions: number; percentage: number; completed_at: string }[]>(() => readHome()?.recentAttempts ?? []);
+  const [wrongCount, setWrongCount] = useState(() => readHome()?.wrongCount ?? 0);
+  const [bmIds, setBmIds] = useState<number[]>(() => readHome()?.bmIds ?? []);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [quote] = useState(() => quotes[Math.floor(Math.random() * quotes.length)]);
@@ -166,6 +172,12 @@ const Dashboard: React.FC = () => {
           categories: dash.categories,
           attempted: dash.progress?.attempted || 0,
           correct: dash.progress?.correct || 0,
+          accuracy: dash.progress?.accuracy ?? null,
+          wrongCount: typeof dash.wrong_count === 'number' ? dash.wrong_count : 0,
+          catStats: dash.progress?.category_breakdown || [],
+          questionCounts: Object.entries(dash.category_counts || {}),
+          recentAttempts: dash.progress?.recent_attempts || [],
+          bmIds: dash.bookmark_ids || [],
         });
         // First home load costs seconds anyway: fill every other section's
         // snapshot behind it so all later touches render instantly.
