@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 import {
   authRegister,
   authConfirmEmail,
@@ -11,34 +12,211 @@ import { toast } from 'react-hot-toast';
 
 const label: React.CSSProperties = {
   display: 'block',
-  fontSize: '0.6875rem',
+  fontSize: '0.8125rem',
   fontWeight: 600,
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  color: 'hsl(var(--muted-foreground))',
-  marginBottom: '0.4rem',
+  color: 'hsl(var(--foreground))',
+  marginBottom: '0.45rem',
 };
 const input: React.CSSProperties = {
   width: '100%',
-  padding: '0.625rem 0.75rem',
-  borderRadius: 'var(--apple-radius-md)',
-  border: '1px solid hsl(var(--border))',
+  height: '52px',
+  padding: '0 1rem',
+  borderRadius: '14px',
+  border: '1.5px solid hsl(var(--border))',
   background: 'hsl(var(--card))',
   color: 'hsl(var(--foreground))',
-  fontSize: '0.875rem',
+  fontSize: '1rem',
   fontFamily: 'var(--font-sans)',
+  outline: 'none',
+  transition: 'border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease',
+};
+const inputFocus: React.CSSProperties = {
+  borderColor: 'hsl(var(--primary))',
+  boxShadow: '0 0 0 4px hsl(var(--primary) / 0.12)',
 };
 const btn: React.CSSProperties = {
   width: '100%',
-  padding: '0.6875rem',
-  borderRadius: 'var(--apple-radius-md)',
-  fontSize: '0.875rem',
+  height: '52px',
+  borderRadius: '14px',
+  fontSize: '1rem',
   fontWeight: 600,
 };
 const note: React.CSSProperties = {
   fontSize: '0.75rem',
   color: 'hsl(var(--muted-foreground))',
   lineHeight: 1.5,
+};
+
+/* ── Shared Apple auth primitives ──────────────────────────────
+   Transform/opacity motion only (60fps, compositor-driven). Respects
+   prefers-reduced-motion via the app-level MotionConfig. No hardcoded
+   colors: every value is a design token. */
+
+export const AInput: React.FC<{
+  id: string;
+  label: string;
+  type?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  autoComplete?: string;
+  autoFocus?: boolean;
+  required?: boolean;
+  maxLength?: number;
+  mono?: boolean;
+  trailing?: React.ReactNode;
+  onEnter?: () => void;
+}> = ({ id, label, type = 'text', value, onChange, placeholder, autoComplete, autoFocus, required, maxLength, mono, trailing, onEnter }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        style={{
+          display: 'block', fontSize: '0.8125rem', fontWeight: 600,
+          color: 'hsl(var(--foreground))', marginBottom: '0.45rem',
+        }}
+      >
+        {label}
+      </label>
+      <div style={{ position: 'relative' }}>
+        <motion.input
+          id={id}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && onEnter) onEnter(); }}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          autoFocus={autoFocus}
+          required={required}
+          maxLength={maxLength}
+          whileFocus={{ scale: 1.005 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+          style={{
+            width: '100%', height: '52px', padding: trailing ? '0 52px 0 1rem' : '0 1rem',
+            borderRadius: '14px', border: '1.5px solid hsl(var(--border))',
+            background: 'hsl(var(--card))', color: 'hsl(var(--foreground))',
+            fontSize: '1rem', fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
+            letterSpacing: mono ? '0.2em' : undefined,
+            textTransform: mono ? 'uppercase' : undefined,
+            outline: 'none',
+            ...(focused ? inputFocus : null),
+          }}
+        />
+        {trailing && (
+          <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)' }}>
+            {trailing}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export const AButton: React.FC<{
+  children: React.ReactNode;
+  onClick?: (e: React.FormEvent) => void;
+  type?: 'submit' | 'button';
+  disabled?: boolean;
+  loading?: boolean;
+  secondary?: boolean;
+}> = ({ children, onClick, type = 'button', disabled, loading, secondary }) => (
+  <motion.button
+    type={type}
+    onClick={onClick}
+    disabled={disabled || loading}
+    whileTap={disabled || loading ? undefined : { scale: 0.97 }}
+    transition={{ type: 'spring', stiffness: 600, damping: 30 }}
+    className={secondary ? 'btn' : 'btn btn-primary'}
+    style={{
+      ...btn,
+      opacity: disabled ? 0.5 : 1,
+      cursor: disabled || loading ? 'default' : 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+    }}
+  >
+    {loading && (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+        <path d="M21 12a9 9 0 11-6.219-8.56" />
+      </svg>
+    )}
+    {children}
+  </motion.button>
+);
+
+export const AError: React.FC<{ message: string }> = ({ message }) => (
+  <motion.p
+    role="alert"
+    initial={{ opacity: 0, y: -4 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+    style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'hsl(var(--wrong-600))', margin: 0 }}
+  >
+    {message}
+  </motion.p>
+);
+
+/* Eight OTP boxes: auto-advance, backspace nav, full-code paste. One hidden
+   truth (the joined string); boxes are purely presentational. */
+export const OtpBoxes: React.FC<{
+  length?: number;
+  value: string;
+  onChange: (v: string) => void;
+  autoFocus?: boolean;
+}> = ({ length = 8, value, onChange, autoFocus }) => {
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const chars = Array.from({ length }, (_, i) => value[i] || '');
+  const setAt = (i: number, ch: string) => {
+    const next = value.split('');
+    while (next.length < length) next.push('');
+    next[i] = (ch || '').slice(-1).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    onChange(next.join('').slice(0, length));
+  };
+  return (
+    <div style={{ display: 'flex', gap: '0.45rem', justifyContent: 'center' }} role="group" aria-label="Verification code">
+      {chars.map((ch, i) => (
+        <motion.input
+          key={i}
+          ref={(el) => { refs.current[i] = el; }}
+          value={ch}
+          onChange={(e) => {
+            // Paste of the whole code fills every box.
+            const pasted = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            if (pasted.length > 1) {
+              onChange(pasted.slice(0, length));
+              refs.current[Math.min(pasted.length, length - 1)]?.focus();
+              return;
+            }
+            setAt(i, e.target.value);
+            if (e.target.value && i < length - 1) refs.current[i + 1]?.focus();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Backspace' && !chars[i] && i > 0) refs.current[i - 1]?.focus();
+          }}
+          onFocus={(e) => e.target.select()}
+          autoFocus={autoFocus && i === 0}
+          aria-label={`Digit ${i + 1}`}
+          inputMode="text"
+          autoComplete={i === 0 ? 'one-time-code' : 'off'}
+          maxLength={i === 0 ? length : 1}
+          whileFocus={{ scale: 1.06 }}
+          transition={{ type: 'spring', stiffness: 550, damping: 28 }}
+          style={{
+            width: '100%', maxWidth: '2.6rem', aspectRatio: '0.86',
+            textAlign: 'center', fontSize: '1.15rem', fontWeight: 700,
+            fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+            borderRadius: '12px', border: ch ? '1.5px solid hsl(var(--primary))' : '1.5px solid hsl(var(--border))',
+            background: ch ? 'hsl(var(--primary) / 0.07)' : 'hsl(var(--card))',
+            color: 'hsl(var(--foreground))', outline: 'none',
+          }}
+        />
+      ))}
+    </div>
+  );
 };
 
 const errText = (e: unknown, fallback: string) => {
@@ -170,39 +348,34 @@ export const RegisterView: React.FC<{
           <h2 style={{ margin: '0 0 0.35rem', fontSize: '1.05rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
             Check your Gmail
           </h2>
-          <p style={{ ...note, margin: 0 }}>
-            We sent a code to <strong style={{ fontWeight: 600 }}>{gmail.trim().toLowerCase()}</strong>.
-            Enter it to confirm the address and get your member ID.
+          <p style={{ ...note, margin: 0, fontSize: '0.875rem' }}>
+            We sent a code to <strong style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>{gmail.trim().toLowerCase()}</strong>.
+            Enter it to get your member ID.
           </p>
         </div>
-        <div>
-          <label style={label} htmlFor="ver-code">Verification code</label>
-          <input id="ver-code" style={{ ...input, letterSpacing: '0.35em', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}
-            value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code"
-            inputMode="text" placeholder="8 characters" maxLength={12} required autoFocus />
-        </div>
+        <OtpBoxes value={code} onChange={setCode} autoFocus />
         {memberId && (
           <p style={{ ...note, margin: 0, padding: '0.75rem', borderRadius: 'var(--apple-radius-md)', background: 'hsl(var(--success) / 0.1)', color: 'hsl(var(--success))' }}>
             Verified. Your member ID is <strong style={{ fontWeight: 700 }}>{memberId}</strong>.
           </p>
         )}
-        {error && <p role="alert" style={{ ...note, color: 'hsl(var(--destructive))', margin: 0 }}>{error}</p>}
+        {error && <AError message={error} />}
         {!mailOk && !memberId && (
           <p style={{ ...note, margin: 0, color: 'hsl(var(--destructive))' }}>
             Email delivery is not working on this server, so no code was sent.
           </p>
         )}
-        <button type="submit" className="btn btn-primary" style={btn} disabled={busy || !!memberId}>
-          {busy ? 'Checking…' : memberId ? 'Verified' : 'Verify and get my ID'}
-        </button>
+        <AButton type="submit" loading={busy} disabled={!!memberId || code.trim().length < 8}>
+          {memberId ? 'Verified' : 'Verify and get my ID'}
+        </AButton>
         {!memberId && (
-          <button type="button" className="btn" style={btn} onClick={resend} disabled={busy}>
-            {busy ? 'Sending…' : 'Send a new code'}
-          </button>
+          <AButton secondary onClick={resend} disabled={busy}>
+            Send a new code
+          </AButton>
         )}
-        <button type="button" className="btn" style={btn} onClick={onDone} disabled={busy}>
+        <AButton secondary onClick={onDone} disabled={busy}>
           {memberId ? 'Continue to the app' : 'Skip for now'}
-        </button>
+        </AButton>
       </form>
     );
   }
@@ -210,45 +383,38 @@ export const RegisterView: React.FC<{
   return (
     <form onSubmit={submit} aria-label="Register form" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
       <div>
-        <label style={label} htmlFor="reg-mail">Gmail address</label>
-        <input id="reg-mail" style={input} type="email" value={gmail} onChange={(e) => setGmail(e.target.value)}
+        <AInput id="reg-mail" label="Gmail address" type="email" value={gmail} onChange={setGmail}
           autoComplete="email" placeholder="you@gmail.com" required autoFocus />
-        <p style={{ ...note, margin: '0.35rem 0 0' }}>
-          This is how you sign in and how you recover your account. We email a code
-          to confirm it is really yours.
+        <p style={{ ...note, margin: '0.45rem 0 0', fontSize: '0.8125rem' }}>
+          How you sign in and recover your account. We email a code to confirm it is yours.
         </p>
       </div>
+      <AInput id="reg-user" label="Display name" value={username} onChange={setUsername}
+        autoComplete="username" placeholder="e.g. ravi.kafle" required />
       <div>
-        <label style={label} htmlFor="reg-user">Display name</label>
-        <input id="reg-user" style={input} value={username} onChange={(e) => setUsername(e.target.value)}
-          autoComplete="username" placeholder="e.g. ravi.kafle" required />
-      </div>
-      <div>
-        <label style={label} htmlFor="reg-pw">Password</label>
-        <div style={{ position: 'relative' }}>
-          <input id="reg-pw" style={{ ...input, paddingRight: '44px' }} type={showPassword ? 'text' : 'password'}
-            value={password} onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password" placeholder="At least 8 characters" required minLength={8} />
-          <button type="button" onClick={() => setShowPassword(!showPassword)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-            style={{
-              position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
-              width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', borderRadius: '8px', padding: 0,
-            }}>
-            {showPassword ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                <line x1="1" y1="1" x2="23" y2="23" />
-              </svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            )}
-          </button>
-        </div>
+        <AInput id="reg-pw" label="Password" type={showPassword ? 'text' : 'password'}
+          value={password} onChange={setPassword}
+          autoComplete="new-password" placeholder="At least 8 characters" required
+          trailing={
+            <button type="button" onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              style={{
+                width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', borderRadius: '10px', padding: 0,
+              }}>
+              {showPassword ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          } />
         {password && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
             <div style={{ flex: 1, height: '4px', borderRadius: '2px', background: 'hsl(var(--muted))', overflow: 'hidden' }}>
@@ -264,14 +430,14 @@ export const RegisterView: React.FC<{
         )}
       </div>
 
-      {error && <p role="alert" style={{ ...note, color: 'hsl(var(--destructive))', margin: 0 }}>{error}</p>}
+      {error && <AError message={error} />}
 
-      <button type="submit" className="btn btn-primary" style={btn} disabled={busy}>
-        {busy ? 'Creating…' : 'Create account'}
-      </button>
-      <button type="button" className="btn" style={btn} onClick={onSwitchToLogin} disabled={busy}>
+      <AButton type="submit" loading={busy}>
+        Create account
+      </AButton>
+      <AButton secondary onClick={onSwitchToLogin} disabled={busy}>
         I already have an account
-      </button>
+      </AButton>
     </form>
   );
 };

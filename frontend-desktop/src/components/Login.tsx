@@ -6,16 +6,17 @@ import { ForestryLogo } from '@/components/ForestryLogo';
 import ThemeSegmented from '@/components/ThemeSegmented';
 import { useLang } from '@/context/LanguageContext';
 import { toast } from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
 import { RegisterView, ResetPasswordView } from '@/components/AuthViews';
+import { AInput, AButton, AError } from '@/components/AuthViews';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { t, num } = useLang();
+  const { lang, t, num, setLang } = useLang();
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { setUserId, setSessionToken } = useContext(AuthContext);
@@ -172,7 +173,60 @@ const Login: React.FC = () => {
           </>
         )}
 
-        {/* Form */}
+        {/* Segmented Sign in / Create account */}
+        {view !== 'forgot' && (
+          <div
+            role="tablist"
+            aria-label="Sign in or create account"
+            style={{
+              display: 'flex', background: 'hsl(var(--muted))', borderRadius: '14px',
+              padding: '3px', gap: '2px', marginBottom: '20px',
+            }}
+          >
+            {(['login', 'register'] as const).map((v) => (
+              <button
+                key={v}
+                role="tab"
+                aria-selected={view === v}
+                type="button"
+                onClick={() => { setView(v); setError(''); }}
+                style={{
+                  flex: 1, padding: '10px 4px', borderRadius: '11px', border: 'none', cursor: 'pointer',
+                  fontSize: '0.875rem', fontWeight: view === v ? 700 : 500,
+                  color: view === v ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+                  background: view === v ? 'hsl(var(--card))' : 'transparent',
+                  boxShadow: view === v ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                  position: 'relative',
+                }}
+              >
+                {view === v && (
+                  <motion.span
+                    layoutId="auth-segment"
+                    transition={{ type: 'spring', stiffness: 500, damping: 38 }}
+                    style={{
+                      position: 'absolute', inset: 0, borderRadius: '11px',
+                      background: 'hsl(var(--card))',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.12)', zIndex: 0,
+                    }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 1 }}>
+                  {v === 'login' ? 'Sign in' : 'Create account'}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Form with spring view transitions (transform/opacity only) */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={view}
+            initial={{ opacity: 0, x: view === 'login' ? -24 : 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: view === 'login' ? 24 : -24 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 34 }}
+          >
         {view === 'register' ? (
           <RegisterView
             onDone={() => {
@@ -196,177 +250,74 @@ const Login: React.FC = () => {
           <ResetPasswordView onDone={() => setView('login')} />
         ) : (
         <form onSubmit={handleSubmit} aria-label="Login form">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label
-                htmlFor="login-username"
-                style={{
-                  display: 'block',
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  color: 'hsl(var(--foreground))',
-                  marginBottom: '6px',
-                }}
-              >
-                {t('login.username')}
-              </label>
-              <input
-                id="login-username"
-                type="text"
-                className="input"
-                placeholder="you@gmail.com"
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  setError('');
-                }}
-                autoFocus
-                autoComplete="username"
-                aria-required="true"
-                style={{ height: '44px' }}
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="login-password"
-                style={{
-                  display: 'block',
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  color: 'hsl(var(--foreground))',
-                  marginBottom: '6px',
-                }}
-              >
-                {t('login.password')}
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  className="input"
-                  placeholder={t('login.password')}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setError('');
-                  }}
-                  autoComplete="current-password"
-                  aria-required="true"
-                  style={{ height: '44px', paddingRight: '44px' }}
-                />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <AInput
+              id="login-username"
+              label={t('login.username')}
+              value={username}
+              onChange={(v) => { setUsername(v); setError(''); }}
+              placeholder="you@gmail.com"
+              autoFocus
+              autoComplete="username"
+              required
+            />
+            <AInput
+              id="login-password"
+              label={t('login.password')}
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(v) => { setPassword(v); setError(''); }}
+              placeholder={t('login.password')}
+              autoComplete="current-password"
+              required
+              trailing={
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   style={{
-                    position: 'absolute',
-                    right: '8px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '32px',
-                    height: '32px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'hsl(var(--muted-foreground))',
-                    borderRadius: '8px',
-                    padding: 0,
+                    width: '36px', height: '36px', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'hsl(var(--muted-foreground))', borderRadius: '10px', padding: 0,
                   }}
                 >
                   {showPassword ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
                       <line x1="1" y1="1" x2="23" y2="23"/>
                     </svg>
                   ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                       <circle cx="12" cy="12" r="3"/>
                     </svg>
                   )}
                 </button>
-              </div>
-            </div>
+              }
+            />
 
-            {error && (
-              <p
-                role="alert"
-                style={{
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  color: 'hsl(var(--wrong-600))',
-                }}
-              >
-                {error}
-              </p>
-            )}
+            {error && <AError message={error} />}
 
-            <motion.button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading || !username.trim() || !password.trim()}
-              aria-label={loading ? t('login.signing') : t('login.signin')}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              style={{
-                width: '100%',
-                height: '44px',
-                borderRadius: '12px',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-              }}
-            >
-              {loading ? (
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    style={{ animation: 'spin 0.8s linear infinite' }}
-                  >
-                    <path d="M21 12a9 9 0 11-6.219-8.56" />
-                  </svg>
-                  {t('login.signing')}
-                </span>
-              ) : (
-                t('login.signin')
-              )}
-            </motion.button>
+            <AButton type="submit" loading={loading} disabled={!username.trim() || !password.trim()}>
+              {loading ? t('login.signing') : t('login.signin')}
+            </AButton>
           </div>
         </form>
         )}
 
+          </motion.div>
+        </AnimatePresence>
+
         {/* Account recovery + registration links, login view only */}
         {view === 'login' && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 16 }}>
               <button
                 type="button"
                 onClick={() => { setView('forgot'); setError(''); }}
                 style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', cursor: 'pointer', textDecoration: 'underline' }}
               >
                 Forgot password?
-              </button>
-              <button
-                type="button"
-                onClick={() => { setView('register'); setError(''); }}
-                style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.8125rem', color: 'hsl(var(--primary))', cursor: 'pointer', fontWeight: 600 }}
-              >
-                Create account
               </button>
             </div>
           </>
@@ -384,6 +335,41 @@ const Login: React.FC = () => {
         >
           {t('login.hint')}
         </p>}
+
+        {/* Language — English / Nepali */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+          <div style={{ width: 'min(320px, 100%)' }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                textAlign: 'center',
+                color: 'hsl(var(--muted-foreground))',
+                marginBottom: 6,
+              }}
+            >
+              Language
+            </div>
+            <div style={{ display: 'flex', background: 'hsl(var(--muted))', borderRadius: 12, padding: 3, gap: 2 }} role="group" aria-label="Language">
+              {(['en', 'ne'] as const).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => setLang(l)}
+                  aria-pressed={lang === l}
+                  style={{
+                    flex: 1, padding: '8px 4px', borderRadius: 9, border: 'none', cursor: 'pointer',
+                    fontSize: 13, fontWeight: lang === l ? 700 : 500,
+                    color: lang === l ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+                    background: lang === l ? 'hsl(var(--card))' : 'transparent',
+                  }}
+                >
+                  {l === 'en' ? 'English' : 'नेपाली'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {/* Appearance — Light / Dark / System */}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>

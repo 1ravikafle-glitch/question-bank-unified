@@ -5,7 +5,12 @@ declare global {
     google?: {
       accounts: {
         id: {
-          initialize: (cfg: { client_id: string; callback: (r: { credential: string }) => void }) => void;
+          initialize: (cfg: {
+            client_id: string;
+            callback: (r: { credential: string }) => void;
+            use_fedcm_for_prompt?: boolean;
+            error_callback?: (e: unknown) => void;
+          }) => void;
           renderButton: (parent: HTMLElement, cfg: Record<string, unknown>) => void;
         };
       };
@@ -47,20 +52,41 @@ const GoogleSignInButton: React.FC<{
 }> = ({ clientId, onCredential }) => {
   const holder = useRef<HTMLDivElement | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  const [, setRetryN] = useState(0);
 
   const id =
     clientId ??
     ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_GOOGLE_CLIENT_ID ?? '');
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id || !holder.current) return;
     let cancelled = false;
+    setLoadError(null);
     loadGsi()
       .then(() => {
         if (cancelled || !holder.current || !window.google?.accounts?.id) return;
         window.google.accounts.id.initialize({
           client_id: id,
           callback: (r) => onCredential(r.credential),
+          // FedCM migration flag: harmless for the button popup flow, required
+          // if Google ever routes through One Tap. Without it newer Chrome
+          // silently drops the credential and the user sees nothing happen.
+          use_fedcm_for_prompt: true,
+          // Surface popup/origin failures instead of dying silently. The most
+          // common one is an unauthorized origin: the Render domain must be
+          // listed in the OAuth client's authorized JavaScript origins, or
+          // Google refuses before any token exists.
+          error_callback: (e: unknown) => {
+            if (cancelled) return;
+            const msg = typeof e === 'string' ? e : (e as { message?: string })?.message || '';
+            setLoadError(
+              /origin|redirect_uri|not allowed/i.test(msg)
+                ? 'This site is not authorized in Google Cloud Console for this sign-in. The site owner must add its domain to the OAuth client\'s authorized origins.'
+                : 'Google could not start sign-in. Check popups are allowed and try again.'
+            );
+          },
         });
         window.google.accounts.id.renderButton(holder.current, {
           theme: document.documentElement.classList.contains('dark') ? 'filled_black' : 'outline_black',
@@ -68,6 +94,9 @@ const GoogleSignInButton: React.FC<{
           width: 320,
           text: 'continue_with',
           shape: 'rectangular',
+          // Google localizes the button from the browser; pin English so it
+          // matches the app instead of following IP geolocation.
+          locale: 'en',
         });
       })
       .catch(() => {
@@ -79,7 +108,25 @@ const GoogleSignInButton: React.FC<{
     };
   }, [id, onCredential]);
 
+  const retry = () => {
+    setUnavailable(false);
+    setLoadError(null);
+    scriptPromise = null;
+    // Re-run by toggling holder content: simplest is a state bump.
+    setRetryN((n) => n + 1);
+  };
+
   if (!id || unavailable) return null;
+  if (loadError) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+        <p role="alert" style={{ fontSize: '0.8125rem', color: 'hsl(var(--wrong-600))', textAlign: 'center', maxWidth: 300 }}>{loadError}</p>
+        <button type="button" onClick={retry} className="btn btn-outline btn-sm" style={{ padding: '6px 14px' }}>
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return <div ref={holder} style={{ display: 'flex', justifyContent: 'center' }} />;
 };
