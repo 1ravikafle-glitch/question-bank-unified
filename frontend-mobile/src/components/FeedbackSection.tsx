@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { savePage, readPage } from '@/utils/pageStore';
 import { toast } from 'react-hot-toast';
 
 interface FeedbackThread {
@@ -29,8 +30,8 @@ const STATUS_LABEL: Record<string, string> = {
    admin reads structurally. Authors see only their own threads here.
    Limit: 2 per rolling 6 hours (enforced server-side; the button explains). */
 export default function FeedbackSection({ list, send }: Props) {
-  const [threads, setThreads] = useState<FeedbackThread[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [threads, setThreads] = useState<FeedbackThread[]>(() => readPage<FeedbackThread[]>('feedback-data') ?? []);
+  const [loading, setLoading] = useState(() => !readPage('feedback-data'));
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -38,6 +39,7 @@ export default function FeedbackSection({ list, send }: Props) {
     try {
       const r = await list();
       setThreads(r.feedback || []);
+      savePage('feedback-data', r.feedback || []);
     } catch {
       /* offline or logged out: section stays usable for drafting */
     } finally {

@@ -167,6 +167,12 @@ const Dashboard: React.FC = () => {
           attempted: dash.progress?.attempted || 0,
           correct: dash.progress?.correct || 0,
         });
+        // First home load costs seconds anyway: fill every other section's
+        // snapshot behind it so all later touches render instantly.
+        // Fire-and-forget (never awaited, never throws visibly).
+        try {
+          import('@/utils/sessionWarm').then((m) => m.warmSession(userId || 'anonymous')).catch(() => {});
+        } catch { /* warmer never breaks home */ }
         setTotal(dash.total);
         setCategories(dash.categories);
 
