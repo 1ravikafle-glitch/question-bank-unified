@@ -281,11 +281,17 @@ def auth_providers():
     import email_crypto
 
     st = mailer.status()
+    # The OAuth client ID is public (it ships in the button HTML Google
+    # renders), so the frontend reads it here at runtime instead of baking a
+    # build-time env var that is easy to forget - which is exactly how the
+    # button stayed dead while the backend was ready.
+    google_id = google_auth.client_id() if google_auth.enabled() else None
     # Resolve once. This endpoint is called by the login screen on every visit,
     # and each of these used to be evaluated twice.
     encrypted = email_crypto.encryption_available()
     return {
         "google": google_auth.enabled(),
+        "google_client_id": google_id,
         "password_reset": True,
         "email_delivery": mailer.configured(),
         # Operator detail, safe to expose: host and account, never the password.

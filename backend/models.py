@@ -217,6 +217,25 @@ class Reference(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class Feedback(Base):
+    """User suggestions, anonymous to everyone except the author.
+
+    user_identifier is stored so the author sees their own thread and replies,
+    and so the rate limit works - but it is NEVER serialized to admin reads.
+    Admin sees the message, the reply thread, and timestamps only.
+    """
+
+    __tablename__ = "feedback"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_identifier = Column(String(100), nullable=False, index=True)
+    message = Column(String(2000), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    admin_reply = Column(String(2000), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    replied_at = Column(DateTime(timezone=True), nullable=True)
+
+
 class Quote(Base):
     """Motivational line shown on the dashboard (random pick)."""
 

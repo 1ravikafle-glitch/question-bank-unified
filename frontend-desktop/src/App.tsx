@@ -72,9 +72,32 @@ function ScrollToTop() {
   return null;
 }
 
+function warmBankOnce() {
+  try {
+    let done = false;
+    const run = () => {
+      if (done) return;
+      done = true;
+      import('@/utils/bankStore').then(async (m) => {
+        if (m.bankSize() > 0) return;
+        const api = await import('./services/api');
+        await m.ensureBank(
+          (skip, limit) => api.fetchQuestions({ skip, limit }),
+          () => api.fetchQuestionsCount().then((r) => r.count)
+        ).catch(() => {});
+      }).catch(() => {});
+    };
+    if ('requestIdleCallback' in window) (window as any).requestIdleCallback(run, { timeout: 8000 });
+    else setTimeout(run, 2500);
+  } catch { /* warmup is advisory */ }
+}
+
 function AppShell() {
   const [userId, setUserId] = useState<string>(() => localStorage.getItem('userId') || '');
   const [sessionToken, setSessionTokenState] = useState<string>(() => localStorage.getItem('fpsc-session') || '');
+
+  // Bank warmup: fill session memory once signed in (see warmBankOnce).
+  useEffect(() => { if (userId) warmBankOnce(); }, [userId]);
 
   // One-time upgrade: exchange a legacy stored password for a session token,
   // then delete the password so plaintext credentials are never persisted.

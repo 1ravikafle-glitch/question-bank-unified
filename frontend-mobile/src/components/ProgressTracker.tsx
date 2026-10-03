@@ -1,6 +1,7 @@
 import { useEffect, useState, useContext, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchUserProgress, fetchWrongQueue } from '../services/api';
+import { savePage, readPage } from '@/utils/pageStore';
 import { toast } from 'react-hot-toast';
 import { scoreColor, scoreLabel } from '@/utils/scoreColor';
 import { AuthContext } from '@/context/AuthContext';
@@ -81,18 +82,33 @@ const ProgressTracker: React.FC = () => {
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
   const { num } = useLang();
-  const [data, setData] = useState<ProgressData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<ProgressData | null>(() => readPage<ProgressData>('progress-data'));
+  const [loading, setLoading] = useState(() => !readPage('progress-data'));
   const [view, setView] = useState<'weekly' | 'lifetime'>('weekly');
-  const [wrongQueueCount, setWrongQueueCount] = useState(0);
+  const [wrongQueueCount, setWrongQueueCount] = useState(() => readPage<number>('progress-wrong') ?? 0);
 
   useEffect(() => {
     const load = async () => {
       if (!userId) return;
+      // Instant when clean: snapshot renders on first paint (see initializers
+      // above). Refetch only after a submit marked progress dirty, or on true
+      // first load. Quiz submit is the only writer; see markDirty('progress').
+      const { isDirty, clearDirty } = await import('@/utils/pageStore');
+      const snapshot = readPage<ProgressData>('progress-data');
+      if (snapshot && !isDirty('progress-data')) {
+        // Still revalidate quietly so a long-lived tab never goes stale.
+        fetchUserProgress(userId).then((p) => {
+          setData(p);
+          savePage('progress-data', p);
+        }).catch(() => {});
+        return;
+      }
+      clearDirty('progress-data');
       setLoading(true);
       try {
         const progress = await fetchUserProgress(userId);
         setData(progress);
+        savePage('progress-data', progress);
       } catch (error) {
         console.error('Error fetching progress:', error);
         toast.error('Could not load your progress.');
@@ -105,7 +121,8 @@ const ProgressTracker: React.FC = () => {
 
   useEffect(() => {
     if (!userId) return;
-    fetchWrongQueue(userId).then(q => setWrongQueueCount(q.count || 0)).catch(() => {});
+    if (readPage('progress-wrong') !== null) return;
+    fetchWrongQueue(userId).then(q => { setWrongQueueCount(q.count || 0); savePage('progress-wrong', q.count || 0); }).catch(() => {});
   }, [userId]);
 
   const currentAttempted = data ? (view === 'weekly' ? data.weekly_attempted : data.lifetime_attempted) : 0;

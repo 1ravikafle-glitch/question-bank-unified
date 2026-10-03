@@ -76,7 +76,7 @@
          down 340px (0.28 CLS on its own, on top of the 0.07 from the slot
          resizing once already). Pinning the height on a wrapper AdSense never
          touches makes the reserved space genuinely constant. */
-      #ad-slot-mobile{width:100%;height:0;overflow:hidden;position:relative;z-index:100}
+      #ad-slot-mobile{width:100%;height:0;overflow:hidden;position:relative;display:none;z-index:100}
       #ad-top-mobile{width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:6px 0;position:relative;z-index:100;max-height:none;overflow:hidden}
       /* Space is reserved so the page never jumps, but an unfilled slot must be
          invisible rather than an empty dark band. */
@@ -186,6 +186,13 @@
         var pinned = function(){
           if (!slot) return;
           var want = noAdComing() ? '0px' : PIN;
+          // Exam routes hide the slot via set(): never reveal it here. The
+          // exam check mirrors set()'s path test so the two cannot fight -
+          // a filled ad during a timed paper stays hidden, always.
+          var path = location.hash || location.pathname;
+          var inExam = path.includes('/quiz') || path.includes('/attempt');
+          var wantDisplay = (noAdComing() || inExam) ? 'none' : '';
+          if (slot.style.display !== wantDisplay) slot.style.display = wantDisplay;
           if (slot.style.getPropertyValue('height') !== want ||
               slot.style.getPropertyPriority('height') !== 'important') {
             slot.style.setProperty('height', want, 'important');

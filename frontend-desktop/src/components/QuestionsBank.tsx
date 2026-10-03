@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory, fetchBookmarkIds, toggleBookmark, fetchNotes } from '../services/api';
+import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory, fetchBookmarkIds, toggleBookmark, fetchNotes, refreshBookmarksSnapshot} from '../services/api';
 import { type Question } from '@/shared/types';
 import { getBank } from '@/utils/offline';
+import { savePage, readPage, hasPage } from '@/utils/pageStore';
 import { toast } from 'react-hot-toast';
 
 import { sortCategories } from '@/utils/categorySort';
@@ -15,6 +16,23 @@ import NoteEditor from '@/components/NoteEditor';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const PAGE_SIZE = 30;
+// Snapshot key: the whole list state survives unmount, so returning to
+// Questions shows the SAME set instantly - no refetch, no reshuffle, no
+// skeleton. Only a new search, a category change, a page turn within loaded
+// data, or the explicit new-set button touches it.
+const QB_KEY = 'questions-bank';
+interface QBSnapshot {
+  allQuestions: unknown[];
+  shuffledQuestions: unknown[];
+  categories: string[];
+  counts: Record<string, number>;
+  total: number;
+  page: number;
+  search: string;
+  category: string;
+  selections: Record<number, string>;
+  locked: Record<number, boolean>;
+}
 const FETCH_LIMIT = 1000;
 type ViewMode = 'solved' | 'raw';
 
@@ -73,20 +91,20 @@ const QuestionsBank: React.FC = () => {
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [emojiMeta, setEmojiMeta] = useState<Record<string, string>>({});
   useEffect(() => { fetchCategoryEmoji().then(setEmojiMeta).catch(() => {}); }, []);
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(() => readPage<QBSnapshot>(QB_KEY)?.category ?? '');
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [totalCount, setTotalCount] = useState(0);
 
-  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
-  const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
+  const [allQuestions, setAllQuestions] = useState<Question[]>(() => (readPage<QBSnapshot>(QB_KEY)?.allQuestions as Question[]) ?? []);
+  const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>(() => (readPage<QBSnapshot>(QB_KEY)?.shuffledQuestions as Question[]) ?? []);
   // Total the pack claimed, so the background confirmation can compare.
   const packTotalRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(() => readPage<QBSnapshot>(QB_KEY)?.page ?? 0);
 
-  const [search, setSearch] = useState('');
-  const [searchDebounced, setSearchDebounced] = useState('');
+  const [search, setSearch] = useState(() => readPage<QBSnapshot>(QB_KEY)?.search ?? '');
+  const [searchDebounced, setSearchDebounced] = useState(() => readPage<QBSnapshot>(QB_KEY)?.search ?? '');
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try { return (localStorage.getItem('qbank-view-mode') as ViewMode) || 'raw'; } catch { return 'raw'; }
@@ -138,6 +156,7 @@ const QuestionsBank: React.FC = () => {
       try {
         const res = await toggleBookmark(userId, qid);
         flip(res.bookmarked);
+        refreshBookmarksSnapshot(userId);
       } catch {
         // Not a connectivity failure (those resolve optimistically inside
         // toggleBookmark). Undo the flip; it already showed the error toast.

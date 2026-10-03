@@ -23,6 +23,10 @@ const Login: React.FC = () => {
   // 'login' | 'register' | 'forgot'
   const [view, setView] = useState<'login' | 'register' | 'forgot'>('login');
   const [googleOn, setGoogleOn] = useState(false);
+  // OAuth client ID arrives at runtime from /auth/providers (it is public by
+  // design). The button used to read a build-time env var that was never set,
+  // so it silently never rendered while the backend sat ready.
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const [totalQuestions, setTotalQuestions] = useState<number | null>(null);
   const [totalCategories, setTotalCategories] = useState<number | null>(null);
 
@@ -41,7 +45,10 @@ const Login: React.FC = () => {
     };
     loadStats();
     authProviders()
-      .then((p) => setGoogleOn(!!p.google))
+      .then((p) => {
+        setGoogleOn(!!p.google);
+        if (p.google_client_id) setGoogleClientId(p.google_client_id);
+      })
       .catch(() => setGoogleOn(false));
   }, []);
 
@@ -151,6 +158,19 @@ const Login: React.FC = () => {
         >
           {t('login.subtitle')}
         </p>
+
+        {/* Google first: one click, account auto-created, no codes.
+            Rendered above the form like every normal site. */}
+        {view === 'login' && googleOn && googleClientId && (
+          <>
+            <GoogleSignInButton clientId={googleClientId} onCredential={handleGoogle} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 4px' }} aria-hidden="true">
+              <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
+              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>or with username</span>
+              <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
+            </div>
+          </>
+        )}
 
         {/* Form */}
         {view === 'register' ? (
@@ -330,19 +350,9 @@ const Login: React.FC = () => {
         </form>
         )}
 
-        {/* Google sign-in + account recovery, password form only */}
+        {/* Account recovery + registration links, login view only */}
         {view === 'login' && (
           <>
-            {googleOn && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
-                  <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
-                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>or</span>
-                  <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
-                </div>
-                <GoogleSignInButton onCredential={handleGoogle} />
-              </>
-            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
               <button
                 type="button"

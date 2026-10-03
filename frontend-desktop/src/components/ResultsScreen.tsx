@@ -5,6 +5,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useLang } from '@/context/LanguageContext';
 import { useSfx } from '@/hooks/useSfx';
 import { fetchUserProgress, fetchAttemptDetail, fetchWrongQueue, deleteAttempt } from '../services/api';
+import { savePage, readPage, isDirty, clearDirty } from '@/utils/pageStore';
 import { toast } from 'react-hot-toast';
 import { getRandomScoreMessage } from '@/utils/scoreMessages';
 import { scoreColor } from '@/utils/scoreColor';
@@ -50,8 +51,19 @@ const ResultsScreen: React.FC = () => {
   const quizResult = (location.state as { quizResult?: QuizResult; highlightAttemptId?: number } | null)?.quizResult;
   const highlightAttemptId = (location.state as { highlightAttemptId?: number } | null)?.highlightAttemptId;
 
-  const [pastAttempts, setPastAttempts] = useState<RecentAttempt[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [pastAttempts, setPastAttempts] = useState<RecentAttempt[]>(() => readPage<RecentAttempt[]>('results-data') ?? []);
+  // Derive-once helper so remount restores the list without a fetch.
+  const progressToAttempts = (progress: any): RecentAttempt[] => (progress?.recent_attempts || [])
+    .filter((a: any) => (a.total_questions || 0) >= MIN_QUESTIONS_FOR_HISTORY)
+    .map((a: any) => ({
+      ...a,
+      incorrect_questions: Array.isArray(a.incorrect_questions) ? a.incorrect_questions : [],
+    })).sort((a: any, b: any) => {
+      const da = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+      const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+      return db - da;
+    });
+  const [loadingHistory, setLoadingHistory] = useState(() => !readPage('results-data'));
   const [expandedAttemptId, setExpandedAttemptId] = useState<number | null>(null);
   const [expandedQuestions, setExpandedQuestions] = useState<AttemptAnalysis[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -60,19 +72,25 @@ const ResultsScreen: React.FC = () => {
   useEffect(() => {
     const loadHistory = async () => {
       if (!userId) { setLoadingHistory(false); return; }
+      // Snapshot first: progress-data is shared with the Progress page and
+      // refreshed on submit, so a clean snapshot renders instantly.
+      const snap = readPage<RecentAttempt[]>('results-data');
+      if (snap && !isDirty('results-data')) {
+        setPastAttempts(snap);
+        setLoadingHistory(false);
+        fetchUserProgress(userId).then((progress) => {
+          const next = progressToAttempts(progress);
+          setPastAttempts(next);
+          savePage('results-data', next);
+        }).catch(() => {});
+        return;
+      }
+      clearDirty('results-data');
       try {
         const progress = await fetchUserProgress(userId);
-        const rawAttempts = progress.recent_attempts || [];
-        setPastAttempts(rawAttempts
-          .filter((a: any) => (a.total_questions || 0) >= MIN_QUESTIONS_FOR_HISTORY)
-          .map((a: any) => ({
-            ...a,
-            incorrect_questions: Array.isArray(a.incorrect_questions) ? a.incorrect_questions : [],
-          })).sort((a: any, b: any) => {
-            const da = a.completed_at ? new Date(a.completed_at).getTime() : 0;
-            const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;
-            return db - da;
-          }));
+        const next = progressToAttempts(progress);
+        setPastAttempts(next);
+        savePage('results-data', next);
       } catch (error) {
         console.error('Error loading past results:', error);
       } finally {

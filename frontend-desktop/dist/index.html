@@ -120,7 +120,7 @@
          clamp it; measured on mobile, the slot went 69px -> 409px and pushed the
          whole page down 340px. Pinning the height on a wrapper AdSense never
          touches makes the reserved space genuinely constant. */
-      #ad-slot-inline{width:100%;height:0;overflow:hidden;position:relative;z-index:1}
+      #ad-slot-inline{width:100%;height:0;overflow:hidden;position:relative;display:none;z-index:1}
       #ad-top-inline{width:100%;max-width:100%;text-align:center;background:rgba(18,36,27,0.95);border-bottom:1px solid rgba(255,255,255,0.06);padding:8px 0;position:relative;z-index:1;overflow:hidden;max-height:none}
       /* Space is reserved so the page never jumps, but an unfilled slot must be
          invisible rather than an empty dark band. */
@@ -150,7 +150,7 @@
                   document.head.appendChild(s);
                 })();
                 </script>
-    <script type="module" crossorigin src="/desktop/assets/index-CgPUdCoV.js"></script>
+    <script type="module" crossorigin src="/desktop/assets/index-DbmYTeCi.js"></script>
     <link rel="modulepreload" crossorigin href="/desktop/assets/vendor-CZcxUxbq.js">
     <link rel="modulepreload" crossorigin href="/desktop/assets/motion-CySNjzh6.js">
     <link rel="modulepreload" crossorigin href="/desktop/assets/data-DSCjmRMB.js">
@@ -245,6 +245,13 @@
 var pinned = function() {
           if (!slot) return;
           var want = noAdComing() ? '0px' : PIN;
+          // Exam routes hide the slot via set(): never reveal it here. The
+          // exam check mirrors set()'s path test so the two cannot fight -
+          // a filled ad during a timed paper stays hidden, always.
+          var path = location.hash || location.pathname;
+          var inExam = path.includes('/quiz') || path.includes('/attempt');
+          var wantDisplay = (noAdComing() || inExam) ? 'none' : '';
+          if (slot.style.display !== wantDisplay) slot.style.display = wantDisplay;
           if (slot.style.getPropertyValue('height') !== want ||
               slot.style.getPropertyPriority('height') !== 'important') {
             slot.style.setProperty('height', want, 'important');

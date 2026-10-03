@@ -11,8 +11,8 @@ import {
   fetchCategories,
   fetchBookmarkIds,
   toggleBookmark,
-  fetchNotes,
-} from '../services/api';
+  fetchNotes, fetchQuestions, refreshAfterSubmit, refreshBookmarksSnapshot} from '../services/api';
+import { ensureBank, peekBank, pickRandom, pickByIds, pickById, bankFacets } from '@/utils/bankStore';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { type Question, type QuizResult } from '@/shared/types';
@@ -522,6 +522,7 @@ const QuizTaker: React.FC = () => {
       try {
         const res = await toggleBookmark(userId, qid);
         flip(res.bookmarked);
+        refreshBookmarksSnapshot(userId);
       } catch {
         // Not a connectivity failure (those resolve optimistically inside
         // toggleBookmark). Undo the flip; it already showed the error toast.
@@ -637,33 +638,67 @@ const QuizTaker: React.FC = () => {
             return;
           }
         }
+    // Session bank: one memory fill per tab lifetime, then every pick below
+    // is synchronous. Falls back to the API only when no pack exists yet
+    // (first-ever visit) - and that fill then serves the rest of the session.
+    const ensureSessionBank = async () => {
+      try {
+        if ((peekBank() || []).length) return true;
+        const got = await ensureBank(
+          (skip, limit) => fetchQuestions({ skip, limit }),
+          () => fetchQuestionsCount().then((r) => r.count)
+        );
+        return (got || []).length > 0;
+      } catch {
+        return false;
+      }
+    };
+
         let questionsData: Question[];
         if (examConfig) {
-          questionsData = await fetchRandomQuestions({
-            count: examConfig.count,
-            category: examConfig.category || undefined,
-          });
+          await ensureSessionBank();
+          questionsData = pickRandom(examConfig.count, examConfig.category || undefined);
+          if (!questionsData.length) {
+            questionsData = await fetchRandomQuestions({
+              count: examConfig.count,
+              category: examConfig.category || undefined,
+            });
+          }
           setAnnouncement(`${examConfig.title} started: ${questionsData.length} questions, ${examConfig.minutes} minutes.`);
         } else if (bookmarkIds.length > 0) {
-          questionsData = await fetchQuestionsByIds(bookmarkIds);
+          await ensureSessionBank();
+          questionsData = pickByIds(bookmarkIds);
+          if (!questionsData.length) questionsData = await fetchQuestionsByIds(bookmarkIds);
         } else if (isPracticeWrongMode && wrongQuestionIds.length > 0) {
-          questionsData = await fetchQuestionsByIds(wrongQuestionIds);
+          await ensureSessionBank();
+          questionsData = pickByIds(wrongQuestionIds);
+          if (!questionsData.length) questionsData = await fetchQuestionsByIds(wrongQuestionIds);
         } else if (isPracticeWrongMode && source === 'queue') {
           const wc = (location.state as { wrongCategory?: string })?.wrongCategory;
           const queue = await fetchWrongQueue(userId || 'anonymous', wc || undefined);
           questionsData = queue.questions || [];
         } else if (questionIdFromUrl) {
-          const specificQuestion = await fetchQuestionById(parseInt(questionIdFromUrl));
+          await ensureSessionBank();
+          const specificQuestion = pickById(parseInt(questionIdFromUrl))
+            ?? await fetchQuestionById(parseInt(questionIdFromUrl));
           const remainingCount = countParam ? Math.max(0, parseInt(countParam) - 1) : 9;
+          await ensureSessionBank();
           const randomQuestions =
             remainingCount > 0
-              ? await fetchRandomQuestions({ count: remainingCount, category: categoryParam || undefined })
+              ? (() => {
+                  const fromBank = pickRandom(remainingCount, categoryParam || undefined);
+                  return fromBank.length ? fromBank : null;
+                })() ?? await fetchRandomQuestions({ count: remainingCount, category: categoryParam || undefined })
               : [];
           const rest = randomQuestions.filter((q) => q.id !== specificQuestion.id);
           questionsData = [specificQuestion, ...rest];
         } else {
           const count = countParam ? parseInt(countParam) : 10;
-          questionsData = await fetchRandomQuestions({ count, category: categoryParam || undefined });
+          await ensureSessionBank();
+          questionsData = pickRandom(count, categoryParam || undefined);
+          if (!questionsData.length) {
+            questionsData = await fetchRandomQuestions({ count, category: categoryParam || undefined });
+          }
         }
         setQuestions(shuffleArray(questionsData));
         setSelected({});
@@ -762,6 +797,20 @@ const QuizTaker: React.FC = () => {
           clearWrongQueue(userId, practisedIds).catch(() => {});
         }
         localStorage.removeItem(QUIZ_STORAGE_KEY);
+        // A submit changed progress, results, wrong-queue, and home stats.
+        // Refresh everything in the BACKGROUND right now (not awaited): by the
+        // time the user leaves the result screen, every page holds NEW data
+        // and renders instantly. See refreshAfterSubmit in services/api.
+        try {
+          refreshAfterSubmit(userId || 'anonymous');
+        } catch {
+          try {
+            const { markDirty } = await import('@/utils/pageStore');
+            markDirty('progress-data');
+            markDirty('progress-wrong');
+            markDirty('results-data');
+          } catch { /* snapshots simply refresh next time */ }
+        }
         try { navigator.vibrate?.([10, 30, 10]); } catch {}
         sfxSubmit();
         if (isExamMode) {

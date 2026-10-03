@@ -72,6 +72,68 @@ const _inflight = new Map<string, Promise<unknown>>();
  * skeleton - instead of showing a spinner while an already-known answer
  * resolves asynchronously. Returns undefined on miss (true first load).
  */
+/**
+ * Background refresh after a quiz/mock submit. Fires the reads the result,
+ * progress, and home pages need, and stores them in the session caches +
+ * page snapshots - WITHOUT awaiting. The user lands on the result screen
+ * while this runs; by the time they tap Progress or Home, new data renders
+ * instantly (0.001s feel) instead of fetching then.
+ *
+ * Fire-and-forget by design: every inner promise catches, so a failed
+ * refresh degrades to the previous behavior (next visit fetches).
+ */
+export function refreshAfterSubmit(userIdentifier: string): void {
+  try {
+    import('@/utils/pageStore').then(async (store) => {
+      try {
+        const progress = await fetchUserProgress(userIdentifier);
+        store.savePage('progress-data', progress);
+        store.clearDirty('progress-data');
+        // Results derives from the same payload (see ResultsScreen).
+        const attempts = (progress?.recent_attempts || [])
+          .filter((a: any) => (a.total_questions || 0) >= 5)
+          .map((a: any) => ({
+            ...a,
+            incorrect_questions: Array.isArray(a.incorrect_questions) ? a.incorrect_questions : [],
+          }))
+          .sort((a: any, b: any) => {
+            const da = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+            const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+            return db - da;
+          });
+        store.savePage('results-data', attempts);
+        store.clearDirty('results-data');
+        // Home numbers.
+        store.savePage('home-data', {
+          total: progress?.total_questions || store.readPage<any>('home-data')?.total || 0,
+          categories: store.readPage<any>('home-data')?.categories || [],
+          attempted: progress?.attempted || 0,
+          correct: progress?.correct || 0,
+        });
+        // Wrong-queue shrank (practised questions cleared): drop, don't guess.
+        store.markDirty('progress-wrong');
+      } catch { /* next visit fetches */ }
+      // Dashboard swr: trigger its background revalidation path.
+      try { fetchDashboard().catch(() => {}); } catch { /* ignore */ }
+    }).catch(() => {});
+  } catch { /* never break submit */ }
+}
+
+/**
+ * Background refresh of the bookmarks snapshot after a toggle/clear elsewhere.
+ * The Bookmarks page renders from memory; this keeps that memory fresh at the
+ * moment of change instead of on next visit.
+ */
+export function refreshBookmarksSnapshot(userIdentifier: string): void {
+  try {
+    import('@/utils/pageStore').then((store) => {
+      fetchBookmarks(userIdentifier)
+        .then((res) => store.savePage('bookmarks-data', res.questions || []))
+        .catch(() => store.markDirty('bookmarks-data'));
+    }).catch(() => {});
+  } catch { /* next visit fetches */ }
+}
+
 export function peekCache<T>(key: string): T | undefined {
   const hit = _swr.get(key);
   if (hit && Date.now() - hit.ts < SWR_TTL) return hit.val as T;
@@ -821,6 +883,9 @@ export const authProviders = async () => {
   const response = await api.get<{
     password: boolean;
     google: boolean;
+    /** OAuth client ID (public). When present, the Google button initializes
+     *  from it at runtime - no build-time env var needed. */
+    google_client_id?: string | null;
     email_delivery: boolean;
   }>('/auth/providers');
   return response.data;

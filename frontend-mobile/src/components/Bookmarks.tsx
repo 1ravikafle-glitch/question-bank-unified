@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchBookmarks, toggleBookmark } from '../services/api';
+import { fetchBookmarks, toggleBookmark, refreshBookmarksSnapshot} from '../services/api';
+import { savePage, readPage, isDirty, clearDirty } from '@/utils/pageStore';
 import { type Question } from '@/shared/types';
 
 import { AuthContext } from '@/context/AuthContext';
@@ -15,16 +16,28 @@ const Bookmarks: React.FC = () => {
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
   const { t } = useLang();
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [questions, setQuestions] = useState<Question[]>(() => readPage<Question[]>('bookmarks-data') ?? []);
+  const [loading, setLoading] = useState(() => !readPage('bookmarks-data'));
 
   useEffect(() => {
     const load = async () => {
       if (!userId) return;
+      const snap = readPage<Question[]>('bookmarks-data');
+      if (snap && !isDirty('bookmarks-data')) {
+        setQuestions(snap);
+        setLoading(false);
+        fetchBookmarks(userId).then((res) => {
+          setQuestions(res.questions || []);
+          savePage('bookmarks-data', res.questions || []);
+        }).catch(() => {});
+        return;
+      }
+      clearDirty('bookmarks-data');
       setLoading(true);
       try {
         const res = await fetchBookmarks(userId);
         setQuestions(res.questions || []);
+        savePage('bookmarks-data', res.questions || []);
       } catch {
         setQuestions([]);
       } finally {
