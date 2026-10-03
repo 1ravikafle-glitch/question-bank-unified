@@ -310,7 +310,13 @@ def serve_spa(directory: str, path: str):
             # time it is replaced.
             headers = {"Cache-Control": "public, max-age=31536000, immutable"}
         return FileResponse(file_path, media_type=media_types.get(ext, "application/octet-stream"), headers=headers)
-    return FileResponse(os.path.join(directory, "index.html"), media_type="text/html")
+    # SPA fallback: never cacheable (see note above - this is the document that
+    # carries each deploy's inline scripts and hashed asset URLs).
+    return FileResponse(
+        os.path.join(directory, "index.html"),
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"},
+    )
 
 
 @app.get("/desktop/{path:path}", response_class=HTMLResponse)
@@ -319,7 +325,11 @@ async def serve_desktop_assets(request: Request, path: str = ""):
 
 @app.get("/desktop", response_class=HTMLResponse)
 async def serve_desktop_root():
-    return FileResponse(os.path.join(DESKTOP_DIR, "index.html"), media_type="text/html")
+    return FileResponse(
+        os.path.join(DESKTOP_DIR, "index.html"),
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"},
+    )
 
 @app.get("/mobile/{path:path}", response_class=HTMLResponse)
 async def serve_mobile_assets(request: Request, path: str = ""):
@@ -327,7 +337,11 @@ async def serve_mobile_assets(request: Request, path: str = ""):
 
 @app.get("/mobile", response_class=HTMLResponse)
 async def serve_mobile_root():
-    return FileResponse(os.path.join(MOBILE_DIR, "index.html"), media_type="text/html")
+    return FileResponse(
+        os.path.join(MOBILE_DIR, "index.html"),
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"},
+    )
 
 # ── Root logo: same file as the PSC deploy. Old cached bundles request
 # /forestry-logo.png, which would otherwise hit the SEO real-404 page on the
