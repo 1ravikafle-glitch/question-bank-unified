@@ -144,16 +144,41 @@ export const authProviders = async () => {
   return response.data;
 };
 
-/** Exchange a Google ID token for a session. */
-
+/** Exchange a Google ID token: session for returning users, or a setup
+ *  token for first-timers (who then pick a userid at /auth/google/complete).
+ */
 export const authGoogle = async (credential: string) => {
   const response = await api.post<{
     user_identifier: string;
     is_new: boolean;
     sso_token?: string | null;
     session_token?: string | null;
+    setup_token?: string | null;
+    suggested_username?: string | null;
   }>('/auth/google', { credential });
   return response.data;
+};
+
+/** Finish first-time Google signup: chosen userid + optional password. */
+export const authGoogleComplete = async (body: {
+  setup_token: string;
+  username: string;
+  password?: string;
+}) => {
+  const response = await api.post<{
+    user_identifier: string;
+    is_new: boolean;
+    sso_token?: string | null;
+    session_token?: string | null;
+  }>('/auth/google/complete', body);
+  const data = response.data;
+  try {
+    if (data.session_token) localStorage.setItem(SESSION_TOKEN_KEY, data.session_token);
+    if (data.sso_token) localStorage.setItem(SSO_TOKEN_KEY, data.sso_token);
+  } catch {
+    /* private mode — tokens stay in memory only */
+  }
+  return data;
 };
 
 /** Delete one of the caller's own quiz attempts. */

@@ -113,6 +113,13 @@ def _reset_base_url(request: Optional[Request]) -> str:
 class AuthResponse(BaseModel):
     user_identifier: str
     is_new: bool
+    # First-time Google sign-in: NOT a session. A short-lived signed token
+    # carrying the verified sub/email/name. The client shows the userid setup
+    # screen, then exchanges it at /auth/google/complete. Absent for
+    # returning users (who get session_token straight away).
+    setup_token: Optional[str] = None
+    # Suggested username derived from the Gmail local part.
+    suggested_username: Optional[str] = None
     # Signed handoff token for Elfak GIS Pro Studio. None when SSO_SECRET is
     # unset, in which case clients fall back to a plain link.
     sso_token: Optional[str] = None
@@ -267,6 +274,21 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
 
 class GoogleAuthRequest(BaseModel):
     credential: str  # the ID token from the Google Identity Services button
+
+
+# Audience separating Google-setup tokens from sessions: neither validates as
+# the other, so a setup token can never open the app and a session can never
+# complete a signup.
+GOOGLE_SETUP_AUDIENCE = "forestry-google-setup"
+GOOGLE_SETUP_TTL_SECONDS = 10 * 60
+
+
+class GoogleCompleteRequest(BaseModel):
+    setup_token: str
+    username: str = Field(..., min_length=3, max_length=30)
+    # Optional: sets a password so the account also works without Google.
+    # Empty means Google-only (auto-connected, no password to forget).
+    password: Optional[str] = Field(default=None, max_length=128)
 
 
 @router.get("/providers")
@@ -469,27 +491,32 @@ def google_login(req: GoogleAuthRequest, db: Session = Depends(database.get_db))
                            "Sign in with your password instead of Google.",
                 )
         else:
-            # No clash: brand-new Google account.
-            user = models.User(
-                username=email,
-                password=NO_PASSWORD,
-                google_sub=google_sub,
-                email=email_crypto.encrypt(email),
-                email_hash=digest,
-                # Google has already proved control of the mailbox, so this account
-                # is verified on arrival and gets its member ID immediately.
-                email_verified=1,
+            # First Google sign-in: do NOT create the account yet. Like every
+            # normal site, the user picks a userid first (and optionally a
+            # password for non-Google sign-in), then the account is created.
+            # The setup token carries the verified claims; it is signed,
+            # single-purpose (wrong audience for sessions), and 10-minute.
+            import sso as _sso
+
+            local = email.split("@")[0] if "@" in email else email
+            suggested = "".join(
+                c for c in local.lower().replace(".", ".").replace("_", "_").replace("-", "-")
+                if c.isalnum() or c in "._-"
+            ).strip("._-")[:30] or f"user{sub[:6]}"
+            setup = _sso.mint_for(
+                f"gsetup:{google_sub}",
+                is_admin=False,
+                audience=GOOGLE_SETUP_AUDIENCE,
+                ttl=GOOGLE_SETUP_TTL_SECONDS,
+                secret=session.session_secret(),
+                extra={"sub": google_sub, "email": email, "name": str(claims.get("name") or "")[:80]},
             )
-            db.add(user)
-            try:
-                db.commit()
-            except Exception:
-                db.rollback()
-                raise HTTPException(
-                    status_code=409,
-                    detail="That email is already registered. Sign in with your password.",
-                )
-            is_new = True
+            return AuthResponse(
+                user_identifier=email,
+                is_new=True,
+                setup_token=setup,
+                suggested_username=suggested or None,
+            )
     else:
         changed = False
         if not user.google_sub:
@@ -511,6 +538,74 @@ def google_login(req: GoogleAuthRequest, db: Session = Depends(database.get_db))
         is_new=is_new,
         sso_token=sso.mint(user.username, is_admin=is_admin),
         session_token=session.mint_session(user.username, is_admin=is_admin),
+    )
+
+
+@router.post("/google/complete", response_model=AuthResponse)
+def google_complete(req: GoogleCompleteRequest, db: Session = Depends(database.get_db)):
+    """Finish a first-time Google signup: userid (+ optional password).
+
+    The setup token proves Google verified the mailbox minutes ago; the
+    username is the user's choice, checked for shape and availability, and
+    the optional password auto-connects password sign-in to the same account
+    (empty means Google-only). Verified on arrival with member ID, exactly
+    as if a code had been typed - because Google's signature already proved
+    more than any code could.
+    """
+    import sso as _sso2
+
+    payload = _sso2.verify_for(
+        req.setup_token, audience=GOOGLE_SETUP_AUDIENCE, secret=session.session_secret()
+    )
+    if not payload or not payload.get("extra", {}).get("sub"):
+        raise HTTPException(status_code=401, detail="Signup session expired. Start again with Google.")
+    extra = payload["extra"]
+    google_sub = str(extra.get("sub") or "").strip()
+    email = str(extra.get("email") or "").strip().lower()
+    if not google_sub or not email:
+        raise HTTPException(status_code=401, detail="Signup session expired. Start again with Google.")
+
+    import re as _re
+
+    username = (req.username or "").strip().lower()
+    if not auth_flow.USERNAME_RE.match(username):
+        raise HTTPException(
+            status_code=400,
+            detail="Username must be 3-32 characters: letters, numbers, dot, dash or underscore.",
+        )
+    if db.query(models.User).filter(models.User.username == username).first():
+        raise HTTPException(status_code=409, detail="That username is taken. Try another.")
+    digest = email_crypto.lookup_hash(email)
+    if digest and db.query(models.User).filter(models.User.email_hash == digest).first():
+        # Raced or replayed: the address linked elsewhere meanwhile.
+        raise HTTPException(status_code=409, detail="That email is already registered. Sign in instead.")
+
+    pw = (req.password or "")
+    if pw and len(pw) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+    try:
+        user = models.User(
+            username=username,
+            password=hash_password(pw) if pw else NO_PASSWORD,
+            google_sub=google_sub,
+            email=email_crypto.encrypt(email),
+            email_hash=digest,
+            email_verified=1,
+        )
+        user.user_id = auth_flow._allocate_user_id(db)
+        db.add(user)
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not create the account.")
+    is_admin = bool(ADMIN_USERNAME) and username == ADMIN_USERNAME.lower()
+    return AuthResponse(
+        user_identifier=username,
+        is_new=True,
+        sso_token=sso.mint(username, is_admin=is_admin),
+        session_token=session.mint_session(username, is_admin=is_admin),
     )
 
 

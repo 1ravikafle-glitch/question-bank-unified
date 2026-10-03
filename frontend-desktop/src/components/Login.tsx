@@ -8,6 +8,7 @@ import { useLang } from '@/context/LanguageContext';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
+import GoogleSetup from '@/components/GoogleSetup';
 import { RegisterView, ResetPasswordView } from '@/components/AuthViews';
 import { AInput, AButton, AError } from '@/components/AuthViews';
 
@@ -28,6 +29,9 @@ const Login: React.FC = () => {
   // design). The button used to read a build-time env var that was never set,
   // so it silently never rendered while the backend sat ready.
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+  // First-time Google signup: verified claims wait here while the user picks
+  // a userid. Returning Google users skip this entirely (straight session).
+  const [googleSetup, setGoogleSetup] = useState<{ token: string; email: string; suggested: string } | null>(null);
   const [totalQuestions, setTotalQuestions] = useState<number | null>(null);
   const [totalCategories, setTotalCategories] = useState<number | null>(null);
 
@@ -58,8 +62,21 @@ const Login: React.FC = () => {
     setError('');
     try {
       const result = await authGoogle(credential);
+      if (result.is_new && result.setup_token) {
+        setGoogleSetup({
+          token: result.setup_token,
+          email: result.user_identifier,
+          suggested: result.suggested_username || '',
+        });
+        return;
+      }
+      if (!result.session_token) {
+        setError('Google sign-in did not return a session. Try again.');
+        toast.error('Google sign-in did not return a session. Try again.');
+        return;
+      }
       setUserId(result.user_identifier);
-      setSessionToken(result.session_token || '');
+      setSessionToken(result.session_token);
       try { localStorage.removeItem('password'); } catch { /* already gone */ }
       toast.success(result.is_new ? `Welcome, ${result.user_identifier}!` : `Welcome back, ${result.user_identifier}!`);
       navigate('/');
@@ -100,6 +117,53 @@ const Login: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Google first-timers get a dedicated setup card (no nesting with the
+  // sign-in/register/forgot ternaries below).
+  if (googleSetup) {
+    return (
+      <main
+        role="main"
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+          background:
+            'radial-gradient(circle at 50% 40%, hsl(var(--primary) / 0.06), transparent 70%), hsl(var(--background))',
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+          className="card"
+          style={{
+            maxWidth: '400px',
+            width: '100%',
+            padding: '40px',
+            borderRadius: 'var(--apple-radius-xl)',
+            boxShadow: 'var(--shadow-lg)',
+          }}
+        >
+          <GoogleSetup
+            setupToken={googleSetup.token}
+            email={googleSetup.email}
+            suggested={googleSetup.suggested}
+            onDone={(handle, token) => {
+              setGoogleSetup(null);
+              setUserId(handle);
+              setSessionToken(token);
+              try { localStorage.removeItem('password'); } catch {}
+              navigate('/');
+            }}
+            onBack={() => setGoogleSetup(null)}
+          />
+        </motion.div>
+      </main>
+    );
+  }
 
   return (
     <main
