@@ -115,56 +115,46 @@ const Login: React.FC = () => {
       }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-        className="card"
+        initial={{ opacity: 0, y: 18, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         style={{
-          maxWidth: '400px',
+          maxWidth: '380px',
           width: '100%',
-          padding: '40px',
-          borderRadius: 'var(--apple-radius-xl)',
-          boxShadow: 'var(--shadow-lg)',
+          padding: '36px 32px 28px',
+          borderRadius: '28px',
+          background: 'hsl(var(--card))',
+          boxShadow: '0 24px 70px -24px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.06)',
         }}
       >
         {/* Brand */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            marginBottom: '8px',
-          }}
-        >
-          <ForestryLogo size={36} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
+          <ForestryLogo size={56} />
           <span
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '1.125rem',
-              fontWeight: 600,
+              fontSize: '1.375rem',
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
               color: 'hsl(var(--foreground))',
+              marginTop: '12px',
             }}
           >
             {t('login.title')}
           </span>
+          <span style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginTop: '4px' }}>
+            {t('login.subtitle')}
+          </span>
         </div>
-
-        {/* Subtitle */}
-        <p
-          style={{
-            fontSize: '0.875rem',
-            color: 'hsl(var(--muted-foreground))',
-            marginBottom: '28px',
-          }}
-        >
-          {t('login.subtitle')}
-        </p>
 
         {/* Google first: one click, account auto-created, no codes.
             Rendered above the form like every normal site. */}
         {view === 'login' && googleOn && googleClientId && (
           <>
             <GoogleSignInButton clientId={googleClientId} onCredential={handleGoogle} />
+            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
+              One click, no password. New here? Google creates your account automatically.
+            </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 4px' }} aria-hidden="true">
               <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
               <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>or with username</span>

@@ -88,12 +88,15 @@ const GoogleSignInButton: React.FC<{
             );
           },
         });
+        // Full card width (GSI caps at 400): a narrow floating button reads
+        // broken. Measure the holder so it fills whatever card it sits in.
+        const w = Math.min(400, Math.max(280, Math.round(holder.current.clientWidth || 320)));
         window.google.accounts.id.renderButton(holder.current, {
           theme: document.documentElement.classList.contains('dark') ? 'filled_black' : 'outline_black',
           size: 'large',
-          width: 320,
+          width: w,
           text: 'continue_with',
-          shape: 'rectangular',
+          shape: 'pill',
           // Google localizes the button from the browser; pin English so it
           // matches the app instead of following IP geolocation.
           locale: 'en',
@@ -128,7 +131,7 @@ const GoogleSignInButton: React.FC<{
     );
   }
 
-  return <div ref={holder} style={{ display: 'flex', justifyContent: 'center' }} />;
+  return <div ref={holder} style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '44px' }} />;
 };
 
 export default GoogleSignInButton;

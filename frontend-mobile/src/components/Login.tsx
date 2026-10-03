@@ -127,35 +127,33 @@ const Login: React.FC = () => {
           first thing every visitor paints — keeping framer-motion out of this
           path avoids loading a ~40KB gzip animation library for two fades. */}
       <div
-        className="card"
         style={{
-          maxWidth: '400px',
+          maxWidth: '380px',
           width: '100%',
-          padding: '40px',
-          borderRadius: 'var(--apple-radius-xl)',
-          boxShadow: 'var(--shadow-lg)',
+          padding: '36px 28px 28px',
+          borderRadius: '28px',
+          background: 'hsl(var(--card))',
+          boxShadow: '0 24px 70px -24px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.06)',
           animation: 'scaleIn 0.4s cubic-bezier(0.25, 0.1, 0.25, 1)',
         }}
       >
         {/* Brand */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            marginBottom: '8px',
-          }}
-        >
-          <ForestryLogo size={36} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
+          <ForestryLogo size={56} />
           <span
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '1.125rem',
-              fontWeight: 600,
+              fontSize: '1.375rem',
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
               color: 'hsl(var(--foreground))',
+              marginTop: '12px',
             }}
           >
             Forestry PSC
+          </span>
+          <span style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginTop: '4px' }}>
+            Prepare with confidence
           </span>
         </div>
 
@@ -174,6 +172,9 @@ const Login: React.FC = () => {
         {view === 'login' && googleOn && googleClientId && (
           <>
             <GoogleSignInButton clientId={googleClientId} onCredential={handleGoogle} />
+            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
+              One click, no password. New here? Google creates your account automatically.
+            </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 4px' }} aria-hidden="true">
               <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
               <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>or with username</span>
@@ -331,20 +332,6 @@ const Login: React.FC = () => {
             </div>
           </>
         )}
-
-        {/* Sign-in hint, login view only (registration has its own copy) */}
-        {view === 'login' && <p
-          style={{
-            fontSize: '0.75rem',
-            color: 'hsl(var(--muted-foreground))',
-            textAlign: 'center',
-            marginTop: '20px',
-            lineHeight: 1.5,
-          }}
-        >
-          New here? Create an account with your Gmail address - it takes a moment and no card.
-        </p>
-        }
 
         {/* Language — English / Nepali */}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
