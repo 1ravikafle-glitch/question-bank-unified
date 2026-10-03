@@ -311,6 +311,94 @@ def auth_providers():
     }
 
 
+@router.get("/diag/outbound")
+def outbound_diagnostics(
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_admin),
+):
+    """Where is the relay breaking? Tests each outbound path with timings.
+
+    Admin-only: results name internal hosts. Used to distinguish "wrong app
+    password" (fast 535) from "Render cannot reach Google at all" (timeout on
+    everything Google, while Neon answers fine).
+    """
+    import time as _time
+
+    out: dict = {}
+
+    # 1. Database (control: must be fast, else everything is slow).
+    t0 = _time.time()
+    try:
+        from sqlalchemy import text as _text
+
+        with db.bind.connect() as c:
+            c.execute(_text("SELECT 1"))
+        out["database"] = {"ok": True, "ms": int((_time.time() - t0) * 1000)}
+    except Exception as e:
+        out["database"] = {"ok": False, "error": f"{type(e).__name__}"}
+
+    # 2. Google JWKS (needed to verify every Google sign-in).
+    t0 = _time.time()
+    try:
+        google_auth._fetch_jwks()
+        out["google_jwks"] = {"ok": True, "ms": int((_time.time() - t0) * 1000)}
+    except Exception as e:
+        out["google_jwks"] = {"ok": False, "error": f"{type(e).__name__}: {str(e)[:100]}"}
+
+    # 3. SMTP connect only (no login, no send): separates network from auth.
+    import os as _os
+
+    host = (_os.getenv("SMTP_HOST") or "").strip()
+    try:
+        port = int((_os.getenv("SMTP_PORT") or "587").strip())
+    except ValueError:
+        port = 587
+    t0 = _time.time()
+    try:
+        import smtplib as _smtplib
+
+        if port == 465:
+            conn = _smtplib.SMTP_SSL(host, port, timeout=10)
+        else:
+            conn = _smtplib.SMTP(host, port, timeout=10)
+        conn.ehlo()
+        try:
+            conn.quit()
+        except Exception:
+            pass
+        out["smtp_connect"] = {"ok": True, "ms": int((_time.time() - t0) * 1000), "host": host, "port": port}
+    except Exception as e:
+        out["smtp_connect"] = {"ok": False, "error": f"{type(e).__name__}: {str(e)[:100]}", "host": host, "port": port}
+
+    # 4. SMTP login (proves the app password without sending anything).
+    user = (_os.getenv("SMTP_USER") or "").strip()
+    pw = (_os.getenv("SMTP_PASS") or "").strip()
+    if user and pw and out["smtp_connect"].get("ok"):
+        t0 = _time.time()
+        try:
+            import smtplib as _smtplib2
+
+            if port == 465:
+                conn2 = _smtplib2.SMTP_SSL(host, port, timeout=10)
+            else:
+                conn2 = _smtplib2.SMTP(host, port, timeout=10)
+            conn2.ehlo()
+            if conn2.has_extn("starttls"):
+                conn2.starttls()
+                conn2.ehlo()
+            conn2.login(user, pw)
+            try:
+                conn2.quit()
+            except Exception:
+                pass
+            out["smtp_login"] = {"ok": True, "ms": int((_time.time() - t0) * 1000)}
+        except Exception as e:
+            out["smtp_login"] = {"ok": False, "error": f"{type(e).__name__}: {str(e)[:120]}"}
+    else:
+        out["smtp_login"] = {"ok": False, "error": "skipped (no connect or no credentials)"}
+    return out
+
+
 @router.post("/google", response_model=AuthResponse)
 def google_login(req: GoogleAuthRequest, db: Session = Depends(database.get_db)):
     """Exchange a verified Google ID token for one of our own session tokens."""
@@ -350,31 +438,58 @@ def google_login(req: GoogleAuthRequest, db: Session = Depends(database.get_db))
             else None
         )
         if clash is not None:
-            raise HTTPException(
-                status_code=409,
-                detail="That email is already registered with a password. "
-                       "Sign in with your password instead of Google.",
+            # Google just proved control of this exact mailbox. If the clash
+            # account carries the same address but was never verified (SMTP
+            # codes never arrived), that proof IS the verification: link the
+            # Google identity, mark verified, issue the member ID. This is the
+            # escape hatch for accounts stranded by a dead relay - and safe,
+            # because Google's signature is stronger proof than any emailed
+            # code. Verified password accounts still 409 below: possession of
+            # a Google session must not adopt an already-proven account.
+            try:
+                clash_plain = email_crypto.decrypt(clash.email) if clash.email else ""
+            except Exception:
+                clash_plain = ""
+            if (
+                clash_plain
+                and clash_plain.strip().lower() == email
+                and not clash.email_verified
+            ):
+                user = clash
+                user.google_sub = google_sub
+                user.email_verified = 1
+                if not user.user_id:
+                    user.user_id = auth_flow._allocate_user_id(db)
+                db.commit()
+                is_new = False
+            else:
+                raise HTTPException(
+                    status_code=409,
+                    detail="That email is already registered with a password. "
+                           "Sign in with your password instead of Google.",
+                )
+        else:
+            # No clash: brand-new Google account.
+            user = models.User(
+                username=email,
+                password=NO_PASSWORD,
+                google_sub=google_sub,
+                email=email_crypto.encrypt(email),
+                email_hash=digest,
+                # Google has already proved control of the mailbox, so this account
+                # is verified on arrival and gets its member ID immediately.
+                email_verified=1,
             )
-        user = models.User(
-            username=email,
-            password=NO_PASSWORD,
-            google_sub=google_sub,
-            email=email_crypto.encrypt(email),
-            email_hash=digest,
-            # Google has already proved control of the mailbox, so this account
-            # is verified on arrival and gets its member ID immediately.
-            email_verified=1,
-        )
-        db.add(user)
-        try:
-            db.commit()
-        except Exception:
-            db.rollback()
-            raise HTTPException(
-                status_code=409,
-                detail="That email is already registered. Sign in with your password.",
-            )
-        is_new = True
+            db.add(user)
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail="That email is already registered. Sign in with your password.",
+                )
+            is_new = True
     else:
         changed = False
         if not user.google_sub:

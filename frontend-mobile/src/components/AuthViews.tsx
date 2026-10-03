@@ -9,6 +9,7 @@ import {
   authResetPasswordWithToken,
 } from '../services/api';
 import { toast } from 'react-hot-toast';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 
 const label: React.CSSProperties = {
   display: 'block',
@@ -242,7 +243,10 @@ export const RegisterView: React.FC<{
   // username, not the member ID: the ID does not exist until the address is
   // verified, and the server resolves a session by either.
   onAuthenticated?: (handle: string, token: string) => void;
-}> = ({ onDone, onSwitchToLogin, onAuthenticated }) => {
+  // Google bypass on the verify screen (see desktop for rationale).
+  onGoogle?: (credential: string) => Promise<void>;
+  googleClientId?: string | null;
+}> = ({ onDone, onSwitchToLogin, onAuthenticated, onGoogle, googleClientId }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [gmail, setGmail] = useState('');
@@ -372,6 +376,14 @@ export const RegisterView: React.FC<{
           <AButton secondary onClick={resend} disabled={busy}>
             Send a new code
           </AButton>
+        )}
+        {onGoogle && googleClientId && !memberId && (
+          <>
+            <GoogleSignInButton clientId={googleClientId} onCredential={(c) => { setBusy(true); onGoogle(c).finally(() => setBusy(false)); }} />
+            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', margin: 0 }}>
+              No code arriving? One Google click verifies this same address instantly.
+            </p>
+          </>
         )}
         <AButton secondary onClick={onDone} disabled={busy}>
           {memberId ? 'Continue to the app' : 'Skip for now'}

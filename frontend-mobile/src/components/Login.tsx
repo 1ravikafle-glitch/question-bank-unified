@@ -127,33 +127,28 @@ const Login: React.FC = () => {
           first thing every visitor paints — keeping framer-motion out of this
           path avoids loading a ~40KB gzip animation library for two fades. */}
       <div
+        className="card"
         style={{
-          maxWidth: '380px',
+          maxWidth: '400px',
           width: '100%',
-          padding: '36px 28px 28px',
-          borderRadius: '28px',
-          background: 'hsl(var(--card))',
-          boxShadow: '0 24px 70px -24px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.06)',
+          padding: '40px',
+          borderRadius: 'var(--apple-radius-xl)',
+          boxShadow: 'var(--shadow-lg)',
           animation: 'scaleIn 0.4s cubic-bezier(0.25, 0.1, 0.25, 1)',
         }}
       >
         {/* Brand */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
-          <ForestryLogo size={56} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+          <ForestryLogo size={36} />
           <span
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '1.375rem',
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
+              fontSize: '1.125rem',
+              fontWeight: 600,
               color: 'hsl(var(--foreground))',
-              marginTop: '12px',
             }}
           >
             Forestry PSC
-          </span>
-          <span style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginTop: '4px' }}>
-            Prepare with confidence
           </span>
         </div>
 
@@ -168,65 +163,6 @@ const Login: React.FC = () => {
           Prepare with confidence
         </p>
 
-        {/* Google first: one click, account auto-created, no codes. */}
-        {view === 'login' && googleOn && googleClientId && (
-          <>
-            <GoogleSignInButton clientId={googleClientId} onCredential={handleGoogle} />
-            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
-              One click, no password. New here? Google creates your account automatically.
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 4px' }} aria-hidden="true">
-              <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
-              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>or with username</span>
-              <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
-            </div>
-          </>
-        )}
-
-        {/* Segmented Sign in / Create account */}
-        {view !== 'forgot' && (
-          <div
-            role="tablist"
-            aria-label="Sign in or create account"
-            style={{
-              display: 'flex', background: 'hsl(var(--muted))', borderRadius: '14px',
-              padding: '3px', gap: '2px', marginBottom: '20px',
-            }}
-          >
-            {(['login', 'register'] as const).map((v) => (
-              <button
-                key={v}
-                role="tab"
-                aria-selected={view === v}
-                type="button"
-                onClick={() => { setView(v); setError(''); }}
-                style={{
-                  flex: 1, padding: '10px 4px', borderRadius: '11px', border: 'none', cursor: 'pointer',
-                  fontSize: '0.875rem', fontWeight: view === v ? 700 : 500,
-                  color: view === v ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
-                  background: view === v ? 'hsl(var(--card))' : 'transparent',
-                  boxShadow: view === v ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
-                  position: 'relative',
-                }}
-              >
-                {view === v && (
-                  <motion.span
-                    layoutId="auth-segment-m"
-                    transition={{ type: 'spring', stiffness: 500, damping: 38 }}
-                    style={{
-                      position: 'absolute', inset: 0, borderRadius: '11px',
-                      background: 'hsl(var(--card))',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.12)', zIndex: 0,
-                    }}
-                  />
-                )}
-                <span style={{ position: 'relative', zIndex: 1 }}>
-                  {v === 'login' ? 'Sign in' : 'Create account'}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Form with spring view transitions (transform/opacity only) */}
         <AnimatePresence mode="wait" initial={false}>
@@ -255,6 +191,8 @@ const Login: React.FC = () => {
               setUserId(handle);
               setSessionToken(token);
             }}
+            onGoogle={handleGoogle}
+            googleClientId={googleClientId}
           />
         ) : view === 'forgot' ? (
           <ResetPasswordView onDone={() => setView('login')} />
@@ -318,16 +256,36 @@ const Login: React.FC = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Forgot-password link, login view only (segmented covers register) */}
+        {/* Google below the form with runtime ID + recovery/registration links */}
+        {view === 'login' && googleOn && googleClientId && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }} aria-hidden="true">
+              <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
+              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>or</span>
+              <span style={{ flex: 1, height: 1, background: 'hsl(var(--border))' }} />
+            </div>
+            <GoogleSignInButton clientId={googleClientId} onCredential={handleGoogle} />
+            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
+              One click, no password. New here? Google creates your account automatically.
+            </p>
+          </>
+        )}
         {view === 'login' && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
               <button
                 type="button"
                 onClick={() => { setView('forgot'); setError(''); }}
                 style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', cursor: 'pointer', textDecoration: 'underline' }}
               >
                 Forgot password?
+              </button>
+              <button
+                type="button"
+                onClick={() => { setView('register'); setError(''); }}
+                style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.8125rem', color: 'hsl(var(--primary))', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Create account
               </button>
             </div>
           </>
