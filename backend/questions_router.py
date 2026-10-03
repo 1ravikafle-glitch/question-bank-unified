@@ -63,12 +63,79 @@ DEFAULT_CATEGORY_EMOJI = {
 router = APIRouter(prefix="/questions", tags=["questions"])
 
 
+# Style fix, applied once to pre-existing rows: the bundled quotes used em
+# dashes as punchy separators ("X — Y"). They read as AI-generated tics, so
+# seed_quotes.py now uses periods and colons instead - and this updates rows
+# that were seeded before the change. Idempotent: rows without an em dash are
+# untouched, and re-running changes nothing.
+_QUOTE_FIXES = [
+    ("Study like the result depends on it — it does.",
+     "Study like the result depends on it. It does."),
+    ("Read, recall, repeat — that is the whole secret.",
+     "Read, recall, repeat: that is the whole secret."),
+    ("Focus is a muscle — train it daily.",
+     "Focus is a muscle. Train it daily."),
+    ("Read actively — question every line.",
+     "Read actively. Question every line."),
+    ("Fear fades with familiarity — practice more.",
+     "Fear fades with familiarity. Practice more."),
+    ("Confusion today, clarity tomorrow — keep going.",
+     "Confusion today, clarity tomorrow. Keep going."),
+    ("Compare, contrast, connect — then remember.",
+     "Compare, contrast, connect. Then remember."),
+    ("Previous papers are prophecy — solve them.",
+     "Previous papers are prophecy. Solve them."),
+    ("Keep your streak alive — one quiz a day.",
+     "Keep your streak alive: one quiz a day."),
+    ("Finish what you start — every session counts.",
+     "Finish what you start. Every session counts."),
+]
+
+
+def _fix_quote_dashes(db) -> None:
+    """Replace em dashes in already-seeded quotes. Runs inside get_random_quote
+    so it executes against whichever database is actually serving, exactly once
+    per process boot at most (rows stop matching after the first pass)."""
+    try:
+        rows = db.query(models.Quote).filter(models.Quote.text.like("%—%")).all()
+    except Exception:
+        return
+    if not rows:
+        return
+    fixed = 0
+    for row in rows:
+        text = row.text
+        for old, new in _QUOTE_FIXES:
+            if old in text:
+                text = text.replace(old, new)
+        # Any other em dash a custom quote may hold becomes a period break.
+        if "—" in text:
+            text = text.replace(" — ", ". ").replace("—", "")
+        if text != row.text:
+            row.text = text
+            fixed += 1
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return
+    if fixed:
+        import sys as _sys
+
+        print(f"[QUOTES] punctuation fixed on {fixed} row(s)", file=_sys.stderr)
+
+
 @router.get("/quote/random")
 def get_random_quote(db: Session = Depends(database.get_db)):
     """One random motivational line for the dashboard greeting slot."""
     from sqlalchemy import func as _func
     import models as _m
 
+    # Style fix for rows seeded before the punctuation change.
+    try:
+        _fix_quote_dashes(db)
+    except Exception:
+        pass
     # Seed once from the bundled bank when empty.
     try:
         if db.query(_m.Quote).count() == 0:

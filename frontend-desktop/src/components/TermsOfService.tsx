@@ -62,7 +62,7 @@ export default function TermsOfService() {
       >
         The rules for using Forestry PSC Preparation. Using the app means you
         accept them. Short version: it is free, it is for studying, don’t abuse
-        it, and the questions are practice material — not the exam.
+        it, and the questions are practice material, not the exam.
       </p>
 
       <div className="grid gap-4">
@@ -72,10 +72,10 @@ export default function TermsOfService() {
 
         <Section title="2. Your account">
           <ul style={{ paddingLeft: '1.2rem', listStyle: 'disc', display: 'grid', gap: '0.5rem' }}>
-            <li><strong>One account per person.</strong> Register with a username and password, or with Sign in with Google — one click, no codes, and your address is verified on arrival because Google already proved it.</li>
+            <li><strong>One account per person.</strong> Register with a username and password, or with Sign in with Google. One click, no codes, and your address is verified on arrival because Google already proved it.</li>
             <li><strong>Keep it yours.</strong> Do not share your password. You are responsible for what happens under your account until you tell us it was taken over.</li>
             <li><strong>Member numbers</strong> (e.g. FR-1042) are issued once, when your address is verified, and never change. They identify your study history, not you personally.</li>
-            <li><strong>Password resets</strong> are rate-limited to stop abuse. If you hammer the reset endpoint you will be temporarily refused — that is the protection working, not a bug.</li>
+            <li><strong>Password resets</strong> are rate-limited to stop abuse. If you hammer the reset endpoint you will be temporarily refused. That is the protection working, not a bug.</li>
           </ul>
         </Section>
 
@@ -84,7 +84,7 @@ export default function TermsOfService() {
           <ul style={{ paddingLeft: '1.2rem', listStyle: 'disc', display: 'grid', gap: '0.5rem', marginTop: '0.5rem' }}>
             <li>Do not scrape, bulk-download, or republish the question bank. Personal offline practice through the app’s own pack is the intended offline use.</li>
             <li>Do not probe, flood, or automate the sign-in, registration, or password-reset endpoints. Automated abuse is refused by rate limits and can get the account behind it suspended.</li>
-            <li>Do not upload anything illegal, or anything you do not have the right to share, through Contribute or Past Papers — including papers whose publisher forbids redistribution.</li>
+            <li>Do not upload anything illegal, or anything you do not have the right to share, through Contribute or Past Papers, including papers whose publisher forbids redistribution.</li>
             <li>Do not pretend to be another user, a moderator, or the site itself.</li>
           </ul>
         </Section>
@@ -97,11 +97,11 @@ export default function TermsOfService() {
         </Section>
 
         <Section title="5. No exam promises">
-          <p>This is practice material, not the examination. Questions may contain errors, the syllabus may have moved on, and nothing here guarantees selection. We are not affiliated with the Public Service Commission (Lok Sewa Aayog) or any government body; “Loksewa MCQ” in the footer describes the content type, not an endorsement. If you spot a wrong answer, tell us — corrections help everyone.</p>
+          <p>This is practice material, not the examination. Questions may contain errors, the syllabus may have moved on, and nothing here guarantees selection. We are not affiliated with the Public Service Commission (Lok Sewa Aayog) or any government body; “Loksewa MCQ” in the footer describes the content type, not an endorsement. If you spot a wrong answer, tell us. Corrections help everyone.</p>
         </Section>
 
         <Section title="6. Availability, suspension, liability">
-          <p>We run this on a best-effort basis: no guaranteed uptime, no guaranteed data preservation beyond what the <Link to="/privacy" style={{ color: 'hsl(var(--primary))' }}>Privacy Policy</Link> promises. Accounts used abusively — spam, scraping, credential abuse, infringing uploads — may be suspended or removed, with or without warning depending on severity. To the extent the law allows, the service is provided “as is” and we are not liable for exam outcomes, lost study data beyond our control, or reliance on any answer key.</p>
+          <p>We run this on a best-effort basis: no guaranteed uptime, no guaranteed data preservation beyond what the <Link to="/privacy" style={{ color: 'hsl(var(--primary))' }}>Privacy Policy</Link> promises. Accounts used abusively (spam, scraping, credential abuse, infringing uploads) may be suspended or removed, with or without warning depending on severity. To the extent the law allows, the service is provided “as is” and we are not liable for exam outcomes, lost study data beyond our control, or reliance on any answer key.</p>
         </Section>
 
         <Section title="7. Law, changes, contact">

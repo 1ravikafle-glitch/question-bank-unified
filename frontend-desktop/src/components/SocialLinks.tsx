@@ -115,7 +115,7 @@ export const SocialIcons: React.FC<{ tone?: 'light' | 'dark' }> = ({ tone = 'lig
         key={s.key}
         href={s.url}
         {...(s.key === 'gm' ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
-        aria-label={`${s.label} — ${s.short}${s.key === 'gm' ? '' : ' (opens in a new tab)'}`}
+        aria-label={`${s.label}: ${s.short}${s.key === 'gm' ? '' : ' (opens in a new tab)'}`}
         title={`${s.label} · ${s.short}`}
         className="footer-social"
         style={

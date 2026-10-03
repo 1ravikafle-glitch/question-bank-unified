@@ -26,7 +26,7 @@ export function bookmarkToast(bookmarked: boolean): void {
  * there, which was the second way to get "no toast".
  */
 export function bookmarkToastError(): void {
-  toast.error('Could not update bookmark — please try again.', {
+  toast.error('Could not update bookmark. Please try again.', {
     id: 'bm-toggle',
     duration: 3000,
   });

@@ -42,7 +42,7 @@ const features = [
 ];
 
 const steps = [
-  { step: '1', title: 'Create account', desc: 'Pick a username and password once. Sign-in never creates accounts — it only opens ones that already exist.' },
+  { step: '1', title: 'Create account', desc: 'Pick a username and password once. Sign-in never creates accounts. It only opens ones that already exist.' },
   { step: '2', title: 'Practice', desc: 'Take timed quizzes filtered by category with a 2-minute timer.' },
   { step: '3', title: 'Review', desc: 'See instant feedback. Wrong questions go to your re-practice queue.' },
   { step: '4', title: 'Improve', desc: 'Track weekly and lifetime progress. Re-practice past mistakes.' },
@@ -52,7 +52,7 @@ const steps = [
    control lives so the guide stays navigable when the sidebar is collapsed. */
 const guideSections: { title: string; icon: string; items: { where: string; what: string }[] }[] = [
   {
-    title: 'Study modes — what each one is for',
+    title: 'Study modes: what each one is for',
     icon: '🎯',
     items: [
       {
@@ -69,12 +69,12 @@ const guideSections: { title: string; icon: string; items: { where: string; what
       },
       {
         where: 'Wrong Questions',
-        what: 'Your personal re-practice queue. Everything you have answered incorrectly lands here automatically — clearing it means you have genuinely mastered those questions.',
+        what: 'Your personal re-practice queue. Everything you have answered incorrectly lands here automatically. Clearing it means you have genuinely mastered those questions.',
       },
     ],
   },
   {
-    title: 'Review tools — how to actually use them',
+    title: 'Review tools: how to actually use them',
     icon: '🔁',
     items: [
       {
@@ -83,7 +83,7 @@ const guideSections: { title: string; icon: string; items: { where: string; what
       },
       {
         where: 'Bookmarks',
-        what: 'Star a question anywhere — the paper, the bank, or a result — and it is kept here. The sidebar shows a live count so you can see how many you have saved.',
+        what: 'Star a question anywhere (the paper, the bank, or a result), and it is kept here. The sidebar shows a live count so you can see how many you have saved.',
       },
       {
         where: 'My Notes',
@@ -96,12 +96,12 @@ const guideSections: { title: string; icon: string; items: { where: string; what
     ],
   },
   {
-    title: 'Answering — what the controls do',
+    title: 'Answering: what the controls do',
     icon: '✍️',
     items: [
       {
         where: 'Mock exam → the paper',
-        what: 'Tap an option to select it; tapping a different one replaces your choice — a question never holds two answers. Hovering a question lights up its own A/B/C/D bubbles in the answer sheet, so you can answer from either side. Your answers are marked immediately.',
+        what: 'Tap an option to select it; tapping a different one replaces your choice. A question never holds two answers. Hovering a question lights up its own A/B/C/D bubbles in the answer sheet, so you can answer from either side. Your answers are marked immediately.',
       },
       {
         where: 'Mock exam → answer sheet',
@@ -119,7 +119,7 @@ const guideSections: { title: string; icon: string; items: { where: string; what
     items: [
       {
         where: 'Create account (sign-in screen)',
-        what: 'Username, password, and optionally an email. The email is optional — you can sign up with none and add one later.',
+        what: 'Username, password, and optionally an email. The email is optional. You can sign up with none and add one later.',
       },
       {
         where: 'Settings → Email',
@@ -136,7 +136,7 @@ const guideSections: { title: string; icon: string; items: { where: string; what
     ],
   },
   {
-    title: 'Contributing — past question papers',
+    title: 'Contributing: past question papers',
     icon: '📤',
     items: [
       {
@@ -145,7 +145,7 @@ const guideSections: { title: string; icon: string; items: { where: string; what
       },
       {
         where: 'Past Papers → Contribute',
-        what: 'Upload your own PDF or DOCX. Say whether it is a complete past question paper or a loose set of questions — both go through exactly the same admin review before anything reaches the question bank. You can keep up to five uploads waiting for review, and any rejection tells you why.',
+        what: 'Upload your own PDF or DOCX. Say whether it is a complete past question paper or a loose set of questions. Both go through exactly the same admin review before anything reaches the question bank. You can keep up to five uploads waiting for review, and any rejection tells you why.',
       },
     ],
   },

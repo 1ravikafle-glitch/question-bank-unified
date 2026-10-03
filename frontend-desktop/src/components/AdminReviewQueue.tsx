@@ -84,12 +84,12 @@ const AdminReviewQueue: React.FC = () => {
         const dup = data.skipped_duplicate || 0;
         const noans = data.skipped_no_answer || 0;
         toast.success(
-          `Approved — ${data.imported} added` +
+          `Approved: ${data.imported} added` +
           (dup ? `, ${dup} duplicate${dup === 1 ? '' : 's'} skipped` : '') +
           (noans ? `, ${noans} without answers skipped` : ''),
         );
       } else {
-        toast.success('Rejected — the contributor can see your reason');
+        toast.success('Rejected. The contributor can see your reason');
       }
       setItems((list) => list.filter((r) => r.id !== id));
       setPendingTotal((n) => Math.max(0, n - 1));

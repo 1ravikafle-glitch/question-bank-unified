@@ -75,7 +75,7 @@ export default function CookiePolicy() {
       >
         We set no tracking cookies of our own. Staying signed in, remembering
         your preferences, and working offline all use your browser’s own storage
-        on your device — plus a small number of third-party cookies from the ad
+        on your device, plus a small number of third-party cookies from the ad
         slots and the Google sign-in flow, listed below with what each one does.
       </p>
 
@@ -91,14 +91,14 @@ export default function CookiePolicy() {
 
         <Section title="2. Third-party cookies and requests">
           <ul style={{ paddingLeft: '1.2rem', listStyle: 'disc', display: 'grid', gap: '0.5rem' }}>
-            <li><strong>Google AdSense</strong> (ad slots): Google and its ad partners may set cookies to select, limit, and measure ads — including personalised ads based on your browsing. Turn personalisation off in your Google ad settings; the slots keep working with non-personalised ads.</li>
+            <li><strong>Google AdSense</strong> (ad slots): Google and its ad partners may set cookies to select, limit, and measure ads, including personalised ads based on your browsing. Turn personalisation off in your Google ad settings; the slots keep working with non-personalised ads.</li>
             <li><strong>Sign in with Google</strong> (only while signing in): Google uses its own cookies to run the account chooser and verify you. Once you return to the app, only our sign-in token above remains.</li>
             <li><strong>Google Fonts:</strong> fetches the typeface with no cookies, but Google sees the request (IP address, browser version) like any site you visit.</li>
           </ul>
         </Section>
 
         <Section title="3. Managing them">
-          <p>Block or clear anything through your browser’s site settings — no permission prompt is needed because nothing here tracks you across sites. Consequences, honestly stated: clearing storage signs you out and the offline pack re-downloads next visit (about a megabyte); blocking third-party cookies may narrow ad choice but breaks nothing in the app itself.</p>
+          <p>Block or clear anything through your browser’s site settings. No permission prompt is needed because nothing here tracks you across sites. Consequences, honestly stated: clearing storage signs you out and the offline pack re-downloads next visit (about a megabyte); blocking third-party cookies may narrow ad choice but breaks nothing in the app itself.</p>
         </Section>
 
         <Section title="4. Changes and contact">

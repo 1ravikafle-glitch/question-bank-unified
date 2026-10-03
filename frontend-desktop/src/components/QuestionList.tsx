@@ -13,14 +13,14 @@ import { motion } from 'framer-motion';
 /* ── Helpers ────────────────────────────────────────────────────── */
 const quotes = [
   'The best time to plant a tree was twenty years ago. The second best time is now.',
-  'Forestry is not just about trees — it is about the future of our planet.',
+  'Forestry is not just about trees. It is about the future of our planet.',
   'In every walk with nature, one receives far more than one seeks.',
   'The earth has music for those who listen.',
   'What we are doing to the forests of the world is but a mirror reflection of what we are doing to ourselves.',
   'A society grows great when people plant trees whose shade they know they shall never sit in.',
-  'The study of nature is a limitless field — the most fascinating in the world.',
+  'The study of nature is a limitless field, the most fascinating in the world.',
   'Between every two pines is a doorway to a new world.',
-  'The forest is a living thing — as much a creature as any animal.',
+  'The forest is a living thing, as much a creature as any animal.',
   'Trees are the earth\'s endless effort to speak to the listening heaven.',
   'Nature does not hurry, yet everything is accomplished.',
   'The clearest way into the universe is through a forest wilderness.',

@@ -251,7 +251,7 @@ const Contribute: React.FC = () => {
           {t('nav.contribute')}
         </h1>
         <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0.25rem 0 0', lineHeight: 1.55 }}>
-          Browse past question papers to read or download, or contribute one of your own —
+          Browse past question papers to read or download, or contribute one of your own,
           a whole past paper or a set of questions. An admin reviews every submission
           before anything is added to the question bank.
         </p>

@@ -472,7 +472,7 @@ async def submit_request(
         if with_answer == 0:
             rejected.append({
                 "filename": upload.filename or "",
-                "error": "No questions with answers were found — nothing would be imported.",
+                "error": "No questions with answers were found. Nothing would be imported.",
             })
             continue
 
