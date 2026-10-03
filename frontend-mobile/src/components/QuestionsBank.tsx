@@ -360,7 +360,7 @@ const QuestionsBank: React.FC = () => {
         {/* Row 1: Search + Category — stacked on phones (a 12rem select
             beside the search crushed it to 50px), side-by-side on ≥640px. */}
         <div className="qb-toolbar-row" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1 }} role="search" aria-label="Search questions">
+          <div style={{ position: 'relative', flex: '1 1 12rem', minWidth: 0 }} role="search" aria-label="Search questions">
             <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none', display: 'flex' }}>
               <SearchIcon />
             </span>
@@ -374,8 +374,10 @@ const QuestionsBank: React.FC = () => {
                 width: '100%',
                 paddingLeft: '36px',
                 paddingRight: search ? '32px' : '12px',
-                height: '40px',
-                fontSize: '0.8125rem',
+                height: '44px',
+                // 16px minimum: iOS Safari zooms the whole page when focusing
+                // any smaller input, which reads as "search is broken".
+                fontSize: '16px',
                 borderRadius: '10px',
                 border: '1px solid hsl(var(--border))',
                 background: 'hsl(var(--card))',
@@ -404,9 +406,11 @@ const QuestionsBank: React.FC = () => {
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="input qb-category-select"
             style={{
-              minWidth: '12rem',
-              flex: '1 1 12rem',
+              minWidth: 0,
+              flex: '0 1 12rem',
               maxWidth: '100%',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
               height: '40px',
               fontSize: '0.8125rem',
               cursor: 'pointer',

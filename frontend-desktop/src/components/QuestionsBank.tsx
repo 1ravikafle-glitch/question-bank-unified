@@ -373,7 +373,7 @@ const QuestionsBank: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {/* Row 1: Search + Category */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1 }} role="search" aria-label="Search questions">
+          <div style={{ position: 'relative', flex: '1 1 0', minWidth: 0 }} role="search" aria-label="Search questions">
             <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none', display: 'flex' }}>
               <SearchIcon />
             </span>
@@ -417,7 +417,11 @@ const QuestionsBank: React.FC = () => {
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="input"
             style={{
-              minWidth: '12rem',
+              minWidth: 0,
+              maxWidth: '13rem',
+              flexShrink: 0,
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
               height: '40px',
               fontSize: '0.8125rem',
               cursor: 'pointer',
