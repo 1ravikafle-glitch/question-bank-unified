@@ -39,7 +39,8 @@ const Bookmarks: React.FC = () => {
         setQuestions(res.questions || []);
         savePage('bookmarks-data', res.questions || []);
       } catch {
-        setQuestions([]);
+        // Never clobber rendered content with empty on error: offline flips
+        // and failed refreshes keep showing memory. Nothing to do here.
       } finally {
         setLoading(false);
       }

@@ -55,12 +55,13 @@ const Notes: React.FC = () => {
           const qs = await fetchQuestionsByIds(ids);
           setQuestions(qs);
           savePage('notes-data', qs);
-        } else {
+        } else if (!readPage('notes-data')) {
+          // No snapshot to preserve: genuinely empty.
           setQuestions([]);
           savePage('notes-data', []);
         }
       } catch {
-        setQuestions([]);
+        // Preserve rendered content on error (see Bookmarks).
       } finally {
         setLoading(false);
       }

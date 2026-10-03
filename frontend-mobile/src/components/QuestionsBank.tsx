@@ -322,10 +322,14 @@ const QuestionsBank: React.FC = () => {
         setShuffledQuestions(shuffleArray(data));
       } catch (error) {
         console.error('Error loading questions:', error);
-        toast.error('Could not load questions.');
         if (!alive) return;
-        setAllQuestions([]);
-        setShuffledQuestions([]);
+        if (!(readPage<QBSnapshot>(QB_KEY)?.shuffledQuestions?.length)) {
+          // True first load with nothing stored: empty + error toast.
+          // Otherwise keep showing memory (offline/remount safe).
+          toast.error('Could not load questions.');
+          setAllQuestions([]);
+          setShuffledQuestions([]);
+        }
       } finally {
         if (alive) setLoadingQuestions(false);
       }
