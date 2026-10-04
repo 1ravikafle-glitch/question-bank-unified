@@ -1,6 +1,7 @@
 import { useEffect, useState, useContext, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchQuestions, fetchDashboard } from '../services/api';
+import { onSection } from '@/utils/sectionSync';
 import { savePage, readPage } from '@/utils/pageStore';
 import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
@@ -141,12 +142,21 @@ const Dashboard: React.FC = () => {
   const [recentAttempts, setRecentAttempts] = useState<{ id: number; score: number; total_questions: number; percentage: number; completed_at: string }[]>(() => readHome()?.recentAttempts ?? []);
   const [wrongCount, setWrongCount] = useState(() => readHome()?.wrongCount ?? 0);
   const [bmIds, setBmIds] = useState<number[]>(() => readHome()?.bmIds ?? []);
+
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [quote] = useState(() => quotes[Math.floor(Math.random() * quotes.length)]);
 
   const navigate = useNavigate();
   const { userId } = useContext(AuthContext);
+  // A bookmark toggled anywhere (quiz, library, single question, the
+  // Bookmarks section) publishes on the section bus. Adopt it here so the
+  // practice card's saved-question count is right on arrival rather than one
+  // dashboard load behind.
+  useEffect(() => {
+    if (!userId) return;
+    return onSection('bookmarks-ids', (v) => setBmIds(v as number[]));
+  }, [userId]);
   const { sfxClick } = useSfx();
   const { t, num } = useLang();
 

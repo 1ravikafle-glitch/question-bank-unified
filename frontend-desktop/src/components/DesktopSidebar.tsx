@@ -2,6 +2,7 @@ import { NavLink, Link, useLocation } from 'react-router-dom';
 import { memo, useContext, useEffect, useState, Fragment } from 'react';
 import { AuthContext } from '@/context/AuthContext';
 import { fetchBookmarkIds, fetchNotes } from '@/services/api';
+import { onSection } from '@/utils/sectionSync';
 import { useSfx } from '@/hooks/useSfx';
 import { useLang } from '@/context/LanguageContext';
 import { isAdmin } from '@/config/admin';
@@ -324,7 +325,10 @@ const DesktopSidebar: React.FC = () => {
   const [bmCount, setBmCount] = useState(0);
   const [notesCount, setNotesCount] = useState(0);
 
-  // Live bookmark count badge (refreshes on navigation + login change).
+  // Live bookmark/note count badge: seeds on navigation + login change, then
+  // follows every change. A bookmark or note toggled anywhere (quiz, library,
+  // single question, the section itself) publishes on the section bus, so the
+  // badge is correct on the spot instead of one navigation behind.
   useEffect(() => {
     if (!userId) {
       setBmCount(0);
@@ -334,6 +338,13 @@ const DesktopSidebar: React.FC = () => {
     fetchBookmarkIds(userId).then((r) => setBmCount(r.count)).catch(() => {});
     fetchNotes(userId).then((r) => setNotesCount(r.count)).catch(() => {});
   }, [userId, location.pathname]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const offBm = onSection('bookmarks-ids', (v) => setBmCount((v as number[]).length));
+    const offNotes = onSection('notes-map', (v) => setNotesCount(Object.keys(v as object).length));
+    return () => { offBm(); offNotes(); };
+  }, [userId]);
   return (
     <aside
       role="navigation"
