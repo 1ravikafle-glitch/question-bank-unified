@@ -82,11 +82,19 @@ export function warmSession(userId: string): void {
             });
           store.savePage('results-data', attempts);
           store.clearDirty('results-data');
+          // Merge, never replace: the home snapshot carries the full practice
+          // card (accuracy, wrong count, category stats, recent attempts,
+          // bookmark ids). Writing only four fields here used to blank the
+          // rest, so the card lost its wrong-count the moment the warmer ran.
+          const prevHome = store.readPage<any>('home-data') || {};
           store.savePage('home-data', {
-            total: progress?.total_questions || store.readPage<any>('home-data')?.total || 0,
-            categories: store.readPage<any>('home-data')?.categories || [],
+            ...prevHome,
+            total: progress?.total_questions || prevHome.total || 0,
+            categories: prevHome.categories || [],
             attempted: progress?.attempted || 0,
             correct: progress?.correct || 0,
+            accuracy: progress?.accuracy ?? prevHome.accuracy ?? null,
+            wrongCount: progress?.wrong_count ?? prevHome.wrongCount ?? 0,
           });
         })
       );
@@ -94,7 +102,11 @@ export function warmSession(userId: string): void {
       // 4. Bookmarks + notes (lists).
       safe(
         api.fetchBookmarks(userId).then((res: any) => {
-          store.savePage('bookmarks-data', res.questions || []);
+          const rows = res.questions || [];
+          store.savePage('bookmarks-data', rows);
+          // The sidebar badge and the practice card both read this key, so
+          // publishing it here means they start correct instead of fetching.
+          store.savePage('bookmarks-ids', rows.map((q: any) => q.id));
         })
       );
       safe(
