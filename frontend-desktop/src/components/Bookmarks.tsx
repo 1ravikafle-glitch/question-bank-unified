@@ -194,6 +194,11 @@ const Bookmarks: React.FC = () => {
           {visible.map((q) => {
             const opts = (q.options || {}) as Record<string, string>;
             const keys = Object.keys(opts).sort();
+            // Show the answer itself, not just its letter: a saved question is
+            // one you came back to revise, and the letter alone means nothing
+            // once the options are not on screen.
+            const correctKey = String(q.correct_answer || '').toUpperCase();
+            const correctText = opts[correctKey.toLowerCase()] || correctKey;
             return (
               <div key={q.id} className="card clickable-row" style={{ padding: '1rem 1.25rem', cursor: 'pointer' }} onClick={() => navigate(`/question/${q.id}`)}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
@@ -205,8 +210,28 @@ const Bookmarks: React.FC = () => {
                       {q.question_text.length > 180 ? q.question_text.slice(0, 180) + '…' : q.question_text}
                     </p>
                     <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '0.375rem 0 0' }}>
-                      {keys.length} options · answer {String(q.correct_answer || '').toUpperCase()}
+                      {keys.length} options · answer {correctKey}
                     </p>
+                    <div style={{
+                      marginTop: '0.5rem',
+                      paddingLeft: '0.625rem',
+                      borderLeft: '2px solid hsl(var(--primary) / 0.4)',
+                    }}>
+                      <span style={{
+                        display: 'block',
+                        fontSize: '0.5625rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.07em',
+                        color: 'hsl(var(--muted-foreground) / 0.75)',
+                        marginBottom: '2px',
+                      }}>
+                        Correct answer
+                      </span>
+                      <span style={{ fontSize: '0.8125rem', fontWeight: 600, lineHeight: 1.5, color: 'hsl(var(--foreground))' }}>
+                        {correctKey}. {correctText}
+                      </span>
+                    </div>
                   </div>
                   <BookmarkButton marked onToggle={() => handleToggle(q.id)} label="Remove bookmark" />
                 </div>
