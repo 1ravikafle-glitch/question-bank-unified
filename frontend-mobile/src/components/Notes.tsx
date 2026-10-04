@@ -27,6 +27,10 @@ const Notes: React.FC = () => {
   const [loading, setLoading] = useState(() => !readPage('notes-data'));
   const [catFilter, setCatFilter] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  // Which rows have their answer revealed. A note is a mnemonic written to jog
+  // memory, so the answer stays hidden until asked for: the user recalls from
+  // their own note first, then checks.
+  const [answerShown, setAnswerShown] = useState<Record<number, boolean>>({});
   const [showDeleteAll, setShowDeleteAll] = useState(false);
 
   // Any note change anywhere refills this section in the background
@@ -223,6 +227,14 @@ const Notes: React.FC = () => {
               >
                 {editingId === q.id ? 'Close' : notes[q.id] ? 'Edit note' : 'Add note'}
               </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => { sfxClick(); setAnswerShown((p) => ({ ...p, [q.id]: !p[q.id] })); }}
+                aria-pressed={!!answerShown[q.id]}
+              >
+                {answerShown[q.id] ? 'Hide answer' : 'Show answer'}
+              </button>
               {notes[q.id] && (
                 <button
                   type="button"
@@ -257,6 +269,32 @@ const Notes: React.FC = () => {
               {notes[q.id]}
             </p>
           )}
+          {answerShown[q.id] && (() => {
+            const opts = (q.options || {}) as Record<string, string>;
+            const key = String(q.correct_answer || '').toUpperCase();
+            return (
+              <div style={{
+                marginTop: notes[q.id] && editingId !== q.id ? '0.5rem' : 0,
+                paddingLeft: '0.625rem',
+                borderLeft: '2px solid hsl(var(--primary) / 0.4)',
+              }}>
+                <span style={{
+                  display: 'block',
+                  fontSize: '0.5625rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.07em',
+                  color: 'hsl(var(--muted-foreground) / 0.75)',
+                  marginBottom: '2px',
+                }}>
+                  Correct answer
+                </span>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 600, lineHeight: 1.5, color: 'hsl(var(--foreground))' }}>
+                  {key}. {opts[key.toLowerCase()] || key}
+                </span>
+              </div>
+            );
+          })()}
           {editingId === q.id && userId && (
             <NoteEditor
               userId={userId}
