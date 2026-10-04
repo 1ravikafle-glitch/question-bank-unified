@@ -1,6 +1,8 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchNotes, fetchQuestionsByIds, saveNote } from '../services/api';
+import { fetchNotes, fetchQuestionsByIds } from '../services/api';
+import { getNotes, putNote, loadNotes, primeNotesFromSnapshot, adoptNotes, useNotes } from '@/utils/notePeek';
+import { onSection } from '@/utils/sectionSync';
 import { savePage, readPage, isDirty, clearDirty } from '@/utils/pageStore';
 import { sortCategories } from '@/utils/categorySort';
 import { type Question } from '@/shared/types';
@@ -18,11 +20,18 @@ const Notes: React.FC = () => {
   const { sfxClick } = useSfx();
   const { t, num } = useLang();
   const [questions, setQuestions] = useState<Question[]>(() => readPage<Question[]>('notes-data') ?? []);
-  const [notes, setNotes] = useState<Record<number, string>>(() => readPage<Record<number, string>>('notes-map') ?? {});
+  // The note map is shared app-wide; a note saved in the quiz or the
+  // question browser shows up here without a refetch.
+  useNotes();
+  const notes = getNotes();
   const [loading, setLoading] = useState(() => !readPage('notes-data'));
   const [catFilter, setCatFilter] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
+
+  // Any note change anywhere refills this section in the background
+  // (utils/sectionSync). Adopt those rows here without waiting for a remount.
+  useEffect(() => onSection('notes-data', (v) => setQuestions(v as Question[])), []);
 
   const cats = sortCategories([...new Set(questions.map((q) => q.category).filter((c): c is string => Boolean(c)))]);
   const visible = catFilter ? questions.filter((q) => q.category === catFilter) : questions;
@@ -33,23 +42,17 @@ const Notes: React.FC = () => {
       const snap = readPage<Question[]>('notes-data');
       if (snap && !isDirty('notes-data')) {
         setQuestions(snap);
-        const m = readPage<Record<number, string>>('notes-map');
-        if (m) setNotes(m);
         setLoading(false);
-        fetchNotes(userId).then((res) => {
-          const map = res.notes || {};
-          setNotes(map);
-          savePage('notes-map', map);
-        }).catch(() => {});
+        primeNotesFromSnapshot();
+        void loadNotes(userId);
         return;
       }
       clearDirty('notes-data');
       setLoading(true);
       try {
         const res = await fetchNotes(userId);
-        const map = res.notes || {};
-        setNotes(map);
-        savePage('notes-map', map);
+        adoptNotes(res.notes || {});
+        const map = getNotes();
         const ids = Object.keys(map).map(Number).filter((n) => !Number.isNaN(n));
         if (ids.length > 0) {
           const qs = await fetchQuestionsByIds(ids);
@@ -79,12 +82,7 @@ const Notes: React.FC = () => {
 
   const handleSaved = useCallback(
     (qid: number, text: string) => {
-      setNotes((prev) => {
-        const next = { ...prev };
-        if (text) next[qid] = text;
-        else delete next[qid];
-        return next;
-      });
+      void putNote(userId, qid, text);
       if (!text) {
         setQuestions((prev) => prev.filter((q) => q.id !== qid));
       }
@@ -97,12 +95,7 @@ const Notes: React.FC = () => {
     async (qid: number) => {
       if (!userId) return;
       try {
-        await saveNote(userId, qid, '');
-        setNotes((prev) => {
-          const next = { ...prev };
-          delete next[qid];
-          return next;
-        });
+        await putNote(userId, qid, '');
         setQuestions((prev) => prev.filter((q) => q.id !== qid));
         toast.success('Note removed', { duration: 1500 });
       } catch {
@@ -118,8 +111,7 @@ const Notes: React.FC = () => {
     const ids = Object.keys(notes).map(Number);
     if (ids.length === 0) return;
     try {
-      await Promise.all(ids.map((qid) => saveNote(userId, qid, '')));
-      setNotes({});
+      await Promise.all(ids.map((qid) => putNote(userId, qid, '')));
       setQuestions([]);
       toast.success('All notes cleared', { duration: 1500 });
       setShowDeleteAll(false);

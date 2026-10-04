@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchBookmarks, toggleBookmark, refreshBookmarksSnapshot} from '../services/api';
+import { fetchBookmarks, toggleBookmark, fetchBookmarkIds } from '../services/api';
+import { syncBookmarksSection, onSection } from '@/utils/sectionSync';
 import { savePage, readPage, isDirty, clearDirty } from '@/utils/pageStore';
 import { type Question } from '@/shared/types';
 
@@ -18,6 +19,11 @@ const Bookmarks: React.FC = () => {
   const { t } = useLang();
   const [questions, setQuestions] = useState<Question[]>(() => readPage<Question[]>('bookmarks-data') ?? []);
   const [loading, setLoading] = useState(() => !readPage('bookmarks-data'));
+
+  // A bookmark toggled in the quiz, the question browser or a single question
+  // refills this section in the background (utils/sectionSync). Adopt those rows
+  // here, so arriving at Bookmarks is already up to date.
+  useEffect(() => onSection('bookmarks-data', (v) => setQuestions(v as Question[])), []);
 
   useEffect(() => {
     const load = async () => {
@@ -60,6 +66,8 @@ const Bookmarks: React.FC = () => {
       if (!res.bookmarked) {
         setQuestions((prev) => prev.filter((q) => q.id !== qid));
       }
+      const ids = await fetchBookmarkIds(userId).catch(() => null);
+      if (ids) void syncBookmarksSection(ids.ids);
     },
     [userId, sfxClick]
   );

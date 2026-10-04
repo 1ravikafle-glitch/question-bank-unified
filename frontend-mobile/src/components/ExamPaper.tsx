@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLang } from '@/context/LanguageContext';
 import NoteEditor from './NoteEditor';
+import { NotePeekButton, NotePeekText } from '@/components/NotePeek';
+import { togglePeek, hidePeek, useNotes } from '@/utils/notePeek';
 import type { Question } from '@/shared/types';
 
 // A mock exam is only scored once this share of the paper is answered, so a
@@ -271,7 +273,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       const isOpt = k.length === 1 && k >= 'a' && k <= 'd';
       const isBm = e.key === 'm' || e.key === 'M';
       const isNote = e.key === 'n' || e.key === 'N';
-      if (!isOpt && !isBm && !isNote) return;
+      // P reveals the note already written for this question (recall aid).
+      const isPeek = e.key === 'p' || e.key === 'P';
+      if (!isOpt && !isBm && !isNote && !isPeek) return;
 
       const idx = hoverIdx ?? currentIdx;
       const row = paper[idx];
@@ -282,6 +286,11 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
       // An open note editor owns the keyboard for its own question.
       if (isOpt && noteOpenIdx === idx) return;
 
+      if (isPeek) {
+        // No-op when the question has no note: do not swallow the key then.
+        if (togglePeek(q.id)) e.preventDefault();
+        return;
+      }
       e.preventDefault();
       if (isOpt) {
         onSelect(q.id, k);
@@ -296,6 +305,9 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [hoverIdx, currentIdx, paper, questions, onSelect, onBmToggle, noteOpenIdx]);
+
+  // The note map is shared app-wide; re-render when it changes.
+  useNotes();
 
   const today = new Date().toLocaleDateString();
 
@@ -382,17 +394,12 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                     >
                       🔖
                     </button>
-                    <button
-                      type="button"
-                      className={'psc-qbm nt' + (noteMap[q.id] ? ' on' : '')}
-                      onClick={() => setNoteOpenIdx(noteOpenIdx === i ? null : i)}
-                      aria-pressed={noteOpenIdx === i}
-                      aria-label={noteMap[q.id] ? 'Edit personal note' : 'Add personal note (N)'}
-                      title="Note (N)"
-                    >
-                      📝
-                    </button>
+                    <NotePeekButton
+                      questionId={q.id}
+                      onEditWhenEmpty={() => setNoteOpenIdx(noteOpenIdx === i ? null : i)}
+                    />
                   </span>
+                  <NotePeekText questionId={q.id} inline />
                 </div>
                 {noteOpenIdx === i && userId && (
                   <NoteEditor
@@ -406,9 +413,6 @@ const ExamPaper: React.FC<ExamPaperProps> = ({
                     }}
                     onClose={() => setNoteOpenIdx(null)}
                   />
-                )}
-                {!!noteMap[q.id] && noteOpenIdx !== i && (
-                  <div className="psc-note">📝 {noteMap[q.id]}</div>
                 )}
                 <div className="psc-opts" role="radiogroup" aria-label={`Question ${i + 1} options`}>
                   {items.map(([key, text]) => {

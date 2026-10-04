@@ -1,7 +1,8 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchBookmarks, toggleBookmark, clearBookmarks, refreshBookmarksSnapshot} from '../services/api';
+import { fetchBookmarks, toggleBookmark, clearBookmarks, refreshBookmarksSnapshot, fetchBookmarkIds } from '../services/api';
 import { savePage, readPage, isDirty, clearDirty } from '@/utils/pageStore';
+import { syncBookmarksSection, onSection } from '@/utils/sectionSync';
 import { sortCategories } from '@/utils/categorySort';
 
 import { type Question } from '@/shared/types';
@@ -21,6 +22,11 @@ const Bookmarks: React.FC = () => {
   const [loading, setLoading] = useState(() => !readPage('bookmarks-data'));
   const [catFilter, setCatFilter] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
+
+  // A bookmark toggled in the quiz, the question browser or a single question
+  // refills this section in the background (utils/sectionSync). Adopt those rows
+  // here, so arriving at Bookmarks is already up to date.
+  useEffect(() => onSection('bookmarks-data', (v) => setQuestions(v as Question[])), []);
 
   const cats = sortCategories([...new Set(questions.map((q) => q.category).filter((c): c is string => Boolean(c)))]);
   const visible = catFilter ? questions.filter((q) => q.category === catFilter) : questions;
@@ -66,6 +72,8 @@ const Bookmarks: React.FC = () => {
       if (!res.bookmarked) {
         setQuestions((prev) => prev.filter((q) => q.id !== qid));
       }
+      const ids = await fetchBookmarkIds(userId).catch(() => null);
+      if (ids) void syncBookmarksSection(ids.ids);
     },
     [userId, sfxClick]
   );
@@ -90,6 +98,7 @@ const Bookmarks: React.FC = () => {
     if (res) {
       setQuestions([]);
       setCatFilter('');
+      void syncBookmarksSection([]);
     }
   }, [userId, confirmClear, sfxClick]);
 

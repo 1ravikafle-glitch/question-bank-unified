@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { quizOptionList, quizOptionItem, springSnappy } from '@/motion';
 import { T as QuizTokens } from '@/shared/appleQuizTokens';
 import type { Question } from '@/shared/types';
+import { NotePeekButton, NotePeekText } from '@/components/NotePeek';
 const T: Record<string, string> = QuizTokens;
 
 export default function QuestionBox({
@@ -17,6 +18,8 @@ export default function QuestionBox({
   slideDir,
   slotRef,
   enterX,
+  noteId,
+  onNoteEdit,
 }: {
   role: 'active' | 'next';
   question: any;
@@ -34,6 +37,10 @@ export default function QuestionBox({
   // (CSS keyframes, transform-only) = 60fps, no fighting with framer.
   slotRef?: React.Ref<HTMLDivElement>;
   enterX?: number;
+  // Personal note affordance: reveal the note the user wrote for this
+  // question. Absent noteId keeps the kicker exactly as it was.
+  noteId?: number | null;
+  onNoteEdit?: () => void;
 }) {
   const locked = role === 'next';
   const showResult = role === 'active' && revealed;
@@ -71,16 +78,27 @@ export default function QuestionBox({
           opacity: { delay: 0.1, duration: 0.22 },
         }}
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+          marginBottom: 10,
+        }}
+      >
+        <span style={{
           fontSize: 11,
           fontWeight: 600,
           color: T.textTertiary,
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
-          marginBottom: 10,
           fontFamily: T.font,
-        }}
-      >
-        Question {index + 1} of {total}
+        }}>
+          Question {index + 1} of {total}
+        </span>
+        {!locked && noteId != null && (
+          <NotePeekButton questionId={noteId} onEditWhenEmpty={onNoteEdit} showHint />
+        )}
+        {!locked && noteId != null && <NotePeekText questionId={noteId} inline />}
       </motion.div>
 
       <motion.div

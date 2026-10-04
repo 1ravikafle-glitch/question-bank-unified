@@ -11,7 +11,7 @@ import {
   fetchCategories,
   fetchBookmarkIds,
   toggleBookmark,
-  fetchNotes, fetchQuestions, refreshAfterSubmit, refreshBookmarksSnapshot} from '../services/api';
+  fetchQuestions, refreshAfterSubmit } from '../services/api';
 import { ensureBank, peekBank, pickRandom, pickByIds, pickById, bankFacets, bankSize, ensureSessionBank } from '@/utils/bankStore';
 import { savePage, readPage } from '@/utils/pageStore';
 import { sortCategories } from '@/utils/categorySort';
@@ -31,6 +31,11 @@ import ExamPaper, { MIN_EXAM_ATTEMPT_RATIO } from '@/components/ExamPaper';
 import ExamResultModal from '@/components/ExamResultModal';
 import NoteButton from '@/components/NoteButton';
 import NoteEditor from '@/components/NoteEditor';
+import {
+  getNotes, hasNote, noteFor, togglePeek, hidePeek, loadNotes,
+  primeNotesFromSnapshot, putNote, useNotes,
+} from '@/utils/notePeek';
+import { syncBookmarksSection } from '@/utils/sectionSync';
 import { useQuizPrefs } from '@/quizPrefs';
 import PracticeSetupBody from '@/components/PracticeSetupBody';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -132,7 +137,10 @@ const QuizTaker: React.FC = () => {
 
   const [bmIds, setBmIds] = useState<Set<number>>(new Set());
   const bmKeyRef = useRef<string>('');
-  const [noteMap, setNoteMap] = useState<Record<number, string>>({});
+  // Notes live in one shared map (utils/notePeek): a note saved anywhere is
+  // visible on every surface without a refetch.
+  useNotes();
+  const noteMap = getNotes();
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteSaveTick, setNoteSaveTick] = useState(0);
   const [examResult, setExamResult] = useState<QuizResult | null>(null);
@@ -150,10 +158,17 @@ const QuizTaker: React.FC = () => {
     fetchBookmarkIds(userId)
       .then((r) => setBmIds(new Set(r.ids)))
       .catch(() => {});
-    fetchNotes(userId)
-      .then((r) => setNoteMap(r.notes || {}))
-      .catch(() => {});
   }, [userId, showSetup, questions]);
+
+  // Notes are keyed to the user, not to the question set: they must load even
+  // when the bookmark guard above has already run for this set. primeNotes
+  // seeds from the session snapshot so the first paint already knows which
+  // questions have a note, and loadNotes fetches at most once per session.
+  useEffect(() => {
+    if (!userId) return;
+    primeNotesFromSnapshot();
+    void loadNotes(userId);
+  }, [userId]);
 
   const handleBmToggle = useCallback(
     async (qid: number) => {
@@ -173,7 +188,8 @@ const QuizTaker: React.FC = () => {
       try {
         const res = await toggleBookmark(userId, qid);
         flip(res.bookmarked);
-        refreshBookmarksSnapshot(userId);
+        const res2 = await fetchBookmarkIds(userId).catch(() => null);
+        if (res2) void syncBookmarksSection(res2.ids);
       } catch {
         // Not a connectivity failure (those resolve optimistically inside
         // toggleBookmark). Undo the flip; it already showed the error toast.
@@ -977,6 +993,17 @@ const QuizTaker: React.FC = () => {
   const answeredCount = resultsForProgress.filter((r) => r !== null).length;
   const finished = isLocked && isLastQuestion;
 
+  // A revealed note belongs to one question: close it on navigation so the
+  // next question never starts showing the previous one's mnemonic.
+  const lastPeekQid = useRef<number | null>(null);
+  useEffect(() => {
+    const qid = currentQuestion?.id ?? null;
+    if (lastPeekQid.current !== null && lastPeekQid.current !== qid) {
+      hidePeek(lastPeekQid.current);
+    }
+    lastPeekQid.current = qid;
+  }, [currentQuestion?.id]);
+
   // ── Keyboard shortcuts ──────────────────────────────────────────
   // A–D / a–d → select, Space / Enter → next, Esc → exit confirm.
   // With the exit dialog open: Enter = exit quiz, Esc = cancel (no mouse).
@@ -1018,6 +1045,14 @@ const QuizTaker: React.FC = () => {
 
       // Paper view handles its own input; only Esc (above) stays global.
       if (isExamMode) return;
+
+      // P: show/hide the personal note for this question. The note is the
+      // user's own mnemonic, kept quiet so it aids recall without giving the
+      // answer away. No-op when there is no note to show.
+      if ((e.key === 'p' || e.key === 'P') && currentQuestion) {
+        if (togglePeek(currentQuestion.id)) e.preventDefault();
+        return;
+      }
 
       // N: personal note for the current question (N again saves + closes).
       if ((e.key === 'n' || e.key === 'N') && currentQuestion && !showExitConfirm) {
@@ -1462,14 +1497,7 @@ const QuizTaker: React.FC = () => {
             timeLeft={timeLeft}
             warnSecs={examWarnSecs}
             noteMap={noteMap}
-            onNoteSaved={(qid, text) => {
-              setNoteMap((prev) => {
-                const next = { ...prev };
-                if (text) next[qid] = text;
-                else delete next[qid];
-                return next;
-              });
-            }}
+            onNoteSaved={(qid, text) => { void putNote(userId, qid, text); }}
           />
           {examResult && (
             <ExamResultModal
@@ -1496,13 +1524,7 @@ const QuizTaker: React.FC = () => {
               initialText={noteMap[currentQuestion.id] || ''}
               saveSignal={noteSaveTick}
               onSaved={(text) => {
-                const qid = currentQuestion.id;
-                setNoteMap((prev) => {
-                  const next = { ...prev };
-                  if (text) next[qid] = text;
-                  else delete next[qid];
-                  return next;
-                });
+                void putNote(userId, currentQuestion.id, text);
                 setNoteOpen(false);
               }}
               onClose={() => setNoteOpen(false)}
@@ -1523,7 +1545,8 @@ const QuizTaker: React.FC = () => {
           {[
             { keys: ['A', 'B', 'C', 'D'].slice(0, activeShuffled.length), label: 'Select' },
             { keys: ['M'], label: 'Bookmark' },
-            { keys: ['N'], label: 'Note' },
+            { keys: ['P'], label: 'Show notes' },
+            { keys: ['N'], label: 'Edit note' },
             { keys: ['Space'], label: 'Next' },
             { keys: ['Enter'], label: 'Next' },
             { keys: ['Esc'], label: isLocked ? 'Exit' : 'Exit quiz' },
@@ -1640,6 +1663,8 @@ const QuizTaker: React.FC = () => {
             slideDir={slideDir}
             slotRef={activeSlotRef}
             enterX={enterX}
+            noteId={currentQuestion?.id ?? null}
+            onNoteEdit={() => setNoteOpen(true)}
           />
           {/* Hide next question preview on mobile — user navigates with sticky bottom bar */}
           {previewQ && (

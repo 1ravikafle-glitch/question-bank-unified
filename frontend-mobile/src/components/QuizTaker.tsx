@@ -11,7 +11,7 @@ import {
   fetchCategories,
   fetchBookmarkIds,
   toggleBookmark,
-  fetchNotes, fetchQuestions, refreshAfterSubmit, refreshBookmarksSnapshot} from '../services/api';
+  fetchQuestions, refreshAfterSubmit} from '../services/api';
 import { ensureBank, peekBank, pickRandom, pickByIds, pickById, bankFacets, bankSize, ensureSessionBank } from '@/utils/bankStore';
 import { savePage, readPage } from '@/utils/pageStore';
 import { sortCategories } from '@/utils/categorySort';
@@ -32,6 +32,11 @@ import ExamPaper, { MIN_EXAM_ATTEMPT_RATIO } from '@/components/ExamPaper';
 import ExamResultModal from '@/components/ExamResultModal';
 import NoteButton from '@/components/NoteButton';
 import NoteEditor from '@/components/NoteEditor';
+import {
+  getNotes, hasNote, noteFor, togglePeek, hidePeek, loadNotes,
+  primeNotesFromSnapshot, putNote, useNotes,
+} from '@/utils/notePeek';
+import { syncBookmarksSection } from '@/utils/sectionSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   quizOptionList,
@@ -71,7 +76,10 @@ const QuizTaker: React.FC = () => {
   const [showSetup, setShowSetup] = useState(false);
   const [bmIds, setBmIds] = useState<Set<number>>(new Set());
   const bmKeyRef = useRef<string>('');
-  const [noteMap, setNoteMap] = useState<Record<number, string>>({});
+  // Notes live in one shared map (utils/notePeek): a note saved anywhere is
+  // visible on every surface without a refetch.
+  useNotes();
+  const noteMap = getNotes();
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteSaveTick, setNoteSaveTick] = useState(0);
   // Close the note editor whenever the active question changes.
@@ -88,10 +96,17 @@ const QuizTaker: React.FC = () => {
     fetchBookmarkIds(userId)
       .then((r) => setBmIds(new Set(r.ids)))
       .catch(() => {});
-    fetchNotes(userId)
-      .then((r) => setNoteMap(r.notes || {}))
-      .catch(() => {});
   }, [userId, showSetup, questions]);
+
+  // Notes are keyed to the user, not to the question set: they must load even
+  // when the bookmark guard above has already run for this set. primeNotes
+  // seeds from the session snapshot so the first paint already knows which
+  // questions have a note, and loadNotes fetches at most once per session.
+  useEffect(() => {
+    if (!userId) return;
+    primeNotesFromSnapshot();
+    void loadNotes(userId);
+  }, [userId]);
 
   const handleBmToggle = useCallback(
     async (qid: number) => {
@@ -111,7 +126,8 @@ const QuizTaker: React.FC = () => {
       try {
         const res = await toggleBookmark(userId, qid);
         flip(res.bookmarked);
-        refreshBookmarksSnapshot(userId);
+        const res2 = await fetchBookmarkIds(userId).catch(() => null);
+        if (res2) void syncBookmarksSection(res2.ids);
       } catch {
         // Not a connectivity failure (those resolve optimistically inside
         // toggleBookmark). Undo the flip; it already showed the error toast.
@@ -962,6 +978,14 @@ const QuizTaker: React.FC = () => {
       // Paper view handles its own input; only exit/shortcut keys below stay global.
       if (isExamMode) return;
 
+      // P: show/hide the personal note for this question. The note is the
+      // user's own mnemonic, kept quiet so it aids recall without giving the
+      // answer away. No-op when there is no note to show.
+      if ((e.key === 'p' || e.key === 'P') && currentQuestion) {
+        if (togglePeek(currentQuestion.id)) e.preventDefault();
+        return;
+      }
+
       // N: personal note for the current question (N again saves + closes).
       if ((e.key === 'n' || e.key === 'N') && currentQuestion && !showExitConfirm) {
         e.preventDefault();
@@ -1005,7 +1029,11 @@ const QuizTaker: React.FC = () => {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, isExamMode, noteOpen]);
+  // currentQuestion MUST be in here: without it the listener keeps the
+  // closure it had while the quiz was still loading, where currentQuestion
+  // is null. Every shortcut guarded on it (M bookmark, N note, P peek) then
+  // silently did nothing on mobile. Desktop already listed it.
+  }, [isLocked, showExitConfirm, finished, activeShuffled, handleSelect, handleNext, submitQuizRequest, selected, confirmExit, currentQuestion, handleBmToggle, isExamMode, noteOpen]);
 
   // Helpers to adapt Question to reference shape for QuestionBox
   const toBoxQuestion = (q: Question) => {
@@ -1634,14 +1662,7 @@ const QuizTaker: React.FC = () => {
             timeLeft={timeLeft}
             warnSecs={examWarnSecs}
             noteMap={noteMap}
-            onNoteSaved={(qid, text) => {
-              setNoteMap((prev) => {
-                const next = { ...prev };
-                if (text) next[qid] = text;
-                else delete next[qid];
-                return next;
-              });
-            }}
+            onNoteSaved={(qid, text) => { void putNote(userId, qid, text); }}
           />
           {examResult && (
             <ExamResultModal
@@ -1668,13 +1689,7 @@ const QuizTaker: React.FC = () => {
               initialText={noteMap[currentQuestion.id] || ''}
               saveSignal={noteSaveTick}
               onSaved={(text) => {
-                const qid = currentQuestion.id;
-                setNoteMap((prev) => {
-                  const next = { ...prev };
-                  if (text) next[qid] = text;
-                  else delete next[qid];
-                  return next;
-                });
+                void putNote(userId, currentQuestion.id, text);
                 setNoteOpen(false);
               }}
               onClose={() => setNoteOpen(false)}
@@ -1805,6 +1820,8 @@ const QuizTaker: React.FC = () => {
             revealed={isLocked}
             onChoose={handleSelect}
             folding={folding}
+            noteId={currentQuestion?.id ?? null}
+            onNoteEdit={() => setNoteOpen(true)}
             examPaper={isExamMode}
             slideDir={slideDir}
             enterX={enterX}

@@ -1,6 +1,9 @@
 import { useEffect, useState, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchQuestionById, fetchBookmarkIds, toggleBookmark, fetchNotes, saveNote } from '../services/api';
+import { fetchQuestionById, fetchBookmarkIds, toggleBookmark } from '../services/api';
+import { loadNotes, noteFor, putNote, togglePeek, useNotes } from '@/utils/notePeek';
+import { syncBookmarksSection } from '@/utils/sectionSync';
+import { NotePeekText } from '@/components/NotePeek';
 import { AuthContext } from '@/context/AuthContext';
 import BookmarkButton from '@/components/BookmarkButton';
 import { Button } from '@/components/ui/button';
@@ -37,6 +40,8 @@ const QuestionDetail: React.FC = () => {
     try {
       const res = await toggleBookmark(userId, question.id);
       setBookmarked(res.bookmarked);
+      const res2 = await fetchBookmarkIds(userId).catch(() => null);
+      if (res2) void syncBookmarksSection(res2.ids);
     } catch {
       // Not a connectivity failure. Undo; the error toast already showed.
       setBookmarked((b) => !b);
@@ -48,23 +53,47 @@ const QuestionDetail: React.FC = () => {
   const [savingNote, setSavingNote] = useState(false);
   const navigate = useNavigate();
 
+  // The note lives in the shared map, so this screen reflects a note saved
+  // anywhere else without a refetch. Editing starts from whatever is there.
+  useNotes();
+  const stored = noteFor(question?.id);
   useEffect(() => {
-    if (!userId || !question) return;
-    fetchNotes(userId)
-      .then((r) => {
-        setNote(r.notes[question.id] || '');
-        setNoteSaved(r.notes[question.id] ? true : null);
-      })
-      .catch(() => {});
-  }, [userId, question]);
+    if (!userId) return;
+    void loadNotes(userId);
+  }, [userId]);
+
+  // Adopt the stored text when the question changes, but never overwrite text
+  // the user is currently typing.
+  const [noteLoadedFor, setNoteLoadedFor] = useState<number | null>(null);
+  useEffect(() => {
+    const qid = question?.id ?? null;
+    if (qid == null || qid === noteLoadedFor) return;
+    setNoteLoadedFor(qid);
+    setNote(stored);
+    setNoteSaved(stored ? true : null);
+  }, [question?.id, stored, noteLoadedFor]);
 
   const handleSaveNote = useCallback(async () => {
     if (!userId || !question || savingNote) return;
     setSavingNote(true);
-    const res = await saveNote(userId, question.id, note).catch(() => null);
+    await putNote(userId, question.id, note);
     setSavingNote(false);
-    if (res) setNoteSaved(res.saved ? true : null);
+    setNoteSaved(note.trim() ? true : null);
   }, [userId, question, note, savingNote]);
+
+  // P toggles the peeked copy of the note under the question.
+  useEffect(() => {
+    if (!question) return;
+    const handler = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable) return;
+      if (e.key === 'p' || e.key === 'P') {
+        if (togglePeek(question.id)) e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [question]);
 
   useEffect(() => {
     const loadQuestion = async () => {
@@ -195,6 +224,10 @@ const QuestionDetail: React.FC = () => {
               </p>
             </div>
           )}
+
+          <div style={{ marginTop: '1rem' }}>
+            <NotePeekText questionId={question.id} />
+          </div>
 
           <div style={{ marginTop: '1rem' }}>
             <label

@@ -2,13 +2,21 @@ import type { Question, QuestionCreate, QuizSubmission, QuizResult, UserProgress
 import { api, readNumList, flipLocal, BM_OUTBOX_KEY, BM_LOCAL_KEY, isNetworkError, OFFLINE_NO_PACK, OFFLINE_QUEUED } from './client';
 import { bookmarkToast, bookmarkToastError } from '@/utils/bookmarkToast';
 export function refreshBookmarksSnapshot(userIdentifier: string): void {
-  try {
-    import('@/utils/pageStore').then((store) => {
-      fetchBookmarks(userIdentifier)
-        .then((res) => store.savePage('bookmarks-data', res.questions || []))
-        .catch(() => store.markDirty('bookmarks-data'));
-    }).catch(() => {});
-  } catch { /* next visit fetches */ }
+  // Dynamic import keeps the api layer free of a cycle with the sync layer.
+  // Refills the Bookmarks snapshot memory-first (warm bank = no round trip);
+  // the id list is re-read so the section matches the server exactly.
+  void (async () => {
+    try {
+      const [{ fetchBookmarkIds }, { syncBookmarksSection }] = await Promise.all([
+        import('@/services/api/social'),
+        import('@/utils/sectionSync'),
+      ]);
+      const res = await fetchBookmarkIds(userIdentifier);
+      await syncBookmarksSection(res.ids);
+    } catch {
+      // Keep the last good snapshot; the next visit refetches.
+    }
+  })();
 }
 
 

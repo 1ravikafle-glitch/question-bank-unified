@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory, fetchBookmarkIds, toggleBookmark, fetchNotes, refreshBookmarksSnapshot} from '../services/api';
+import { fetchQuestions, fetchCategories, fetchQuestionsCount, fetchQuestionHistory, fetchBookmarkIds, toggleBookmark } from '../services/api';
 import { type Question } from '@/shared/types';
 import { getBank } from '@/utils/offline';
 import { savePage, readPage, hasPage } from '@/utils/pageStore';
@@ -12,6 +12,10 @@ import { AuthContext } from '@/context/AuthContext';
 import { useSfx } from '@/hooks/useSfx';
 import BookmarkButton from '@/components/BookmarkButton';
 import NoteButton from '@/components/NoteButton';
+import { NotePeekButton, NotePeekText } from '@/components/NotePeek';
+import { getNotes, loadNotes, primeNotesFromSnapshot, putNote, togglePeek, hidePeek }
+  from '@/utils/notePeek';
+import { syncBookmarksSection } from '@/utils/sectionSync';
 import NoteEditor from '@/components/NoteEditor';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -129,14 +133,15 @@ const QuestionsBank: React.FC = () => {
   });
   const [questionHistory, setQuestionHistory] = useState<Record<number, boolean[]>>({});
   const [bmIds, setBmIds] = useState<Set<number>>(new Set());
-  const [noteMap, setNoteMap] = useState<Record<number, string>>({});
+  const noteMap = getNotes();
   const [noteOpenId, setNoteOpenId] = useState<number | null>(null);
   const [noteSaveTick, setNoteSaveTick] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
     fetchBookmarkIds(userId).then((r) => setBmIds(new Set(r.ids))).catch(() => {});
-    fetchNotes(userId).then((r) => setNoteMap(r.notes || {})).catch(() => {});
+    primeNotesFromSnapshot();
+    void loadNotes(userId);
   }, [userId]);
 
   const handleBmToggle = useCallback(
@@ -157,7 +162,8 @@ const QuestionsBank: React.FC = () => {
       try {
         const res = await toggleBookmark(userId, qid);
         flip(res.bookmarked);
-        refreshBookmarksSnapshot(userId);
+        const res2 = await fetchBookmarkIds(userId).catch(() => null);
+        if (res2) void syncBookmarksSection(res2.ids);
       } catch {
         // Not a connectivity failure (those resolve optimistically inside
         // toggleBookmark). Undo the flip; it already showed the error toast.
@@ -399,6 +405,10 @@ const QuestionsBank: React.FC = () => {
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); handlePrevPage(); }
       else if (e.key === 'm' || e.key === 'M') {
         if (hoveredId != null) { e.preventDefault(); handleBmToggle(hoveredId); }
+      }
+      else if (e.key === 'p' || e.key === 'P') {
+        // Recall aid: show/hide this card's note. Hover-scoped like M/N.
+        if (hoveredId != null && togglePeek(hoveredId)) e.preventDefault();
       }
       else if (e.key === 'n' || e.key === 'N') {
         // Hover-scoped like M: open for the hovered card, N again saves + closes.
@@ -766,8 +776,12 @@ const QuestionsBank: React.FC = () => {
                   )}
                   <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '2px' }}>
                     <BookmarkButton marked={bmIds.has(q.id)} onToggle={() => handleBmToggle(q.id)} />
-                    <NoteButton hasNote={!!noteMap[q.id]} onOpen={() => setNoteOpenId(noteOpenId === q.id ? null : q.id)} />
+                    <NotePeekButton
+                      questionId={q.id}
+                      onEditWhenEmpty={() => setNoteOpenId(noteOpenId === q.id ? null : q.id)}
+                    />
                   </span>
+                  <NotePeekText questionId={q.id} inline />
                   {perfIndex.length > 0 && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                       {perfIndex.map((correct, idx2) => (
@@ -978,27 +992,13 @@ const QuestionsBank: React.FC = () => {
                     initialText={noteMap[q.id] || ''}
                     saveSignal={noteSaveTick}
                     onSaved={(text) => {
-                      setNoteMap((prev) => {
-                        const next = { ...prev };
-                        if (text) next[q.id] = text;
-                        else delete next[q.id];
-                        return next;
-                      });
+                      void putNote(userId, q.id, text);
                       setNoteOpenId(null);
                     }}
                     onClose={() => setNoteOpenId(null)}
                   />
                 )}
-                {!!noteMap[q.id] && noteOpenId !== q.id && (
-                  <p style={{
-                    fontSize: '0.75rem', lineHeight: 1.6, color: 'hsl(var(--foreground))',
-                    background: 'hsl(var(--info) / 0.07)', borderLeft: '3px solid hsl(var(--info))',
-                    borderRadius: '0 8px 8px 0', padding: '0.5rem 0.75rem', margin: '12px 0 0',
-                    whiteSpace: 'pre-wrap',
-                  }}>
-                    {noteMap[q.id]}
-                  </p>
-                )}
+
               </motion.div>
             );
           })
