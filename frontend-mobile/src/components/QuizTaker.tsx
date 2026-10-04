@@ -27,6 +27,7 @@ import BookmarkButton from '@/components/BookmarkButton';
 import { TimerRing, QuizSkeleton, EmptyState, SubmittingState } from './quiz/QuizChrome';
 import QuestionBox from './quiz/QuestionBox';
 import { SECONDS_PER_QUESTION, RESUME_WINDOW_MS, EMPTY_ARRAY, QUIZ_STORAGE_KEY, shuffleArray } from './quiz/constants';
+import { useQuizPrefs } from '@/quizPrefs';
 import type { QuizPersistedState } from './quiz/constants';
 import ExamPaper, { MIN_EXAM_ATTEMPT_RATIO } from '@/components/ExamPaper';
 import ExamResultModal from '@/components/ExamResultModal';
@@ -609,6 +610,7 @@ const QuizTaker: React.FC = () => {
     prevLockedRef.current = isLocked;
   }, [isLocked, isCorrect, sfxCorrect, sfxIncorrect]);
 
+  const [quizPrefs] = useQuizPrefs();
   const [timeLeft, setTimeLeft] = useState(SECONDS_PER_QUESTION);
   // Exam mode: one countdown for the whole paper, auto-submit at zero.
   //
@@ -688,6 +690,15 @@ const QuizTaker: React.FC = () => {
   useEffect(() => {
     if (isExamMode) return;
     if (loading || questions.length === 0 || submitting || !currentQuestion) return;
+    // Untimed practice when the user turned the per-question countdown off.
+    // Without this the timer always ran here, so mobile had no way to opt out
+    // and the quiz advanced on its own; desktop has had the toggle in
+    // Settings all along.
+    if (!quizPrefs.timer) {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      setTimeLeft(SECONDS_PER_QUESTION);
+      return;
+    }
     if (isLocked) {
       if (timerRef.current) window.clearInterval(timerRef.current);
       return;
@@ -707,7 +718,7 @@ const QuizTaker: React.FC = () => {
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
     };
-  }, [currentIndex, isLocked, loading, questions.length, submitting]);
+  }, [currentIndex, isLocked, loading, questions.length, submitting, quizPrefs.timer]);
 
   const handleSelect = useCallback(
     (key: string) => {
