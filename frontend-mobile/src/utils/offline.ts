@@ -367,6 +367,40 @@ async function stampVersion(version: string): Promise<void> {
   } catch { /* stamp is advisory; next boot re-probes */ }
 }
 
+/** Cache Storage name shared with the repo-root service worker.
+ *
+ * There is ONE worker for both apps and it is the only thing that ever reads
+ * Cache Storage, so this literal and `CACHE` in `sw.js` must be the same
+ * string. They were not: this said v7 while the worker said v8 (and now v9),
+ * and because the worker evicts every `forestry-*` cache that is not its own
+ * on activate, everything this function wrote was discarded without warning.
+ *
+ * Kept as a named constant so there is exactly one place to change, and
+ * `assertCacheNameMatchesWorker()` below turns a future drift into a console
+ * warning rather than silent dead work. */
+export const SW_CACHE_NAME = 'forestry-v9';
+
+/** Warns when the service worker's own CACHE name has drifted from ours.
+ * Best-effort: reads the already-downloaded worker script, and simply does
+ * nothing when it cannot. */
+export async function assertCacheNameMatchesWorker(): Promise<void> {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration?.();
+    const src = reg?.active?.scriptURL ?? reg?.installing?.scriptURL ?? reg?.waiting?.scriptURL;
+    if (!src) return;
+    const text = await (await fetch(src, { cache: 'no-store' })).text();
+    const m = /const CACHE\s*=\s*['"]([^'"]+)['"]/.exec(text);
+    if (m && m[1] !== SW_CACHE_NAME) {
+      console.warn(
+        `[offline] SW_CACHE_NAME is '${SW_CACHE_NAME}' but sw.js uses '${m[1]}'. ` +
+          'Offline precaching is being written to a cache the worker will delete.',
+      );
+    }
+  } catch { /* advisory only */ }
+}
+
+/** Proactively cache this page + its scripts/styles so offline works
+ *  even if the worker installed after they first loaded. */
 /** Proactively cache this page + its scripts/styles so offline works
  *  even if the worker installed after they first loaded. */
 export async function primeCache(): Promise<void> {
@@ -382,10 +416,8 @@ export async function primeCache(): Promise<void> {
       const u = (el as HTMLScriptElement).src || (el as HTMLLinkElement).href;
       if (u && u.startsWith(location.origin)) urls.add(u);
     });
-    // Must match CACHE in the repo-root sw.js. The worker's activate handler
-    // evicts every forestry-* cache that is not its own, so a stale literal here
-    // silently discards everything this function just wrote.
-    const cache = await caches.open('forestry-v7');
+    void assertCacheNameMatchesWorker();
+    const cache = await caches.open(SW_CACHE_NAME);
     await Promise.allSettled(
       [...urls].map((u) =>
         cache.match(u).then((hit) => (hit ? null : cache.add(u).catch(() => null)))

@@ -6,22 +6,35 @@ current Sunday-to-Sunday window. No extra table: the history the app already
 writes is exactly what a weekly leaderboard needs, including questions a
 user has since got right.
 
-Three rules, all deliberate:
+Four rules, all deliberate:
 
-1. Eligibility is volume in the window, not lifetime. A rank has to be
-   earned inside the week it applies to, or someone could coast on last
-   month's effort. Distinct questions attempted must be strictly greater
-   than MIN_DISTINCT_QUESTIONS - "more than 500", so 501 qualifies.
+1. Eligibility is LIFETIME volume, not weekly volume. An account has to have
+   genuinely committed to the bank before its weekly week is worth ranking.
+   This is deliberately a different window from the score: qualifying is a
+   standing achievement, while the rank itself is earned inside the week. The
+   two used to be the same window, which meant a strong all-time user who
+   skipped a week vanished from the board entirely and re-entered cold.
 
-2. Accuracy is the multiplier, so it decides the order. Volume only scales
+   The threshold is strictly greater than MIN_DISTINCT_QUESTIONS, so 501
+   lifetime distinct questions qualifies and exactly 500 does not.
+
+2. The rank is weekly. Score uses only the current Sunday-to-Sunday window,
+   so the board genuinely resets once a week and last month's effort cannot
+   carry anybody.
+
+3. Accuracy is the multiplier, so it decides the order. Volume only scales
    the result and with a logarithm, which means grinding the whole bank
-   cannot overtake simply being accurate. Someone on 3,301 questions at 60%
-   scores 211; someone at 85% scores 299.
+   cannot overtake simply being accurate. Someone on 3,301 weekly questions
+   at 60% scores 271; someone at 85% scores 384.
 
-3. Names are masked before they leave the server. Nobody else ever receives a
+4. Names are masked before they leave the server. Nobody else ever receives a
    real name, so there is nothing about another account in the response, the
    DOM or a devtools tab. The one exception is the requesting account's own
    row, which is unmasked: seeing your own handle is how you recognise it.
+
+Every row carries BOTH figures - this week's and lifetime - because the gate
+is lifetime and the score is weekly, and showing only one of them makes the
+other look arbitrary.
 """
 import math
 import os
@@ -131,66 +144,91 @@ def ensure_indexes() -> None:
         print(f"[LEADERBOARD] attempted_at index skipped: {exc}")
 
 
+def _aggregate(start: Optional[datetime] = None, end: Optional[datetime] = None) -> dict:
+    """One GROUP BY over user_progress, optionally clipped to a window.
+
+    Two calls - one all-time, one for the week - and the weekly gate is a
+    join in Python rather than a HAVING. HAVING cannot express "qualify on
+    lifetime, rank on the week": it filters the same rows it aggregates, so a
+    single grouped query can only ever gate and score over the same span.
+    """
+    answered = func.count()
+    distinct_q = func.count(func.distinct(models.UserProgress.question_id))
+    correct = func.sum(
+        func.cast(models.UserProgress.is_correct, __import__("sqlalchemy").Integer)
+    )
+    stmt = select(
+        models.UserProgress.user_identifier,
+        answered.label("answered"),
+        distinct_q.label("distinct_questions"),
+        correct.label("correct"),
+    ).where(models.UserProgress.user_identifier.isnot(None))
+    if start is not None and end is not None:
+        stmt = stmt.where(
+            models.UserProgress.attempted_at >= start,
+            models.UserProgress.attempted_at < end,
+        )
+    stmt = stmt.group_by(models.UserProgress.user_identifier)
+    return {
+        r.user_identifier: {
+            "answered": int(r.answered or 0),
+            "distinct_questions": int(r.distinct_questions or 0),
+            "correct": int(r.correct or 0),
+        }
+        for r in database.SessionLocal().execute(stmt).all()
+    }
+
+
+def _accuracy(rec: dict) -> float:
+    return round((rec["correct"] / rec["answered"] * 100.0) if rec["answered"] else 0.0, 1)
+
+
 def compute(viewer: Optional[str] = None) -> dict:
     start, end = week_window()
     cache_key = f"leaderboard:{start.isoformat()}"
     cached = app_cache.get(cache_key)
     if cached is not None:
-        rows = cached
+        lifetime, weekly, eligible_count = cached
     else:
         ensure_indexes()
-        answered = func.count()
-        distinct_q = func.count(func.distinct(models.UserProgress.question_id))
-        correct = func.sum(
-            func.cast(models.UserProgress.is_correct, __import__("sqlalchemy").Integer)
+        lifetime = _aggregate()
+        weekly = _aggregate(start, end)
+        eligible_count = sum(
+            1 for rec in lifetime.values() if rec["distinct_questions"] > MIN_DISTINCT_QUESTIONS
         )
-        stmt = (
-            select(
-                models.UserProgress.user_identifier,
-                answered.label("answered"),
-                distinct_q.label("distinct_questions"),
-                correct.label("correct"),
-            )
-            .where(
-                models.UserProgress.attempted_at >= start,
-                models.UserProgress.attempted_at < end,
-                models.UserProgress.user_identifier.isnot(None),
-            )
-            .group_by(models.UserProgress.user_identifier)
-            .having(distinct_q > MIN_DISTINCT_QUESTIONS)
-        )
-        rows = [
-            {
-                "user_identifier": r.user_identifier,
-                "answered": int(r.answered or 0),
-                "distinct_questions": int(r.distinct_questions or 0),
-                "correct": int(r.correct or 0),
-            }
-            for r in database.SessionLocal().execute(stmt).all()
-        ]
-        app_cache.set(cache_key, rows, LEADERBOARD_TTL_SECONDS)
+        app_cache.set(cache_key, (lifetime, weekly, eligible_count), LEADERBOARD_TTL_SECONDS)
 
     # Rank before slicing: the viewer's own row must be findable even when
     # they are outside the top N.
     scored = []
-    for r in rows:
-        # Round the accuracy FIRST, then score it. Scoring the raw ratio and
-        # displaying the rounded one is how a breakdown ends up printing an
-        # equation that does not produce the number beside it.
-        accuracy = round((r["correct"] / r["answered"] * 100.0) if r["answered"] else 0.0, 1)
+    for username, life in lifetime.items():
+        # The gate is lifetime. The score is the week.
+        if life["distinct_questions"] <= MIN_DISTINCT_QUESTIONS:
+            continue
+        week = weekly.get(username, {"answered": 0, "distinct_questions": 0, "correct": 0})
+        # Qualified but idle this week still holds a place on the board, with a
+        # real zero rather than a flattering blank. Dropping them would let the
+        # board look emptier than it is and hide committed users.
+        accuracy = _accuracy(week)
         scored.append(
             {
-                "user_identifier": r["user_identifier"],
-                "name": mask_name(r["user_identifier"]),
-                "questions": r["distinct_questions"],
-                "answered": r["answered"],
-                "correct": r["correct"],
+                "user_identifier": username,
+                "name": mask_name(username),
+                # ---- this week: what the rank is actually made of ----
+                "questions": week["distinct_questions"],
+                "answered": week["answered"],
+                "correct": week["correct"],
                 "accuracy": accuracy,
-                "score": score_for(accuracy, r["distinct_questions"]),
+                "score": score_for(accuracy, week["distinct_questions"]),
+                # ---- lifetime: why they are allowed to compete ----
+                "lifetime_questions": life["distinct_questions"],
+                "lifetime_answered": life["answered"],
+                "lifetime_correct": life["correct"],
+                "lifetime_accuracy": _accuracy(life),
             }
         )
-    # Score desc, then accuracy desc, then more questions, then name, so the
-    # order is total and stable between reloads.
+    # Score desc, then accuracy desc, then more weekly questions, then name,
+    # so the order is total and stable between reloads.
     scored.sort(key=lambda x: (-x["score"], -x["accuracy"], -x["questions"], x["name"]))
     for i, row in enumerate(scored, start=1):
         row["rank"] = i
@@ -222,9 +260,18 @@ def compute(viewer: Optional[str] = None) -> dict:
             "timezone": str(_TZ),
             "label": f"{start.strftime('%d %b')} – {(end - timedelta(days=1)).strftime('%d %b')}",
         },
-        "eligibility": {"min_distinct_questions": MIN_DISTINCT_QUESTIONS},
-        "formula": "score = accuracy% x (1 + log10(distinct questions))",
+        "eligibility": {
+            "min_distinct_questions": MIN_DISTINCT_QUESTIONS,
+            "scope": "lifetime",
+        },
+        "formula": "score = weekly accuracy% x (1 + log10(weekly distinct questions))",
+        "score_window": "weekly",
         "rows": top,
+        # Lifetime-qualified accounts, and how many of them have actually
+        # practised inside the current week. The difference is worth stating
+        # out loud: a qualified user who has not opened the app yet still
+        # holds a rank, at a real zero.
         "eligible_count": len(scored),
+        "active_count": sum(1 for r in scored if r["answered"] > 0),
         "you": viewer_row,
     }

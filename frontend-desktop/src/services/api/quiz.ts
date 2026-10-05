@@ -194,20 +194,31 @@ export interface LeaderboardRow {
   rank: number;
   name: string;
   is_you: boolean;
+  /** This week. The rank and the score are made of these. */
   questions: number;
   answered: number;
   correct: number;
   accuracy: number;
   score: number;
+  /** Lifetime. This is what decides whether the row competes at all. */
+  lifetime_questions: number;
+  lifetime_answered: number;
+  lifetime_correct: number;
+  lifetime_accuracy: number;
   breakdown: string;
 }
 
 export interface Leaderboard {
   window: { start: string; end: string; timezone: string; label: string };
-  eligibility: { min_distinct_questions: number };
+  /** The gate is on lifetime volume, not this week's. */
+  eligibility: { min_distinct_questions: number; scope: string };
   formula: string;
+  score_window: string;
   rows: LeaderboardRow[];
+  /** Accounts past the lifetime gate. */
   eligible_count: number;
+  /** How many of those have practised inside the current week. */
+  active_count: number;
   you: LeaderboardRow | null;
 }
 

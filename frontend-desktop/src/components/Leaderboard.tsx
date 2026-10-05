@@ -172,6 +172,9 @@ function Row({
               pts
             </span>
           </span>
+          {/* Both windows, labelled. The gate is lifetime and the score is
+              weekly, so showing one without the other makes the other look
+              arbitrary. */}
           <span
             style={{
               display: 'block',
@@ -185,6 +188,35 @@ function Row({
           </span>
         </span>
       </div>
+
+      {/* Lifetime strip. Deliberately quieter than the week line above: this is
+          the qualification, not the achievement, so it should read as context
+          rather than compete with the score for attention. */}
+      <span
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: '0.4rem',
+          fontSize: '0.625rem',
+          color: 'hsl(var(--muted-foreground) / 0.75)',
+          fontFamily: 'var(--font-mono)',
+        }}
+      >
+        <span
+          style={{
+            textTransform: 'uppercase',
+            letterSpacing: 'var(--tracking-wide)',
+            fontFamily: 'var(--font-sans)',
+            fontWeight: 700,
+            fontSize: '0.5625rem',
+          }}
+        >
+          Lifetime
+        </span>
+        <span>
+          {r.lifetime_questions.toLocaleString()} q · {r.lifetime_accuracy.toFixed(1)}%
+        </span>
+      </span>
 
       {/* The rank bar: length is the score against the leader, so the shape of
           the field is legible before anyone reads a number. */}
@@ -310,7 +342,7 @@ const Leaderboard: React.FC = () => {
         >
           <p style={{ margin: '0 0 0.4rem' }}>
             <strong style={{ color: 'hsl(var(--foreground))' }}>
-              score = accuracy% × (1 + log₁₀(distinct questions))
+              score = this week&rsquo;s accuracy% × (1 + log₁₀(this week&rsquo;s questions))
             </strong>
           </p>
           <p style={{ margin: '0 0 0.4rem' }}>
@@ -318,10 +350,16 @@ const Leaderboard: React.FC = () => {
             the result, and a logarithm means that grinding the whole bank cannot overtake simply
             being accurate.
           </p>
-          <p style={{ margin: 0 }}>
+          <p style={{ margin: '0 0 0.4rem' }}>
             To appear at all, an account needs more than {data.eligibility.min_distinct_questions}{' '}
-            distinct questions attempted inside the week. Every other account is masked before the
-            ranking leaves the server; you see your own name in full.
+            distinct questions <strong>in total</strong>. That is a lifetime bar, not a weekly one, so
+            joining is a standing achievement. The score itself is recalculated from scratch every
+            week, so last month&rsquo;s practice cannot carry anyone.
+          </p>
+          <p style={{ margin: 0 }}>
+            Every row shows both: this week&rsquo;s figures are what the score is made of, and the
+            lifetime figures are why the account is allowed to compete. Every other account is masked
+            before the ranking leaves the server; you see your own name in full.
           </p>
         </div>
       </details>
@@ -349,8 +387,9 @@ const Leaderboard: React.FC = () => {
             Nobody has qualified yet
           </p>
           <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
-            The ranking fills up once someone passes {data.eligibility.min_distinct_questions}{' '}
-            distinct questions this week.
+            An account joins the ranking once it has passed{' '}
+            {data.eligibility.min_distinct_questions} distinct questions in total. Each week it
+            then competes on that week's own practice.
           </p>
         </div>
       ) : (
