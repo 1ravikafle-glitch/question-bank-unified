@@ -37,9 +37,15 @@ def enabled() -> bool:
 
 
 def _fetch_jwks():
-    import jwt  # PyJWT
-    import requests
+    """Google's rotating signing keys, cached.
 
+    Uses urllib from the standard library rather than requests. requests was
+    never pinned in requirements.txt, so on a deploy where it was absent this
+    raised ModuleNotFoundError, every ID-token verification failed, and Google
+    sign-in was dead on the server while the login screen still drew the
+    button. One HTTPS GET does not justify a third-party dependency that can
+    vanish silently.
+    """
     now = time.time()
     cached = _jwks_cache["keys"]
     if cached and now - _jwks_cache["at"] < JWKS_TTL_SECONDS:
@@ -48,12 +54,22 @@ def _fetch_jwks():
         cached = _jwks_cache["keys"]
         if cached and time.time() - _jwks_cache["at"] < JWKS_TTL_SECONDS:
             return cached
-        resp = requests.get(GOOGLE_JWKS_URL, timeout=10)
-        resp.raise_for_status()
-        keys = resp.json()["keys"]
+        keys = _http_get_json(GOOGLE_JWKS_URL)["keys"]
         _jwks_cache["keys"] = keys
         _jwks_cache["at"] = time.time()
         return keys
+
+
+def _http_get_json(url: str, timeout: int = 10):
+    """GET a JSON document. Raises on any transport or status failure."""
+    import json as _json
+    import urllib.request as _req
+
+    req = _req.Request(url, headers={"Accept": "application/json"}, method="GET")
+    with _req.urlopen(req, timeout=timeout) as resp:
+        if resp.getcode() != 200:
+            raise RuntimeError(f"GET {url} -> HTTP {resp.getcode()}")
+        return _json.loads(resp.read().decode("utf-8"))
 
 
 def verify_id_token(token: str) -> dict:
