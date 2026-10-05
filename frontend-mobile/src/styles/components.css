@@ -2840,3 +2840,67 @@
 .dark .nav-row.is-external:hover {
   background-color: hsl(var(--tone) / 0.16);
 }
+
+/* ── Secondary action row: "Practise bookmarks" on the practice setup ──────
+   This sits directly under the primary Start Practice CTA, so it must read as
+   a secondary path rather than a second button. It used to be a full-width
+   amber slab at 0.12 alpha with a 0.35 border: at that size the saturated
+   block out-shouted the green CTA above it and the two competed.
+
+   Now the bookmark amber is only an accent - the icon chip and the chevron -
+   over a neutral card row, so the accent still ties the row to bookmarks
+   without becoming the loudest thing on the screen. Hover warms the surface
+   with a trace of the same amber, which keeps it clickable. Tokens only. */
+.bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  border-radius: var(--apple-radius-md);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.bookmark-row:hover {
+  background: hsl(var(--bookmark) / 0.05);
+  border-color: hsl(var(--bookmark) / 0.32);
+}
+.bookmark-row:active {
+  background: hsl(var(--bookmark) / 0.09);
+}
+.bookmark-row__chip {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  border-radius: 0.6rem;
+  font-size: 0.875rem;
+  color: hsl(var(--bookmark));
+  background: hsl(var(--bookmark) / 0.12);
+  border: 1px solid hsl(var(--bookmark) / 0.22);
+}
+.bookmark-row__title {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+.bookmark-row__sub {
+  display: block;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+.bookmark-row__chevron {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  color: hsl(var(--muted-foreground) / 0.7);
+  transition: color 150ms ease, transform 150ms ease;
+}
+.bookmark-row:hover .bookmark-row__chevron {
+  color: hsl(var(--bookmark));
+  transform: translateX(2px);
+}

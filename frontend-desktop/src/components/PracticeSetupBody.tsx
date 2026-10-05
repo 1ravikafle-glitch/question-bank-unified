@@ -339,29 +339,23 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
 
       {(bookmarkCount || 0) > 0 && onPracticeBookmarks && (
         <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border))' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
-            <span aria-hidden="true" style={{ fontSize: '1rem' }}>🔖</span>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'hsl(var(--foreground))' }}>
-              {bookmarkCount} saved question{(bookmarkCount || 0) === 1 ? '' : 's'}
-            </span>
-          </div>
+          {/* Secondary path, not a second CTA: it sits directly under the
+              primary Start Practice button, so the bookmark amber stays an
+              accent on the icon chip instead of filling the whole row. */}
           <motion.button
+            type="button"
             onClick={() => { ping(); onPracticeBookmarks(); }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              width: '100%',
-              padding: '0.625rem',
-              borderRadius: 'var(--apple-radius-md)',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              color: 'hsl(var(--bookmark))',
-              background: 'hsl(var(--bookmark) / 0.12)',
-              border: '1px solid hsl(var(--bookmark) / 0.35)',
-              cursor: 'pointer',
-            }}
+            whileTap={{ scale: 0.99 }}
+            className="bookmark-row"
           >
-            Practice bookmarks →
+            <span className="bookmark-row__chip" aria-hidden="true">🔖</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span className="bookmark-row__title">Practice bookmarks</span>
+              <span className="bookmark-row__sub">
+                {bookmarkCount} saved question{(bookmarkCount || 0) === 1 ? '' : 's'} ready to revise
+              </span>
+            </span>
+            <span className="bookmark-row__chevron" aria-hidden="true">→</span>
           </motion.button>
         </div>
       )}

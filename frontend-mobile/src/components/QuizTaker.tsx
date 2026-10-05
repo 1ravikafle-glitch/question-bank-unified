@@ -1386,32 +1386,25 @@ const QuizTaker: React.FC = () => {
               Start Quiz
             </button>
 
-            {/* Saved bookmarks */}
+            {/* Saved bookmarks. Secondary path, not a second CTA: it sits
+                directly under the primary Start button, so the bookmark amber
+                stays an accent on the chip instead of filling the row. */}
             {setupBmIds.length > 0 && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <span style={{ fontSize: 16 }} aria-hidden="true">🔖</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: T.font, color: T.textPrimary }}>
-                    {setupBmIds.length} saved question{setupBmIds.length === 1 ? '' : 's'}
-                  </span>
-                </div>
                 <button
+                  type="button"
                   onClick={() => { try { navigator.vibrate?.(10); } catch {} startBookmarksQuiz(); }}
-                  style={{
-                    width: '100%',
-                    padding: '12px 0',
-                    borderRadius: 14,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    fontFamily: T.font,
-                    color: 'hsl(var(--bookmark))',
-                    background: 'hsl(var(--bookmark) / 0.12)',
-                    border: '1px solid hsl(var(--bookmark) / 0.35)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
+                  className="bookmark-row"
+                  style={{ fontFamily: T.font }}
                 >
-                  Practice bookmarks →
+                  <span className="bookmark-row__chip" aria-hidden="true" style={{ fontSize: 14 }}>🔖</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="bookmark-row__title" style={{ fontFamily: T.font }}>Practice bookmarks</span>
+                    <span className="bookmark-row__sub" style={{ fontFamily: T.font }}>
+                      {setupBmIds.length} saved question{setupBmIds.length === 1 ? '' : 's'} ready to revise
+                    </span>
+                  </span>
+                  <span className="bookmark-row__chevron" aria-hidden="true">→</span>
                 </button>
               </div>
             )}
