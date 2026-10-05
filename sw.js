@@ -1,5 +1,14 @@
-/* Forestry offline service worker (scope: whole site). */
-const CACHE = 'forestry-v7';
+/* Forestry offline service worker (scope: whole site).
+ *
+ * This is the ONLY service worker for both apps: frontend-desktop and
+ * frontend-mobile both call register('/sw.js'), so the browser always fetches
+ * this file. A second, older copy used to sit at frontend-mobile/public/sw.js
+ * (which Vite copied to /mobile/sw.js) - a network-first worker with a
+ * different cache name that nothing ever requested. It was removed rather than
+ * kept in sync: two workers for one job is how the mobile copy silently aged
+ * six weeks behind the real one.
+ */
+const CACHE = 'forestry-v8';
 // Only paths that genuinely resolve. /forestry-logo.png was listed here and
 // never did: the SPA catch-all answers every unmatched path with index.html and
 // a 200, so the fetch "succeeded" and cached an HTML body under a .png URL.
@@ -157,6 +166,28 @@ self.addEventListener('fetch', (event) => {
             return res;
           })
       )
+    );
+    return;
+  }
+
+  // Admin-managed credits: network-first.
+  //
+  // These two are edited deliberately in Admin, so a stale answer is the one
+  // failure users actually notice - an admin adds a name to References or
+  // Special Contribution and the About page keeps showing the old list.
+  // They are tiny and change rarely, so there is nothing to gain from serving
+  // them from cache; the cache is kept purely as an offline fallback.
+  if (path === '/questions/contributors/' || path === '/questions/references/') {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok && isAssetResponse(res)) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then((hit) => hit || Response.error()))
     );
     return;
   }

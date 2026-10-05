@@ -175,16 +175,35 @@ const About: React.FC = () => {
     if (!readPage('about-stats-c')) {
       fetchCategories().then((c) => { setTotalCategories(c.length); savePage('about-stats-c', c.length); }).catch(() => {});
     }
-    if (readPage('about-refs')) {
-      setReferences(readPage('about-refs') as any);
-    } else {
-      fetchReferences().then((r) => { setReferences(r.references || []); savePage('about-refs', r.references || []); }).catch(() => {});
-    }
-    if (readPage('about-contribs')) {
-      setContributors(readPage('about-contribs') as any);
-    } else {
-      fetchContributors().then((r) => { setContributors(r.contributors || []); savePage('about-contribs', r.contributors || []); }).catch(() => {});
-    }
+    // Credits are admin-edited, so they paint instantly from the snapshot (no
+    // skeleton, no layout shift) but always revalidate behind it. Snapshot
+    // alone would leave an admin's own edit invisible until the tab closed, and
+    // a failed fetch must not blank a list we already had.
+    // Trailing comma in <T,> keeps this from being read as JSX.
+    const sameList = <T,>(prev: T[], next: T[]): T[] =>
+      JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+
+    const snapRefs = readPage<any[]>('about-refs');
+    if (snapRefs) setReferences(snapRefs);
+    fetchReferences()
+      .then((r) => {
+        const next = r.references || [];
+        savePage('about-refs', next);
+        // Keep the same array identity when nothing changed, so a no-op
+        // refresh cannot re-render the page for no reason.
+        setReferences((prev) => sameList(prev, next));
+      })
+      .catch(() => {});
+
+    const snapContribs = readPage<any[]>('about-contribs');
+    if (snapContribs) setContributors(snapContribs);
+    fetchContributors()
+      .then((r) => {
+        const next = r.contributors || [];
+        savePage('about-contribs', next);
+        setContributors((prev) => sameList(prev, next));
+      })
+      .catch(() => {});
   }, []);
 
   const stats = [
