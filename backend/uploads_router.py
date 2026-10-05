@@ -28,6 +28,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Response
 from pydantic import BaseModel
+from sqlalchemy import Integer, LargeBinary, String
 from sqlalchemy.orm import Session
 from typing import Tuple
 
@@ -123,29 +124,44 @@ def _ensure_contrib_pdf_columns():
     missing tables, so an existing contribution_requests never gains a column.
     """
     wanted = {
-        "title": "VARCHAR(300)",
-        "pdf_bytes": "BLOB",
-        "pdf_pages": "INTEGER",
-        "pdf_size": "INTEGER",
+        "title": String(300),
+        # LargeBinary, not a raw "BLOB" string: BLOB is SQLite's type name and
+        # is rejected by Postgres, which spells it BYTEA. The literal version of
+        # this migration failed silently on the production database, so the
+        # columns never existed and every past-papers query raised on the
+        # missing column. Compiling the type through the dialect cannot drift.
+        "pdf_bytes": LargeBinary(),
+        "pdf_pages": Integer(),
+        "pdf_size": Integer(),
     }
-    try:
-        from sqlalchemy import inspect, text as _text
+    from sqlalchemy import inspect, text as _text
 
+    try:
         insp = inspect(database.engine)
         try:
             cols = {c["name"] for c in insp.get_columns("contribution_requests")}
         except Exception:
             return  # table doesn't exist yet — create_all covers it
-        for name, ddl in wanted.items():
+        for name, coltype in wanted.items():
             if name in cols:
                 continue
+            ddl = coltype.compile(dialect=insp.dialect)
             with database.engine.begin() as conn:
                 conn.execute(
                     _text(f"ALTER TABLE contribution_requests ADD COLUMN {name} {ddl}")
                 )
-            print(f"[UPLOAD] contribution_requests (+1 col: {name})", file=sys.stderr)
+            print(f"[UPLOAD] contribution_requests (+1 col: {name} {ddl})", file=sys.stderr)
     except Exception as e:
-        print(f"[UPLOAD] pdf-column migration skipped: {e}", file=sys.stderr)
+        # Loud, but not fatal. Letting this propagate at import time would take
+        # the whole site down over one table; swallowing it without a trace is
+        # what hid the BLOB-vs-BYTEA failure for a whole deploy, because every
+        # past-papers endpoint then 500'd on the missing column with nothing in
+        # the log to say why.
+        print(
+            f"[UPLOAD] FATAL: pdf-column migration failed, whole-PDF contributions "
+            f"will not work until it succeeds: {e!r}",
+            file=sys.stderr,
+        )
 
 
 _ensure_contrib_pdf_columns()
