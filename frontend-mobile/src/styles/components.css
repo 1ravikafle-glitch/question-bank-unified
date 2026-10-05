@@ -2904,3 +2904,62 @@
   color: hsl(var(--bookmark));
   transform: translateX(2px);
 }
+
+/* ── Stat tile hierarchy ────────────────────────────────────────────────
+   This row mixes three different kinds of number and used to draw them all
+   the same: a fact about the bank (Questions, Categories), something the
+   user actually did (Attempted), and a quality measure (Accuracy, already
+   band-coloured by scoreColor). "3,301" and "1,048" looked like the same
+   kind of figure, so nothing said which one was yours.
+
+   Colour now carries that meaning instead of decoration: bank facts recede
+   to muted, the user's own progress is the single loud value, and Accuracy
+   keeps its performance band. */
+.stat-tile--context .stat-tile-value {
+  color: hsl(var(--muted-foreground));
+  font-weight: var(--font-weight-semibold);
+}
+.stat-tile--hero {
+  background: hsl(var(--primary) / 0.05);
+  border-color: hsl(var(--primary) / 0.22);
+}
+.stat-tile--hero .stat-tile-value {
+  color: hsl(var(--primary));
+}
+.stat-tile-sub {
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+  margin-top: 0.125rem;
+}
+
+/* Coverage rail. Rendered under the row, it makes "1,048 of 3,301" one
+   proportion instead of two numbers that happen to sit near each other. */
+.stat-coverage {
+  margin-top: 0.875rem;
+}
+.stat-coverage-rail {
+  position: relative;
+  height: 6px;
+  border-radius: var(--apple-radius-full);
+  background: hsl(var(--muted));
+  overflow: hidden;
+}
+.stat-coverage-fill {
+  height: 100%;
+  border-radius: var(--apple-radius-full);
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--secondary)));
+  transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.stat-coverage-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+}
+.stat-coverage-caption strong {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}

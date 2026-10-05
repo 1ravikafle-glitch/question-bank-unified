@@ -143,6 +143,11 @@ const Dashboard: React.FC = () => {
   const [wrongCount, setWrongCount] = useState(() => readHome()?.wrongCount ?? 0);
   const [bmIds, setBmIds] = useState<number[]>(() => readHome()?.bmIds ?? []);
 
+  // Attempted as a share of the bank. Clamped because the same question can be
+  // attempted more than once, so `attempted` can legitimately exceed `total`
+  // and a bar wider than its track would look like a bug.
+  const coveragePct = total > 0 ? Math.min(100, (attempted / total) * 100) : 0;
+
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [quote] = useState(() => quotes[Math.floor(Math.random() * quotes.length)]);
@@ -473,13 +478,17 @@ const Dashboard: React.FC = () => {
               Your progress
             </h2>
             <div className="stats-row-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-              <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Total questions: ${total.toLocaleString()}`}>
+              {/* Bank fact, not an achievement: recedes so the user's own
+                  number is the one that reads first. */}
+              <motion.div className="stat-tile stat-tile--context" variants={itemVariants} role="figure" aria-label={`Total questions: ${total.toLocaleString()}`}>
                 <span className="stat-tile-label">Questions</span>
                 <span className="stat-tile-value">{num(total.toLocaleString())}</span>
+                <span className="stat-tile-sub">in the bank</span>
               </motion.div>
-              <motion.div className="stat-tile" variants={itemVariants} role="figure" aria-label={`Questions attempted: ${attempted.toLocaleString()}`}>
+              <motion.div className="stat-tile stat-tile--hero" variants={itemVariants} role="figure" aria-label={`Questions attempted: ${attempted.toLocaleString()}`}>
                 <span className="stat-tile-label">Attempted</span>
                 <span className="stat-tile-value">{num(attempted.toLocaleString())}</span>
+                <span className="stat-tile-sub">{num(coveragePct.toFixed(coveragePct < 10 ? 1 : 0))}% of the bank</span>
               </motion.div>
               <motion.div
                 className="stat-tile"
@@ -495,11 +504,32 @@ const Dashboard: React.FC = () => {
                   {accuracy !== null && attempted > 0 ? `${num(accuracy.toFixed(1))}%` : '—'}
                 </span>
                 {accuracy !== null && (
-                  <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
+                  <span className="stat-tile-sub">
                     {attempted > 0 ? perfLabel(accuracy) : 'No attempts yet'}
                   </span>
                 )}
               </motion.div>
+            </div>
+
+            {/* Attempted and Questions are a proportion, not two unrelated
+                numbers. The rail says so in one glance. */}
+            <div className="stat-coverage">
+              <div
+                className="stat-coverage-rail"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(coveragePct)}
+                aria-label="Share of the question bank attempted"
+              >
+                <div className="stat-coverage-fill" style={{ width: `${Math.max(coveragePct > 0 ? 1.5 : 0, coveragePct)}%` }} />
+              </div>
+              <div className="stat-coverage-caption">
+                <span>
+                  <strong>{num(attempted.toLocaleString())}</strong> of {num(total.toLocaleString())} attempted
+                </span>
+                <span>{attempted > 0 ? `${num(Math.round(coveragePct))}% covered` : 'Nothing attempted yet'}</span>
+              </div>
             </div>
           </motion.section>
 
