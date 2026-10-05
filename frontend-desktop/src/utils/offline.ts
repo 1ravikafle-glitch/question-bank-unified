@@ -378,7 +378,7 @@ async function stampVersion(version: string): Promise<void> {
  * Kept as a named constant so there is exactly one place to change, and
  * `assertCacheNameMatchesWorker()` below turns a future drift into a console
  * warning rather than silent dead work. */
-export const SW_CACHE_NAME = 'forestry-v9';
+export const SW_CACHE_NAME = 'forestry-v10';
 
 /** Warns when the service worker's own CACHE name has drifted from ours.
  * Best-effort: reads the already-downloaded worker script, and simply does

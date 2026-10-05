@@ -205,6 +205,88 @@ app.add_middleware(CacheControlMiddleware)
 FRAMEABLE_PATHS = ("/uploads/past-papers/",)
 
 
+# ── Content-Security-Policy ─────────────────────────────────────────────────────
+# Built per-response rather than shipped as one constant, because exactly two
+# directives have to differ between documents and the PDF endpoint (see
+# frame_ancestors / build_csp below).
+#
+# Why it is not stricter: the build ships five inline <script> blocks (AdSense,
+# analytics, SSO bootstrap) and framer-motion writes styles inline on every
+# animated element. script-src and style-src therefore need 'unsafe-inline' or
+# the page loads blank and ad revenue stops. That is a deliberate trade, and
+# it is why the directives that DO carry their weight without touching scripts
+# are the ones set hard: object-src, base-uri and form-action. Those three block
+# plugin content, <base href> hijacking and cross-origin form posts, none of
+# which this app ever uses, so they cost nothing and close real attack paths.
+# AdSense serves from a rotating set of hosts (pagead2/googlesyndication,
+# doubleclick, googletagservices, and the ep1/epN adtrafficquality endpoints),
+# and enumerating them one at a time breaks every time Google adds another.
+# Matching on the registrable suffix keeps the policy working without opening
+# the page to arbitrary third parties - it cannot be used to pull in a host that
+# is not part of Google's ad stack. Verified against the requests the running
+# app actually makes, not against the source: several of these were only
+# discoverable at runtime.
+_GOOGLE_ADS = (
+    "https://*.googlesyndication.com "
+    "https://*.doubleclick.net "
+    "https://*.googletagservices.com "
+    "https://*.adtrafficquality.google "
+    "https://*.gstatic.com"
+)
+# Google Identity Services, loaded on demand by GoogleSignInButton to render the
+# "Continue with Google" button, plus the stylesheet it injects. Without both in
+# script-src/style-src the button fails to initialise and Google sign-in is dead.
+_GOOGLE_ID = "https://accounts.google.com"
+# Day/night theming looks up the viewer's approximate location. ipwho.is is the
+# primary and ip-api.com the fallback; both were plain http in source, which is
+# a MITM on the only personal data this app collects, so both are now https.
+_GEO = "https://ipwho.is https://ip-api.com"
+
+CSP_DOCUMENT = "; ".join(
+    [
+        "default-src 'self'",
+        # 'unsafe-inline' is required by the five inline bootstrap scripts in
+        # index.html and by AdSense's injected tags. It is the reason this is not
+        # a strong XSS backstop on its own - which is exactly why the directives
+        # that need no allowlist are set hard, below.
+        f"script-src 'self' 'unsafe-inline' {_GOOGLE_ADS} {_GOOGLE_ID}",
+        # framer-motion sets element.style directly on every animated node.
+        f"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com {_GOOGLE_ID}",
+        f"font-src 'self' https://fonts.gstatic.com https://*.gstatic.com data:",
+        # data: for inline SVG icons, https: because ad creatives are remote.
+        "img-src 'self' data: blob: https:",
+        f"connect-src 'self' {_GEO} {_GOOGLE_ADS} {_GOOGLE_ID}",
+        # blob: is load-bearing, not decorative: the Past Papers viewer and the
+        # admin PDF preview both fetch authenticated bytes and point an <iframe>
+        # at the resulting blob URL. Omitting it breaks reading every paper.
+        # www.google.com as well as accounts.google.com: the sign-in flow itself
+        # frames google.com once the account chooser opens.
+        f"frame-src 'self' blob: {_GOOGLE_ADS} {_GOOGLE_ID} https://www.google.com",
+        "media-src 'self' blob:",
+        # No <object>/<embed> anywhere. The PDF viewer uses <iframe>.
+        "object-src 'none'",
+        # Blocks a <base href> rewrite, which would otherwise repoint every
+        # relative URL on the page at an attacker's host.
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    ]
+)
+
+
+def build_csp(*, frameable: bool) -> str:
+    """The document CSP, with frame-ancestors relaxed only where needed.
+
+    frame-ancestors 'none' would forbid the app from framing its OWN pdf
+    endpoint, which is exactly how a past paper is read on the page - the same
+    trap as X-Frame-Options above. The PDF endpoint is same-origin by
+    construction, so 'self' there grants nothing to a third party.
+    """
+    if not frameable:
+        return CSP_DOCUMENT
+    return CSP_DOCUMENT.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -220,9 +302,18 @@ async def security_headers(request: Request, call_next):
         "/file"
     )
     response.headers["X-Frame-Options"] = "SAMEORIGIN" if is_frameable else "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Content-Security-Policy"] = build_csp(frameable=is_frameable)
+    # X-XSS-Protection is deliberately NOT set. It is deprecated, ignored by
+    # every current browser, and historically introduced vulnerabilities of its
+    # own. CSP is the real control for this class of bug.
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # HSTS: tell the browser to refuse plaintext for this host for a year, so a
+    # network attacker can no longer strip TLS on the first request. Only
+    # meaningful over HTTPS, which is why it is skipped for plain HTTP (a
+    # browser ignores it there anyway, but sending it invites confusion in logs).
+    if request.url.scheme == "https" or (request.headers.get("x-forwarded-proto") == "https"):
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     if request.url.path.endswith(".html") or request.url.path in ("/", "/mobile", "/desktop"):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
@@ -304,7 +395,25 @@ DESKTOP_DIR = os.path.join(os.path.dirname(__file__), "frontend-desktop", "dist"
 
 
 def serve_spa(directory: str, path: str):
-    file_path = os.path.join(directory, path)
+    # CONTAINMENT CHECK - do not remove, this was an unauthenticated data leak.
+    #
+    # `path` arrives straight from the route's {path:path} parameter, and
+    # os.path.join() does not stop `..` from climbing out of `directory`. Verified
+    # live before this fix: an unauthenticated
+    #     GET /desktop/../../.env
+    # returned HTTP 200 with the production Postgres password, ADMIN_PASSWORD,
+    # SECRET_KEY and SMTP_PASS, because those live in .env / the process env one
+    # level above the dist directory. One request, no session, full compromise:
+    # with the session secret an attacker forges an admin token offline.
+    #
+    # realpath() first, then compare against the realpath of the root, so the
+    # check defeats `..`, absolute paths, and symlinks that point outside. The
+    # os.sep suffix stops a sibling directory whose name merely starts with the
+    # same string (e.g. /app/dist-evil) from passing.
+    root = os.path.realpath(directory)
+    file_path = os.path.realpath(os.path.join(directory, path))
+    if file_path != root and not file_path.startswith(root + os.sep):
+        raise HTTPException(status_code=404, detail="Not found")
     if path and os.path.isfile(file_path):
         ext = os.path.splitext(path)[1]
         media_types = {

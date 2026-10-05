@@ -11,7 +11,7 @@
 // Bumped to v9 when /quiz/dashboard stopped being cached: v8 had already
 // stored per-account bodies under this origin-wide name, and renaming the
 // cache is the only way to evict them.
-const CACHE = 'forestry-v9';
+const CACHE = 'forestry-v10';
 // Only paths that genuinely resolve. /forestry-logo.png was listed here and
 // never did: the SPA catch-all answers every unmatched path with index.html and
 // a 200, so the fetch "succeeded" and cached an HTML body under a .png URL.
@@ -205,6 +205,18 @@ self.addEventListener('fetch', (event) => {
   // cache name bump that shipped with this fix cleared the entries that the
   // old branch had already stored.
   if (path === '/quiz/dashboard') {
+    event.respondWith(fetch(req).catch(() => caches.match(req)));
+    return;
+  }
+
+  // /quiz/attempt/{id} is authenticated but NOT self-partitioning: every other
+  // per-user /quiz path embeds the viewer's own username in the URL, whereas
+  // this one is keyed by a sequential attempt id. The Cache API keys on URL and
+  // ignores headers, and nothing sends Vary: Authorization, so a cached body
+  // was replayed to whoever signed in next on a shared browser - full attempt
+  // analysis, selected answers and correct answers included, with the
+  // server-side ownership check never running. Network-first, never written.
+  if (path.indexOf('/quiz/attempt/') === 0) {
     event.respondWith(fetch(req).catch(() => caches.match(req)));
     return;
   }

@@ -45,6 +45,15 @@ services:
       # where a client can set it directly.
       - key: TRUST_PROXY
         value: "1"
+      # The origin used to build emailed password-reset links. Set explicitly so
+      # the link can never be derived from a caller-supplied Host header: without
+      # it a request with `Host: evil.example` produces a genuine, valid,
+      # single-use reset token delivered on the ATTACKER's domain, which is
+      # account takeover by one request. auth_router._reset_base_url falls back
+      # to a Host allowlist when this is unset, so it is defence in depth rather
+      # than the only control.
+      - key: PUBLIC_BASE_URL
+        value: "https://forestry-pscpreparation.onrender.com"
       # ── Optional sign-in options. Both are free; each stays OFF until set.
       #
       # Google Sign-In: create a Web OAuth client in Google Cloud Console

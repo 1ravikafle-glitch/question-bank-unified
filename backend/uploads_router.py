@@ -570,12 +570,21 @@ def download_past_paper(
     # RFC 5987 form so a Nepali/Devanagari title survives the header intact.
     from urllib.parse import quote
 
+    # The ASCII fallback MUST be sanitized. row.filename is copied verbatim from
+    # the multipart filename= field, so it is fully caller-supplied: a name like
+    # x"; filename="evil.docx injects an extra Content-Disposition parameter
+    # (RFC 6266) and partly chooses the name the browser saves. get_past_paper_file
+    # already strips to [A-Za-z0-9._ -] for exactly this reason; this endpoint was
+    # the odd one out. No CR/LF can reach the header either way, since h11 rejects
+    # them and quote() percent-encodes, so response splitting was never possible.
+    safe_ascii = re.sub(r"[^A-Za-z0-9._ -]", "_", base) or f"past-paper-{paper_id}"
+
     return Response(
         content=data,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={
             "Content-Disposition":
-                f"attachment; filename=\"{base}.docx\"; "
+                f"attachment; filename=\"{safe_ascii}.docx\"; "
                 f"filename*=UTF-8''{quote(base)}.docx",
             "Content-Length": str(len(data)),
         },

@@ -48,7 +48,7 @@ async function lookupLoc(): Promise<ViewerLoc | null> {
     }
   } catch {}
   try {
-    const r = await fetch('http://ip-api.com/json/?fields=status,country,city,lat,lon,timezone');
+    const r = await fetch('https://ip-api.com/json/?fields=status,country,city,lat,lon,timezone');
     const j = await r.json();
     if (j && j.status === 'success' && typeof j.lat === 'number' && j.timezone) {
       return save({ lat: j.lat, lon: j.lon, tz: j.timezone, label: [j.city, j.country].filter(Boolean).join(', ') });

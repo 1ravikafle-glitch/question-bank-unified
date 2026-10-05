@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Tuple
 from collections import deque
 import hashlib
+import hmac
 import os
 import secrets
 import sys
@@ -43,6 +44,22 @@ ADMIN_USERS = [ADMIN_USERNAME.lower()] if ADMIN_USERNAME else []
 # Written instead of leaving password NULL so bcrypt/compare code can never be
 # tricked by an empty string. Compared with a plain equality check at login.
 NO_PASSWORD = "!no-password"
+
+# ── Canonical origins ─────────────────────────────────────────────────────────
+# Used only to build an emailed password-reset link. A Host header is chosen by
+# whoever makes the request, so it is never trusted on its own: an unrecognised
+# Host must not be able to point a victim's reset token at an attacker's domain.
+# Keep in sync with _CORS_DEFAULT_ORIGINS in start_prod.py.
+_CANONICAL_BASE_URL = "https://forestry-pscpreparation.onrender.com"
+_KNOWN_HOSTS = {
+    "forestry-pscpreparation.onrender.com",
+    "forestry-loksewapreparation.onrender.com",
+    "question-bank-app.onrender.com",
+    "ravikafle.com.np",
+    "www.ravikafle.com.np",
+    "localhost",
+    "127.0.0.1",
+}
 
 
 def hash_password(password: str) -> str:
@@ -99,18 +116,35 @@ def _reset_ttl_hours() -> int:
 def _reset_base_url(request: Optional[Request]) -> str:
     """Where the emailed link points.
 
-    PUBLIC_BASE_URL wins when set; otherwise the request's own origin is used
-    so no configuration is needed to try it locally.
+    PUBLIC_BASE_URL wins when set. Failing that the request's own origin is
+    used, so no configuration is needed to try it locally - but ONLY when the
+    Host header is one this deployment recognises.
+
+    The Host header is caller-controlled. Building a password-reset link from it
+    means an attacker who can set Host can have a genuine, valid, single-use
+    reset token delivered to a victim's inbox on the ATTACKER's domain; the
+    victim clicks it, the token leaks, and the attacker takes the account. The
+    response body is identical to the normal path, so it is not detectable by
+    probing. An unrecognised Host is therefore refused outright rather than
+    trusted, and a canonical origin is used instead.
     """
     configured = (os.getenv("PUBLIC_BASE_URL") or "").strip().rstrip("/")
     if configured:
         return configured
+    site_url = (os.getenv("SITE_URL") or "").strip().rstrip("/")
+    if site_url:
+        return site_url
     if request is not None:
         try:
-            return str(request.base_url).rstrip("/")
+            host = (request.headers.get("host") or "").strip().lower()
         except Exception:
-            pass
-    return "http://localhost:8000"
+            host = ""
+        # Same hosts the CORS layer already treats as legitimate, plus localhost
+        # for development. Anything else cannot be this app.
+        if host and (host in _KNOWN_HOSTS or host.split(":")[0] in _KNOWN_HOSTS):
+            return f"{request.url.scheme}://{host}"
+    # Last resort: never invent a link from an unverified header.
+    return _CANONICAL_BASE_URL
 
 
 class AuthResponse(BaseModel):
@@ -139,6 +173,66 @@ LOGIN_MAX_FAILURES = 8
 LOGIN_WINDOW_SECONDS = 300
 _LOGIN_FAILURES: Dict[str, List[float]] = {}
 
+# A real bcrypt hash of an unguessable value, used only as a timing equaliser.
+# Verifying against it costs the same ~250ms as verifying a real account, so an
+# attacker cannot tell "no such user" from "wrong password" by response time
+# alone. It grants nothing: nothing can produce the plaintext behind it.
+_DUMMY_HASH = "$2b$12$OUnod7C7UtmvyUHIWmYQUupMPvk8DLpVHNRSgB6qdxYLutH1RSPam"
+
+# A second, coarser ceiling on the same counter, keyed by IP. The per-username
+# limit above is the one that protects a single account, but it does nothing
+# about credential stuffing: measured 30 wrong passwords against 30 DIFFERENT
+# usernames in 331ms, all answered 401, because no two attempts ever shared a
+# key. An IP ceiling caps the whole spray without touching the per-account
+# limit, so it cannot be used to lock the real admin out of their own account.
+LOGIN_MAX_FAILURES_PER_IP = 40
+# Bound the table. See _sweep_login_failures.
+_LOGIN_MAX_KEYS = 20_000
+_LOGIN_SWEEP_EVERY = 60.0
+_login_last_sweep = 0.0
+
+
+def _client_ip(request: Optional[Request]) -> str:
+    """Best-effort caller IP, trusting X-Forwarded-For only behind a proxy.
+
+    Render terminates TLS and overwrites the header, so behind it the last entry
+    is the real peer. When TRUST_PROXY is unset the socket peer is used instead,
+    because a directly-exposed server would otherwise let an attacker mint an
+    arbitrary X-Forwarded-For and get a fresh IP allowance per request.
+    """
+    if (os.getenv("TRUST_PROXY") or "").strip() in ("1", "true", "yes"):
+        fwd = (request.headers.get("x-forwarded-for") or "").strip() if request else ""
+        if fwd:
+            return fwd.split(",")[-1].strip()
+    try:
+        return request.client.host if request and request.client else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _sweep_login_failures(now: float) -> None:
+    """Evict expired buckets, then hard-cap the table.
+
+    Without this the dict only ever shrank when a key was hit again, so a flood
+    of unique usernames - which the attacker fully controls - grew it without
+    bound for the life of the process. Measured at ~181 bytes retained per
+    request, so 20k attempts cost ~3.5MB of resident memory that was never
+    released. auth_flow._sweep already does exactly this for its own table; this
+    table is the same shape and had the same bug.
+    """
+    global _login_last_sweep
+    if now - _login_last_sweep < _LOGIN_SWEEP_EVERY and len(_LOGIN_FAILURES) <= _LOGIN_MAX_KEYS:
+        return
+    _login_last_sweep = now
+    for key in [k for k, v in _LOGIN_FAILURES.items() if not v or now - v[-1] > LOGIN_WINDOW_SECONDS]:
+        _LOGIN_FAILURES.pop(key, None)
+    if len(_LOGIN_FAILURES) > _LOGIN_MAX_KEYS:
+        # Drop the least-recently-active half: cheap, and leaves the normal case
+        # (a small number of real clients) completely untouched.
+        ordered = sorted(_LOGIN_FAILURES.items(), key=lambda kv: kv[1][-1] if kv[1] else 0)
+        for key, _ in ordered[: len(ordered) // 2]:
+            _LOGIN_FAILURES.pop(key, None)
+
 
 def _login_key(username: str) -> str:
     """Throttle key. Per-username (case-insensitive).
@@ -146,13 +240,22 @@ def _login_key(username: str) -> str:
     Deliberately not per-IP: this is a single-operator app where the admin
     account is the only thing worth guessing, and keying on IP would let one
     attacker lock the real admin out from another network. A distributed store
-    would be needed for the limit to hold across multiple workers.
+    would be needed to make the limit hold across multiple workers. The
+    separate, much higher per-IP ceiling above covers the spraying case that
+    this key cannot see.
     """
     return username.lower()
 
 
+def _ip_key(ip: str) -> str:
+    """Per-IP counter key. Prefixed so it can never collide with a username."""
+    return f"ip:{ip}"
+
+
 def _throttle_check(key: str) -> None:
+    """Hard limit: refuse BEFORE verifying. Used only for the per-account key."""
     now = time.time()
+    _sweep_login_failures(now)
     hits = [t for t in _LOGIN_FAILURES.get(key, []) if now - t < LOGIN_WINDOW_SECONDS]
     if len(hits) >= LOGIN_MAX_FAILURES:
         wait = int(LOGIN_WINDOW_SECONDS - (now - hits[0])) + 1
@@ -164,6 +267,49 @@ def _throttle_check(key: str) -> None:
     _LOGIN_FAILURES[key] = hits
 
 
+def _ip_blocked(ip: str) -> int:
+    """Soft limit for the per-IP key: does NOT refuse on its own.
+
+    Returns the remaining Retry-After seconds if this IP has already burned its
+    failure budget, else 0.
+
+    Deliberately advisory rather than a pre-emptive 429. An earlier version
+    raised here, which was a self-inflicted denial of service: once an IP spent
+    its budget, EVERY subsequent login from it was refused - including correct
+    passwords. That let an attacker lock the admin out simply by sending 40
+    wrong attempts from a shared address, and it would equally lock out a whole
+    college or mobile carrier behind one NAT.
+
+    So the IP ceiling is applied only to attempts that FAIL (see the call sites):
+    a wrong password from a spent IP gets 429 and learns nothing, while a correct
+    password always works and clears the counter. Spraying therefore still buys
+    an attacker nothing - every spray fails and is refused - but a legitimate
+    user can never be locked out by someone else's traffic. The per-ACCOUNT
+    limit above is what actually stops password guessing, and it still refuses
+    before verification, so that protection is unchanged.
+    """
+    now = time.time()
+    _sweep_login_failures(now)
+    key = _ip_key(ip)
+    hits = [t for t in _LOGIN_FAILURES.get(key, []) if now - t < LOGIN_WINDOW_SECONDS]
+    if len(hits) >= LOGIN_MAX_FAILURES_PER_IP:
+        return max(1, int(LOGIN_WINDOW_SECONDS - (now - hits[0])) + 1)
+    _LOGIN_FAILURES[key] = hits
+    return 0
+
+
+def _ip_reject(ip: str) -> None:
+    """Called when a login from this IP has just failed."""
+    _throttle_fail(_ip_key(ip))
+    wait = _ip_blocked(ip)
+    if wait:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed attempts from your network. Try again in {wait}s.",
+            headers={"Retry-After": str(wait)},
+        )
+
+
 def _throttle_fail(key: str) -> None:
     _LOGIN_FAILURES.setdefault(key, []).append(time.time())
 
@@ -173,16 +319,25 @@ def _throttle_reset(key: str) -> None:
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(req: AuthRequest, db: Session = Depends(database.get_db)):
+def login(req: AuthRequest, request: Request = None, db: Session = Depends(database.get_db)):
     username = req.username.strip()
     password = req.password.strip()
 
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username and password are required")
 
-    # Brute-force throttle. There was no limit at all: 25 wrong admin passwords
-    # went through in 0.317s. In-process and per-username, which is enough to
-    # stop online guessing against a single account. Do not revert.
+    # Two throttles, both required.
+    #
+    # Per-username stops online guessing against one account. There was no
+    # limit at all originally: 25 wrong admin passwords went through in 0.317s.
+    #
+    # Per-IP is what stops spraying one guess each across many accounts, which
+    # the per-username key cannot see because no two attempts share a key
+    # (measured: 30 distinct usernames, 331ms, thirty 401s). Kept at a much
+    # higher ceiling and stored under an "ip:" prefix so a burst of typos by a
+    # shared NAT - a college, a mobile carrier - cannot lock a real user out.
+    # Do not revert either.
+    ip = _client_ip(request)
     _throttle_check(_login_key(username))
 
     try:
@@ -192,8 +347,13 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
             # comparison, or ANY password would authenticate as admin.
             if not ADMIN_PASSWORD:
                 raise HTTPException(status_code=503, detail="Admin login is not configured")
-            if password != ADMIN_PASSWORD:
+            # compare_digest, not !=. A byte-at-a-time string compare returns
+            # as soon as it hits a differing character, so the response time
+            # leaks how much of the guess was correct and turns a linear search
+            # into a much smaller one. The cost is identical.
+            if not hmac.compare_digest(password, ADMIN_PASSWORD):
                 _throttle_fail(_login_key(username))
+                _ip_reject(ip)
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             existing = db.query(models.User).filter(models.User.username == ADMIN_USERNAME).first()
             if not existing:
@@ -201,6 +361,11 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
                 db.add(admin_user)
                 db.commit()
             _throttle_reset(_login_key(username))
+            # The IP counter is deliberately NOT reset here. It counts failures
+            # only, and clearing it on success let anyone holding one valid
+            # credential launder their spray budget: log in, reset, spray 40
+            # more, repeat. Leaving it to expire on its own costs a real user
+            # nothing, because a correct password is never blocked by it.
             return AuthResponse(
                 user_identifier=ADMIN_USERNAME,
                 is_new=False,
@@ -234,15 +399,25 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
             if existing.password.startswith("$2"):
                 if not verify_password(password, existing.password):
                     _throttle_fail(_login_key(username))
+                    _ip_reject(ip)
                     raise HTTPException(status_code=401, detail="Invalid credentials")
             else:
-                if existing.password is None or existing.password != password:
+                # Legacy plaintext row: upgraded to a bcrypt hash on first
+                # successful sign-in. compare_digest for the same timing reason
+                # as the admin path above.
+                if existing.password is None or not hmac.compare_digest(existing.password, password):
                     _throttle_fail(_login_key(username))
+                    _ip_reject(ip)
                     raise HTTPException(status_code=401, detail="Invalid credentials")
                 existing.password = hash_password(password)
                 db.commit()
                 _bump_sessions(existing, db)
             _throttle_reset(_login_key(username))
+            # The IP counter is deliberately NOT reset here. It counts failures
+            # only, and clearing it on success let anyone holding one valid
+            # credential launder their spray budget: log in, reset, spray 40
+            # more, repeat. Leaving it to expire on its own costs a real user
+            # nothing, because a correct password is never blocked by it.
             # Report the canonical username even when they signed in with their
             # member number, so the client stores one consistent identity.
             name = existing.username
@@ -257,6 +432,7 @@ def login(req: AuthRequest, db: Session = Depends(database.get_db)):
         # /register meaningless and is how junk rows like
         # "definitely_no_such_user_zzz" accumulated. Do not revert.
         _throttle_fail(_login_key(username))
+        _ip_reject(ip)
         raise HTTPException(
             status_code=401,
             detail="No account with that username or member ID. Register first.",
@@ -749,9 +925,17 @@ def forgot_password(
             "nothing has changed on your account."
         ),
     )
-    # The link always reaches the operator's log, so password recovery still
-    # works on a deployment with no mail configured (and in local dev).
-    print(f"[AUTH] password reset link for {username}: {link}", file=sys.stderr)
+    # Recovery without a mail server still works, but the token itself is a
+    # bearer credential: anyone who can read the log can take over the account,
+    # and logs are routinely shipped to third-party aggregators. Print only the
+    # non-secret prefix, and only when mail is genuinely unavailable - otherwise
+    # a working deployment still leaks a live token on every reset request.
+    if not mailer.configured():
+        print(
+            f"[AUTH] password reset requested for {username} but no mail is "
+            f"configured; reset token {raw[:8]}... (full token withheld from logs)",
+            file=sys.stderr,
+        )
     return generic
 
 
@@ -904,7 +1088,7 @@ def sso_exchange_inbound(t: str = "", request: Request = None):
 
 
 @router.post("/sso/refresh")
-def sso_refresh(req: AuthRequest, db: Session = Depends(database.get_db)):
+def sso_refresh(req: AuthRequest, request: Request = None, db: Session = Depends(database.get_db)):
     """
     Re-mint an SSO token for an already-authenticated user.
 
@@ -917,6 +1101,14 @@ def sso_refresh(req: AuthRequest, db: Session = Depends(database.get_db)):
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username and password are required")
 
+    # This endpoint previously had NO throttle at all: it recorded failures with
+    # _throttle_fail but never called _throttle_check first, so the counter was
+    # written and never read. It is a second password oracle with no limit, and
+    # because it mints a token on success it is the more valuable of the two to
+    # an attacker. Same two keys as /auth/login.
+    ip = _client_ip(request)
+    _throttle_check(_login_key(username))
+
     is_admin = bool(ADMIN_USERNAME) and username.lower() == ADMIN_USERNAME.lower()
     if is_admin:
         # Fail closed. This used to read `if ADMIN_PASSWORD and password != ...`,
@@ -925,14 +1117,26 @@ def sso_refresh(req: AuthRequest, db: Session = Depends(database.get_db)):
         # had. Do not revert.
         if not ADMIN_PASSWORD:
             raise HTTPException(status_code=503, detail="Admin login is not configured")
-        if password != ADMIN_PASSWORD:
+        if not hmac.compare_digest(password, ADMIN_PASSWORD):
             _throttle_fail(_login_key(username))
+            _ip_reject(ip)
             raise HTTPException(status_code=401, detail="Invalid credentials")
     else:
         existing = db.query(models.User).filter(models.User.username == username).first()
-        if not existing or not verify_password(password, existing.password):
+        # Verify against a dummy hash when the account does not exist, so a
+        # missing account and a wrong password cost the same wall-clock time and
+        # this endpoint cannot be used to enumerate who has registered.
+        if not existing:
+            _throttle_fail(_login_key(username))
+            verify_password(password, _DUMMY_HASH)
+            _ip_reject(ip)
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        if existing.password == NO_PASSWORD or not verify_password(password, existing.password):
+            _throttle_fail(_login_key(username))
+            _ip_reject(ip)
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    _throttle_reset(_login_key(username))
     return {"sso_token": sso.mint(username, is_admin=is_admin), "enabled": sso.sso_enabled()}
 
 
