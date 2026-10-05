@@ -251,6 +251,9 @@
 
 .input:focus,
 .textarea:focus,
+.select:hover {
+  border-color: hsl(var(--primary) / 0.35);
+}
 .select:focus {
   outline: none;
   border-color: hsl(var(--ring));
@@ -2906,7 +2909,7 @@
   background-color: transparent;
 }
 
-@media (hover: hover) and (pointer: fine) {
+@media (hover: hover) {
   .nav-row:hover {
     color: hsl(var(--tone));
     background-color: hsl(var(--tone) / 0.10);
@@ -2929,7 +2932,7 @@
   background-color: hsl(var(--tone) / 0.09);
 }
 
-@media (hover: hover) and (pointer: fine) {
+@media (hover: hover) {
   .nav-row.is-external:hover {
     background-color: hsl(var(--tone) / 0.17);
     color: hsl(var(--tone));
@@ -3086,16 +3089,21 @@
   border-color: hsl(var(--primary) / 0.42);
 }
 
-@media (hover: hover) and (pointer: fine) {
+@media (hover: hover) {
   .dark .nav-row:hover {
     color: hsl(var(--tone));
     background-color: hsl(var(--tone) / 0.16);
   }
 }
 
-.dark .nav-row.is-external,
-.dark .nav-row.is-external:hover {
+.dark .nav-row.is-external {
   background-color: hsl(var(--tone) / 0.16);
+}
+/* Was grouped with the base rule above at the same 0.16, so pointing at the
+   GIS Studio row changed nothing at all in dark mode. The hover now steps the
+   fill up instead, matching the light-mode delta (0.09 -> 0.17). */
+.dark .nav-row.is-external:hover {
+  background-color: hsl(var(--tone) / 0.26);
 }
 
 /* ── Setup secondary action rows ─────────────────────────────────────────
@@ -3142,6 +3150,54 @@
   border-color: hsl(var(--bookmark) / 0.22);
 }
 
+/* =============================================================
+   Interaction baseline
+
+   A control with no hover state is indistinguishable from a picture of a
+   control: nothing tells the reader it can be pressed. 115 of the desktop
+   app's 120 <button> elements and 130 of mobile's 136 had no transition at
+   all, because most components build their UI from inline styles rather
+   than these classes and so never inherit anything.
+
+   This layer exists so that cannot keep happening.
+
+   :where() contributes ZERO specificity, so a component's own :hover rule
+   always wins and this can only fill gaps - it can never fight an existing
+   design, and it cannot be overridden by accident either.
+
+   Gated on (hover: hover) alone, on purpose. A touch device sticks :hover
+   after a tap, so the gate is what stops buttons looking permanently
+   pressed. Adding `and (pointer: fine)` as well looks more precise and is
+   not: some environments report hover:true while reporting no pointer type
+   at all, and the combined query then never matches, so every hover rule in
+   it silently does nothing. Measured here: hover:hover true, pointer:fine
+   false, combined false.
+   ============================================================= */
+@media (hover: hover) {
+  :where(button, a, select, summary, [role='button'], [role='tab'], [role='switch'], label[for]) {
+    transition:
+      background-color var(--dur-instant) var(--ease-standard),
+      border-color var(--dur-instant) var(--ease-standard),
+      color var(--dur-instant) var(--ease-standard),
+      box-shadow var(--dur-instant) var(--ease-standard),
+      opacity var(--dur-instant) var(--ease-standard),
+      filter var(--dur-instant) var(--ease-standard),
+      transform var(--dur-instant) var(--ease-standard);
+  }
+
+  /* A one-pixel lift is the one affordance every pressable thing can carry,
+     and it works whatever colour the control happens to be. Deliberately not
+     applied to <a>: a text link should change colour or underline, not move. */
+  :where(button, [role='button'], [role='tab'], summary):hover {
+    transform: translateY(-1px);
+  }
+
+  /* Anything already carrying a visible border gets a lit one on hover. */
+  :where(select, summary, [role='button']):hover {
+    border-color: hsl(var(--primary) / 0.35);
+  }
+}
+
 /* ---- Wrong-questions practice: a card, not a row --------------------
    This is the app's one action that means "you got these wrong", so it is
    given a full tinted card with a gradient call to action rather than one
@@ -3158,6 +3214,20 @@
    time estimate, then a full-width gradient button. The header is a surface;
    the button is the only real call to action, so it is the only thing with
    full-strength colour. */
+/* The "Review wrong questions" landing screen (QuizTaker's wrong-queue mode).
+   Same tint language as the practice card so the two read as one action, and
+   the 🔁 mark reacts to hover the way the card chip does. */
+.wrong-review-hero__icon {
+  display: inline-block;
+  border-radius: var(--apple-radius-md);
+  transition: transform var(--dur-standard) var(--ease-spring);
+}
+@media (hover: hover) {
+  .card:hover .wrong-review-hero__icon {
+    transform: scale(1.12) rotate(-6deg);
+  }
+}
+
 .wrong-cta {
   --wc: var(--wrong-600);
   position: relative;
@@ -3176,6 +3246,15 @@
       hsl(var(--wc) / 0.04)
     );
   padding: 0.85rem 0.9rem;
+  transition:
+    border-color var(--dur-standard) var(--ease-standard),
+    box-shadow var(--dur-standard) var(--ease-standard),
+    transform var(--dur-standard) var(--ease-standard);
+}
+.wrong-cta:hover {
+  border-color: hsl(var(--wc) / 0.5);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .wrong-cta__head {
@@ -3196,6 +3275,13 @@
   color: hsl(var(--wc));
   background: hsl(var(--wc) / 0.14);
   border: 1px solid hsl(var(--wc) / 0.26);
+  /* The chip is not itself a control, so it takes no lift of its own. It
+     responds to the CARD's hover instead, which is the interaction people
+     expect: pointing at the row lights the whole row, chip included. */
+  transition:
+    background-color var(--dur-instant) var(--ease-standard),
+    border-color var(--dur-instant) var(--ease-standard),
+    transform var(--dur-instant) var(--ease-standard);
 }
 
 .wrong-cta__count {
@@ -3211,6 +3297,15 @@
   font-size: 0.75rem;
   font-family: var(--font-mono);
   color: hsl(var(--muted-foreground));
+}
+
+/* The card itself. The button is the target, but pointing anywhere on the
+   card should acknowledge the whole thing rather than only the strip the
+   pointer happens to be over. */
+.wrong-cta:hover .wrong-cta__chip {
+  background: hsl(var(--wc) / 0.22);
+  border-color: hsl(var(--wc) / 0.42);
+  transform: scale(1.06);
 }
 
 /* The gradient, not a flat fill: it is the only full-strength colour on the
@@ -3232,10 +3327,17 @@
   cursor: pointer;
   background: linear-gradient(180deg, hsl(var(--wc) / 0.95), hsl(var(--wc)));
   box-shadow: 0 1px 2px hsl(var(--wc) / 0.28);
-  transition: filter 150ms ease, transform 150ms ease;
+  transition:
+    filter var(--dur-instant) var(--ease-standard),
+    box-shadow var(--dur-instant) var(--ease-standard),
+    transform var(--dur-instant) var(--ease-standard);
 }
+/* brightness ALONE was not enough to register as feedback on an already
+   saturated red, so the lift and the spread shadow carry the change. */
 .wrong-cta__btn:hover {
-  filter: brightness(1.06);
+  filter: brightness(1.08);
+  box-shadow: 0 4px 16px hsl(var(--wc) / 0.42);
+  transform: translateY(-1px);
 }
 .wrong-cta__btn:active {
   transform: scale(0.99);

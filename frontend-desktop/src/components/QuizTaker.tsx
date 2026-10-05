@@ -1152,13 +1152,13 @@ const QuizTaker: React.FC = () => {
             ← Back
           </button>
           <div
+            className="card"
             style={{
-              background: T.card, border: `1px solid ${T.border}`, borderRadius: 18,
               padding: '30px 28px', textAlign: 'center',
               boxShadow: '0 1px 2px rgba(0,0,0,.04),0 12px 32px rgba(0,0,0,.06)',
             }}
           >
-            <div style={{ fontSize: 34, marginBottom: 10 }} aria-hidden="true">🔁</div>
+            <div className="wrong-review-hero__icon" style={{ fontSize: 34, marginBottom: 10 }} aria-hidden="true">🔁</div>
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px', color: T.textPrimary }}>
               Review wrong questions
             </h1>
@@ -1174,6 +1174,7 @@ const QuizTaker: React.FC = () => {
                 value={wrongCategory}
                 onChange={(e) => setWrongCategory(e.target.value)}
                 aria-label="Review a specific category"
+                className="select"
                 style={{
                   width: '100%',
                   padding: '12px 14px',
@@ -1181,10 +1182,6 @@ const QuizTaker: React.FC = () => {
                   fontSize: 14,
                   fontWeight: 500,
                   fontFamily: T.font,
-                  color: T.textPrimary,
-                  background: T.card,
-                  border: `1px solid ${T.border}`,
-                  cursor: 'pointer',
                   marginBottom: 12,
                   textAlign: 'left' as const,
                 }}
@@ -1198,18 +1195,24 @@ const QuizTaker: React.FC = () => {
               </select>
             )}
             {wrongTotal !== null && (filteredWrongCount ?? 0) > 0 && (
-              <button
+              <motion.button
                 onClick={() => { try { navigator.vibrate?.(10); } catch {} setLoading(true); setWrongReady(true); }}
+                whileHover={{ scale: 1.015 }}
+                whileTap={{ scale: 0.985 }}
+                transition={{ duration: 0.15 }}
+                className="btn btn-primary"
                 style={{
-                  width: '100%', padding: '13px 0', borderRadius: 12, border: 'none',
-                  fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
-                  background: T.accent, color: 'hsl(var(--primary-foreground))',
-                  boxShadow: '0 3px 12px rgba(34,197,94,.3)',
+                  width: '100%',
+                  padding: '13px 0',
+                  borderRadius: 12,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  fontFamily: T.font,
                 }}
               >
                 Start Review · {filteredWrongCount ?? wrongTotal} question{(filteredWrongCount ?? wrongTotal) !== 1 ? 's' : ''}
                 {wrongCategory ? ` · ${wrongCategory}` : ''}
-              </button>
+              </motion.button>
             )}
           </div>
         </div>

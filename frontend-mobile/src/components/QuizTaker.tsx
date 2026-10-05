@@ -1436,15 +1436,13 @@ const QuizTaker: React.FC = () => {
                   value={wrongCategory}
                   onChange={(e) => setWrongCategory(e.target.value)}
                   aria-label="Review wrong questions in a category"
+                  className="select"
                   style={{
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: 12,
                     fontSize: 13,
                     fontFamily: T.font,
-                    color: T.textPrimary,
-                    background: T.card,
-                    border: `1px solid ${T.border}`,
                     marginBottom: 10,
                   }}
                 >

@@ -643,7 +643,7 @@ const MobileBottomNav: React.FC = () => {
             to={item.to}
             end={item.end}
             onClick={() => haptic(8)}
-            className="flex-1 flex flex-col items-center justify-center py-1.5 relative"
+            className="mobile-tab flex-1 flex flex-col items-center justify-center py-1.5 relative"
             style={({ isActive }) => ({
               color: isActive ? `hsl(var(--tone-${item.tone}))` : inactiveColor,
               transition: 'transform 80ms ease-out, color 150ms ease',
@@ -652,7 +652,7 @@ const MobileBottomNav: React.FC = () => {
             {({ isActive }) => (
               <>
                 <span
-                  className="flex-shrink-0"
+                  className="mobile-tab__pill flex-shrink-0"
                   style={{
                     transform: isActive ? 'scale(1.1)' : 'scale(1)',
                     transition:

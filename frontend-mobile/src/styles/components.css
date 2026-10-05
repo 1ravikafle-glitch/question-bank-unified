@@ -267,6 +267,9 @@
 
 .input:focus,
 .textarea:focus,
+.select:hover {
+  border-color: hsl(var(--primary) / 0.35);
+}
 .select:focus {
   outline: none;
   border-color: hsl(var(--ring));
@@ -2788,7 +2791,7 @@
   background-color: transparent;
 }
 
-@media (hover: hover) and (pointer: fine) {
+@media (hover: hover) {
   .nav-row:hover {
     color: hsl(var(--tone));
     background-color: hsl(var(--tone) / 0.10);
@@ -2811,7 +2814,7 @@
   background-color: hsl(var(--tone) / 0.09);
 }
 
-@media (hover: hover) and (pointer: fine) {
+@media (hover: hover) {
   .nav-row.is-external:hover {
     background-color: hsl(var(--tone) / 0.17);
     color: hsl(var(--tone));
@@ -2968,16 +2971,21 @@
   border-color: hsl(var(--primary) / 0.42);
 }
 
-@media (hover: hover) and (pointer: fine) {
+@media (hover: hover) {
   .dark .nav-row:hover {
     color: hsl(var(--tone));
     background-color: hsl(var(--tone) / 0.16);
   }
 }
 
-.dark .nav-row.is-external,
-.dark .nav-row.is-external:hover {
+.dark .nav-row.is-external {
   background-color: hsl(var(--tone) / 0.16);
+}
+/* Was grouped with the base rule above at the same 0.16, so pointing at the
+   GIS Studio row changed nothing at all in dark mode. The hover now steps the
+   fill up instead, matching the light-mode delta (0.09 -> 0.17). */
+.dark .nav-row.is-external:hover {
+  background-color: hsl(var(--tone) / 0.26);
 }
 
 /* ── Setup secondary action rows ─────────────────────────────────────────
@@ -3022,6 +3030,97 @@
   --sa-bg: hsl(var(--bookmark) / 0.05);
   --sa-hover-bg: hsl(var(--bookmark) / 0.1);
   border-color: hsl(var(--bookmark) / 0.22);
+}
+
+/* =============================================================
+   Interaction baseline
+
+   A control with no hover state is indistinguishable from a picture of a
+   control: nothing tells the reader it can be pressed. 115 of the desktop
+   app's 120 <button> elements and 130 of mobile's 136 had no transition at
+   all, because most components build their UI from inline styles rather
+   than these classes and so never inherit anything.
+
+   This layer exists so that cannot keep happening.
+
+   :where() contributes ZERO specificity, so a component's own :hover rule
+   always wins and this can only fill gaps - it can never fight an existing
+   design, and it cannot be overridden by accident either.
+
+   Gated on (hover: hover) alone, on purpose. A touch device sticks :hover
+   after a tap, so the gate is what stops buttons looking permanently
+   pressed. Adding `and (pointer: fine)` as well looks more precise and is
+   not: some environments report hover:true while reporting no pointer type
+   at all, and the combined query then never matches, so every hover rule in
+   it silently does nothing. Measured here: hover:hover true, pointer:fine
+   false, combined false.
+   ============================================================= */
+@media (hover: hover) {
+  :where(button, a, select, summary, [role='button'], [role='tab'], [role='switch'], label[for]) {
+    transition:
+      background-color var(--dur-instant) var(--ease-standard),
+      border-color var(--dur-instant) var(--ease-standard),
+      color var(--dur-instant) var(--ease-standard),
+      box-shadow var(--dur-instant) var(--ease-standard),
+      opacity var(--dur-instant) var(--ease-standard),
+      filter var(--dur-instant) var(--ease-standard),
+      transform var(--dur-instant) var(--ease-standard);
+  }
+
+  /* A one-pixel lift is the one affordance every pressable thing can carry,
+     and it works whatever colour the control happens to be. Deliberately not
+     applied to <a>: a text link should change colour or underline, not move. */
+  :where(button, [role='button'], [role='tab'], summary):hover {
+    transform: translateY(-1px);
+  }
+
+  /* Anything already carrying a visible border gets a lit one on hover. */
+  :where(select, summary, [role='button']):hover {
+    border-color: hsl(var(--primary) / 0.35);
+  }
+}
+
+/* The "Review wrong questions" landing screen (QuizTaker's wrong-queue mode).
+   Same tint language as the practice card so the two read as one action, and
+   the 🔁 mark reacts to hover the way the card chip does. */
+.wrong-review-hero__icon {
+  display: inline-block;
+  border-radius: var(--apple-radius-md);
+  transition: transform var(--dur-standard) var(--ease-spring);
+}
+@media (hover: hover) {
+  .card:hover .wrong-review-hero__icon {
+    transform: scale(1.12) rotate(-6deg);
+  }
+}
+
+.wrong-cta {
+  --wc: var(--wrong-600);
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--apple-radius-lg);
+  border: 1px solid hsl(var(--wc) / 0.28);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      hsl(var(--wc) / 0.05) 0 6px,
+      hsl(var(--wc) / 0) 6px 13px
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--wc) / 0.09),
+      hsl(var(--wc) / 0.04)
+    );
+  padding: 0.85rem 0.9rem;
+  transition:
+    border-color var(--dur-standard) var(--ease-standard),
+    box-shadow var(--dur-standard) var(--ease-standard),
+    transform var(--dur-standard) var(--ease-standard);
+}
+.wrong-cta:hover {
+  border-color: hsl(var(--wc) / 0.5);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 /* ---- Wrong-questions practice: a card, not a row --------------------
@@ -3208,4 +3307,35 @@
 .setup-action:hover .setup-action__chevron {
   color: hsl(var(--sa));
   transform: translateX(2px);
+}
+
+/* =============================================================
+   Bottom tab bar hover
+
+   Each tab already had a transition and an active pill, but no hover state at
+   all, so pointing at a tab did nothing - it looked inert until clicked. The
+   hover shows the same pill the active tab uses, at a fraction of the
+   strength, which reads as "this one is under the pointer" without implying
+   it is the page you are on.
+
+   Gated on (hover: hover): on a touch device :hover sticks after a tap and
+   the pill would be left hanging on a tab that was never selected.
+   ============================================================= */
+.mobile-tab {
+  transition: opacity 140ms var(--ease-standard), transform 140ms var(--ease-standard);
+}
+.mobile-tab__pill {
+  transition:
+    transform 250ms cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+@media (hover: hover) {
+  .mobile-tab:hover {
+    opacity: 0.82;
+  }
+  .mobile-tab:hover .mobile-tab__pill {
+    background: hsl(var(--primary) / 0.08);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.14);
+  }
 }

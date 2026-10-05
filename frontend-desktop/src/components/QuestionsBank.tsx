@@ -551,7 +551,7 @@ const QuestionsBank: React.FC = () => {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="input"
+            className="select"
             style={{
               minWidth: 0,
               maxWidth: '13rem',
@@ -560,11 +560,6 @@ const QuestionsBank: React.FC = () => {
               overflow: 'hidden',
               height: '40px',
               fontSize: '0.8125rem',
-              cursor: 'pointer',
-              borderRadius: '10px',
-              border: '1px solid hsl(var(--border))',
-              background: 'hsl(var(--card))',
-              color: 'hsl(var(--foreground))',
               padding: '0 12px',
             }}
             aria-label="Filter by category"
