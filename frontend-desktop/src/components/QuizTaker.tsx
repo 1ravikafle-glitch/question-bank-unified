@@ -1320,38 +1320,26 @@ const QuizTaker: React.FC = () => {
               // Wrong questions queue
               trail={
             setupWrongCount > 0 && (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 16 }} aria-hidden="true">🔁</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, fontFamily: T.font, color: T.textPrimary }}>
-                      {setupWrongCount} wrong to review
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 12, color: T.textSecondary, fontFamily: T.font }}>
-                    ~{setupWrongCount * 2} min
-                  </span>
-                </div>
-                <button
+              <div style={{ marginTop: 16 }}>
+                {/* Same row shape as the bookmarks path above, in the sky the
+                    sidebar already uses for the whole Review group. Two
+                    secondary actions, two accents, one shape. */}
+                <motion.button
+                  type="button"
                   onClick={() => { try { navigator.vibrate?.(10); } catch {} startWrongFromSetup(); }}
-                  style={{
-                    width: '100%',
-                    padding: '12px 0',
-                    borderRadius: 12,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    fontFamily: T.font,
-                    color: T.textPrimary,
-                    background: 'transparent',
-                    border: `1.5px solid ${T.border}`,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--muted))')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  whileTap={{ scale: 0.99 }}
+                  className="setup-action setup-action--review"
+                  style={{ fontFamily: T.font }}
                 >
-                  ⚡ Practice Wrong Questions
-                </button>
+                  <span className="setup-action__chip" aria-hidden="true">🔁</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="setup-action__title">Practise wrong questions</span>
+                    <span className="setup-action__sub">
+                      {setupWrongCount} to review · ~{setupWrongCount * 2} min
+                    </span>
+                  </span>
+                  <span className="setup-action__chevron" aria-hidden="true">→</span>
+                </motion.button>
               </div>
             )}
             />

@@ -1394,17 +1394,17 @@ const QuizTaker: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => { try { navigator.vibrate?.(10); } catch {} startBookmarksQuiz(); }}
-                  className="bookmark-row"
+                  className="setup-action setup-action--bookmark"
                   style={{ fontFamily: T.font }}
                 >
-                  <span className="bookmark-row__chip" aria-hidden="true" style={{ fontSize: 14 }}>🔖</span>
+                  <span className="setup-action__chip" aria-hidden="true" style={{ fontSize: 14 }}>🔖</span>
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span className="bookmark-row__title" style={{ fontFamily: T.font }}>Practice bookmarks</span>
-                    <span className="bookmark-row__sub" style={{ fontFamily: T.font }}>
+                    <span className="setup-action__title" style={{ fontFamily: T.font }}>Practice bookmarks</span>
+                    <span className="setup-action__sub" style={{ fontFamily: T.font }}>
                       {setupBmIds.length} saved question{setupBmIds.length === 1 ? '' : 's'} ready to revise
                     </span>
                   </span>
-                  <span className="bookmark-row__chevron" aria-hidden="true">→</span>
+                  <span className="setup-action__chevron" aria-hidden="true">→</span>
                 </button>
               </div>
             )}
@@ -1444,26 +1444,22 @@ const QuizTaker: React.FC = () => {
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
-                <button
+                <motion.button
+                  type="button"
                   onClick={() => { try { navigator.vibrate?.(10); } catch {} startWrongFromSetup(); }}
-                  style={{
-                    width: '100%',
-                    padding: '12px 0',
-                    borderRadius: 14,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    fontFamily: T.font,
-                    color: T.textPrimary,
-                    background: 'transparent',
-                    border: `1.5px solid ${T.border}`,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--muted))')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  whileTap={{ scale: 0.99 }}
+                  className="setup-action setup-action--review"
+                  style={{ fontFamily: T.font }}
                 >
-                  ⚡ Practice Wrong Questions
-                </button>
+                  <span className="setup-action__chip" aria-hidden="true" style={{ fontSize: 14 }}>🔁</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="setup-action__title" style={{ fontFamily: T.font }}>Practise wrong questions</span>
+                    <span className="setup-action__sub" style={{ fontFamily: T.font }}>
+                      {setupWrongCount} to review · ~{setupWrongCount * 2} min
+                    </span>
+                  </span>
+                  <span className="setup-action__chevron" aria-hidden="true">→</span>
+                </motion.button>
               </div>
             )}
           </div>

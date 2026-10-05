@@ -745,27 +745,22 @@ const Dashboard: React.FC = () => {
               Start Quiz
             </motion.button>
 
-            {/* Wrong questions queue */}
+            {/* Wrong questions queue. Same row as the bookmarks path, in the
+                Review tone, so the two secondary actions read as a pair. */}
             {wrongCount > 0 && (
-              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border))' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.875rem' }} aria-hidden="true">🔁</span>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 'var(--font-weight-semibold)', color: 'hsl(var(--foreground))' }}>
-                      {wrongCount} wrong to review
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                    ~{wrongCount * 2} min
-                  </span>
-                </div>
+              <div style={{ marginTop: '1rem' }}>
                 <motion.button
+                  type="button"
                   onClick={() => { sfxClick(); navigate('/quiz/practice-wrong', { state: { source: 'queue' } }); }}
-                  className="btn btn-outline"
-                  whileTap={{ scale: 0.98 }}
-                  style={{ width: '100%', fontSize: '0.8125rem' }}
+                  whileTap={{ scale: 0.99 }}
+                  className="setup-action setup-action--review"
                 >
-                  Practice Wrong Questions
+                  <span className="setup-action__chip" aria-hidden="true">🔁</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="setup-action__title">Practise wrong questions</span>
+                    <span className="setup-action__sub">{wrongCount} to review · ~{wrongCount * 2} min</span>
+                  </span>
+                  <span className="setup-action__chevron" aria-hidden="true">→</span>
                 </motion.button>
               </div>
             )}

@@ -2969,17 +2969,26 @@
   background-color: hsl(var(--tone) / 0.16);
 }
 
-/* ── Secondary action row: "Practise bookmarks" on the practice setup ──────
-   This sits directly under the primary Start Practice CTA, so it must read as
-   a secondary path rather than a second button. It used to be a full-width
-   amber slab at 0.12 alpha with a 0.35 border: at that size the saturated
-   block out-shouted the green CTA above it and the two competed.
+/* ── Setup secondary action rows ─────────────────────────────────────────
+   The practice setup stacks two secondary paths under the primary CTA:
+   revise your bookmarks, or work through the wrong-answer queue. They used
+   to be different shapes - a neutral row for one, a bare outline button for
+   the other - so the eye had to re-read them as a pair.
 
-   Now the bookmark amber is only an accent - the icon chip and the chevron -
-   over a neutral card row, so the accent still ties the row to bookmarks
-   without becoming the loudest thing on the screen. Hover warms the surface
-   with a trace of the same amber, which keeps it clickable. Tokens only. */
-.bookmark-row {
+   One row shape now serves both, and the accent is carried by --sa:
+
+   - bookmarks take --bookmark, the amber already used for the card toggle
+   - the wrong queue takes --tone-review, the sky the sidebar already uses
+     for the whole Review group, which is what this action *is*
+
+   Amber and sky are far enough apart to tell at a glance, while both sit on
+   the same neutral surface so neither competes with the primary button. The
+   surface warms toward the accent on hover rather than filling with it.
+
+   --tone-review has light and dark pairs and a -soft tint, so this needs no
+   colour of its own. */
+.setup-action {
+  --sa: var(--bookmark);
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -2992,14 +3001,22 @@
   cursor: pointer;
   transition: background-color 150ms ease, border-color 150ms ease;
 }
-.bookmark-row:hover {
-  background: hsl(var(--bookmark) / 0.05);
-  border-color: hsl(var(--bookmark) / 0.32);
+.setup-action--bookmark { --sa: var(--bookmark); }
+.setup-action--review { --sa: var(--tone-review); }
+
+.setup-action:hover {
+  background: hsl(var(--sa) / 0.05);
+  border-color: hsl(var(--sa) / 0.32);
 }
-.bookmark-row:active {
-  background: hsl(var(--bookmark) / 0.09);
+.setup-action:active {
+  background: hsl(var(--sa) / 0.09);
 }
-.bookmark-row__chip {
+.setup-action:focus-visible {
+  outline: 2px solid hsl(var(--sa) / 0.6);
+  outline-offset: 2px;
+}
+
+.setup-action__chip {
   display: grid;
   place-items: center;
   width: 1.75rem;
@@ -3007,87 +3024,28 @@
   flex-shrink: 0;
   border-radius: 0.6rem;
   font-size: 0.875rem;
-  color: hsl(var(--bookmark));
-  background: hsl(var(--bookmark) / 0.12);
-  border: 1px solid hsl(var(--bookmark) / 0.22);
+  color: hsl(var(--sa));
+  background: hsl(var(--sa) / 0.12);
+  border: 1px solid hsl(var(--sa) / 0.22);
 }
-.bookmark-row__title {
+.setup-action__title {
   display: block;
   font-size: 0.8125rem;
   font-weight: 600;
   color: hsl(var(--foreground));
 }
-.bookmark-row__sub {
+.setup-action__sub {
   display: block;
   font-size: 0.75rem;
   color: hsl(var(--muted-foreground));
 }
-.bookmark-row__chevron {
+.setup-action__chevron {
   flex-shrink: 0;
   font-size: 0.9rem;
   color: hsl(var(--muted-foreground) / 0.7);
   transition: color 150ms ease, transform 150ms ease;
 }
-.bookmark-row:hover .bookmark-row__chevron {
-  color: hsl(var(--bookmark));
+.setup-action:hover .setup-action__chevron {
+  color: hsl(var(--sa));
   transform: translateX(2px);
-}
-
-/* ── Stat tile hierarchy ────────────────────────────────────────────────
-   This row mixes three different kinds of number and used to draw them all
-   the same: a fact about the bank (Questions, Categories), something the
-   user actually did (Attempted), and a quality measure (Accuracy, already
-   band-coloured by scoreColor). "3,301" and "1,048" looked like the same
-   kind of figure, so nothing said which one was yours.
-
-   Colour now carries that meaning instead of decoration: bank facts recede
-   to muted, the user's own progress is the single loud value, and Accuracy
-   keeps its performance band. */
-.stat-tile--context .stat-tile-value {
-  color: hsl(var(--muted-foreground));
-  font-weight: var(--font-weight-semibold);
-}
-.stat-tile--hero {
-  background: hsl(var(--primary) / 0.05);
-  border-color: hsl(var(--primary) / 0.22);
-}
-.stat-tile--hero .stat-tile-value {
-  color: hsl(var(--primary));
-}
-.stat-tile-sub {
-  font-size: 0.6875rem;
-  color: hsl(var(--muted-foreground));
-  margin-top: 0.125rem;
-}
-
-/* Coverage rail. Rendered under the row, it makes "1,048 of 3,301" one
-   proportion instead of two numbers that happen to sit near each other. */
-.stat-coverage {
-  margin-top: 0.875rem;
-}
-.stat-coverage-rail {
-  position: relative;
-  height: 6px;
-  border-radius: var(--apple-radius-full);
-  background: hsl(var(--muted));
-  overflow: hidden;
-}
-.stat-coverage-fill {
-  height: 100%;
-  border-radius: var(--apple-radius-full);
-  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--secondary)));
-  transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.stat-coverage-caption {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.75rem;
-  margin-top: 0.45rem;
-  font-size: 0.6875rem;
-  color: hsl(var(--muted-foreground));
-}
-.stat-coverage-caption strong {
-  color: hsl(var(--foreground));
-  font-weight: 600;
 }

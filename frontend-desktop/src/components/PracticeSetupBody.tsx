@@ -346,16 +346,16 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
             type="button"
             onClick={() => { ping(); onPracticeBookmarks(); }}
             whileTap={{ scale: 0.99 }}
-            className="bookmark-row"
+            className="setup-action setup-action--bookmark"
           >
-            <span className="bookmark-row__chip" aria-hidden="true">🔖</span>
+            <span className="setup-action__chip" aria-hidden="true">🔖</span>
             <span style={{ flex: 1, minWidth: 0 }}>
-              <span className="bookmark-row__title">Practice bookmarks</span>
-              <span className="bookmark-row__sub">
+              <span className="setup-action__title">Practice bookmarks</span>
+              <span className="setup-action__sub">
                 {bookmarkCount} saved question{(bookmarkCount || 0) === 1 ? '' : 's'} ready to revise
               </span>
             </span>
-            <span className="bookmark-row__chevron" aria-hidden="true">→</span>
+            <span className="setup-action__chevron" aria-hidden="true">→</span>
           </motion.button>
         </div>
       )}
