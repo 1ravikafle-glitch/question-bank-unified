@@ -25,7 +25,9 @@ _jwks_lock = threading.Lock()
 JWKS_TTL_SECONDS = 3600
 
 GOOGLE_ISSUERS = {"accounts.google.com", "https://accounts.google.com"}
-GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+# Overridable so the verification path can be exercised against a local JWKS
+# in tests. Production leaves it unset and talks to Google.
+GOOGLE_JWKS_URL = os.environ.get("GOOGLE_JWKS_URL") or "https://www.googleapis.com/oauth2/v3/certs"
 
 
 def client_id() -> str:

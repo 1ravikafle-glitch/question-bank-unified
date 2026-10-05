@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text as sql_text
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Tuple
+from collections import deque
 import hashlib
 import os
 import secrets
@@ -284,6 +285,23 @@ class GoogleAuthRequest(BaseModel):
 GOOGLE_SETUP_AUDIENCE = "forestry-google-setup"
 GOOGLE_SETUP_TTL_SECONDS = 10 * 60
 
+# Why the last few setup-token exchanges failed, newest last. The endpoint
+# answers one flat "Signup session expired" for every cause, so the real
+# reason cannot be probed from outside - which is exactly how a claim read
+# from a key that is never written shipped unnoticed. Admin-only, and it
+# records claim NAMES rather than values.
+_setup_failures: "deque[str]" = deque(maxlen=10)
+
+
+def recent_setup_failures() -> list:
+    return list(_setup_failures)
+
+
+def _record_setup_failure(reason: str, claims: Optional[dict] = None) -> None:
+    if claims is not None:
+        reason = f"{reason} (claims present: {', '.join(sorted(claims))})"
+    _setup_failures.append(reason)
+
 
 class GoogleCompleteRequest(BaseModel):
     setup_token: str
@@ -374,6 +392,7 @@ def outbound_diagnostics(
     # verified: a wrong audience or a stale-clock token fails here while the
     # check above stays green.
     out["google_recent_failures"] = google_auth.recent_verify_failures()
+    out["google_setup_recent_failures"] = recent_setup_failures()
 
     # 3. Mail transport. Which probe runs depends on how the mailer is
     #    configured: an SMTP host gets connect+login, an HTTPS send API gets a
@@ -595,12 +614,20 @@ def google_complete(req: GoogleCompleteRequest, db: Session = Depends(database.g
     payload = _sso2.verify_for(
         req.setup_token, audience=GOOGLE_SETUP_AUDIENCE, secret=session.session_secret()
     )
-    if not payload or not payload.get("extra", {}).get("sub"):
-        raise HTTPException(status_code=401, detail="Signup session expired. Start again with Google.")
-    extra = payload["extra"]
-    google_sub = str(extra.get("sub") or "").strip()
-    email = str(extra.get("email") or "").strip().lower()
+    # mint_for() flattens `extra` onto the top level of the payload, so the
+    # verified Google claims sit beside u/aud rather than under a nested
+    # "extra" key. Reading payload["extra"]["sub"] therefore always missed and
+    # rejected every token, which made first-time Google signup impossible: the
+    # user verified with Google, chose a userid, and was bounced back to Google
+    # to repeat it forever while the token itself was perfectly valid.
+    google_sub = str((payload or {}).get("sub") or "").strip()
+    email = str((payload or {}).get("email") or "").strip().lower()
     if not google_sub or not email:
+        _record_setup_failure(
+            "claims missing sub or email" if payload else
+            "token rejected: bad signature, wrong audience, expired, or reused",
+            payload,
+        )
         raise HTTPException(status_code=401, detail="Signup session expired. Start again with Google.")
 
     import re as _re
