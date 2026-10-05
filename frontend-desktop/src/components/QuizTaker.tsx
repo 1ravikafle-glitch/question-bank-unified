@@ -290,8 +290,16 @@ const QuizTaker: React.FC = () => {
           }
           return;
         }
-        if (!isPracticeWrongMode && !questionIdFromUrl && !examConfig) {
-          // No URL params — ALWAYS show the setup menu (never auto-start).
+        // "Practise bookmarks" arrives as router state, not a URL param, and
+        // this guard used to swallow it: it only checked the URL-driven
+        // intents, so the bookmarks row dropped the user on the generic setup
+        // screen and the quiz they asked for did not start until they pressed
+        // Start a second time - which happened to work only because that press
+        // re-read the same state. Mobile has always started straight from the
+        // row via startBookmarksQuiz(); this brings desktop in line.
+        if (!isPracticeWrongMode && !questionIdFromUrl && !examConfig && bookmarkIds.length === 0) {
+          // No URL params and nothing explicitly requested — ALWAYS show the
+          // setup menu (never auto-start).
           // A mid-quiz save becomes an explicit Continue choice, never a forced resume.
           if (!countParam && !categoryParam) {
             let resume: { index: number; total: number } | null = null;
