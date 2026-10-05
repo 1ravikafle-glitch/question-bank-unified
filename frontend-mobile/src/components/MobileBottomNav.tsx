@@ -4,7 +4,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useLang } from '@/context/LanguageContext';
 import { useSound } from '@/context/SoundContext';
-import { gisHref } from '@/components/DesktopSidebar';
+import { gisHref, openGisStudio } from '@/components/DesktopSidebar';
 import { authMe, authUpdateEmail, authSendVerification, authConfirmEmail } from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -508,8 +508,7 @@ const MobileBottomNav: React.FC = () => {
                   e.preventDefault();
                   haptic(8);
                   setShowSheet(false);
-                  const w = window.open(gisHref(), '_blank', 'noopener,noreferrer');
-                  if (w) w.opener = null;
+                  void openGisStudio();
                 }}
                 className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
                 style={{

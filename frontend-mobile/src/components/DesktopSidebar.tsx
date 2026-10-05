@@ -163,23 +163,49 @@ const GisIcon = () => (
 export const GIS_URL = 'https://elfakgisstudio.onrender.com/';
 
 /**
- * Build the GIS link, carrying the SSO token when we hold one so the click
- * lands in the studio already signed in. Falls back to a plain link.
+ * Open the GIS Studio, signed in.
+ *
+ * The handoff token is fetched at click time rather than read from a
+ * month-old cached copy. A token in a URL is a bearer credential - it turns
+ * up in history and logs and anyone who sees the link can replay it - so it is
+ * minted with a ~5 minute life, which is all a click needs. The studio issues
+ * its own long-lived cookie once it verifies the handoff, so the session
+ * there does not depend on this token at all.
+ *
+ * If the fetch fails for any reason we still open the studio; it shows its own
+ * sign-in form, and the visitor signs in with the same username and password.
  */
-export const gisHref = (): string => {
-  if (typeof window === 'undefined') return GIS_URL;
-  let token: string | null = null;
+export const openGisStudio = async (): Promise<void> => {
+  const open = (url: string) => {
+    const w = window.open(url, '_blank', 'noopener,noreferrer');
+    if (w) w.opener = null;
+  };
   try {
-    token = localStorage.getItem('fpsc-sso-token');
+    const token = await fetchSsoHandoff();
+    open(token ? `${GIS_URL.replace(/\/$/, '')}/sso/exchange?t=${encodeURIComponent(token)}` : GIS_URL);
   } catch {
-    /* private mode — plain link */
+    open(GIS_URL);
   }
-  if (token && token.length > 20) {
-    return `${GIS_URL.replace(/\/$/, '')}/sso/exchange?t=${encodeURIComponent(token)}`;
-  }
-  return GIS_URL;
 };
 
+/** Plain link, for href/src so the item still renders and middle-clicks work. */
+export const gisHref = (): string => GIS_URL;
+
+/** Session-authenticated; returns null when single sign-on is unavailable. */
+const fetchSsoHandoff = async (): Promise<string | null> => {
+  try {
+    const session = localStorage.getItem('fpsc-session');
+    if (!session) return null;
+    const res = await fetch('/auth/sso/handoff', {
+      headers: { Authorization: `Bearer ${session}` },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { token?: string | null };
+    return data.token || null;
+  } catch {
+    return null;
+  }
+};
 const DesktopSidebar: React.FC = () => {
   const { userId, logout } = useContext(AuthContext);
   const { mode: themeMode, setMode: setThemeMode } = useTheme();

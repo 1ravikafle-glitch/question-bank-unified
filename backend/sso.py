@@ -26,10 +26,26 @@ import os
 import time
 from typing import Optional
 
-# 30 days: long enough that a regular user rarely notices, short enough that a
-# leaked token expires on its own.
+# Long-lived token, kept only for compatibility with links minted by older
+# builds. Prefer the short handoff token below for anything that travels in a
+# URL.
 TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
-AUDIENCE = "elfakgisprostudio"
+
+# Token handed to the sibling site at click time.
+#
+# A handoff token travels in a query string, which means it lands in browser
+# history, proxy logs and Referer headers, and anyone who sees the link can
+# replay it. So it is deliberately short: long enough to survive the click and
+# the redirect back, far too short to be worth stealing. The sibling site
+# enforces the same ceiling independently (its SSO_MAX_TTL default is 300s) and
+# rejects anything longer, which is what silently broke cross-site sign-on
+# while both services looked correctly configured.
+#
+# The lasting session on the other side is established by its own remember-me
+# cookie, which it issues after verifying the handoff - not by this token.
+HANDOFF_TTL_SECONDS = max(30, int((os.getenv("SSO_HANDOFF_TTL") or "300").strip() or 300))
+
+AUDIENCE = os.getenv("SSO_AUDIENCE") or "elfakgisstudio"
 
 
 def _secret() -> Optional[bytes]:
@@ -93,6 +109,19 @@ def mint_for(
     body = _b64e(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     sig = _b64e(hmac.new(secret, body.encode("ascii"), hashlib.sha256).digest())
     return f"{body}.{sig}"
+
+
+def mint_handoff(username: str, is_admin: bool = False) -> Optional[str]:
+    """
+    Mint a short-lived token for handing the session to the sibling site.
+
+    Only ever called for a caller who already holds a valid session, so it
+    inherits that authentication guarantee. Returns None when SSO is not
+    configured, and the link degrades to a plain one.
+    """
+    if not username:
+        return None
+    return mint_for(username, is_admin=is_admin, audience=AUDIENCE, ttl=HANDOFF_TTL_SECONDS)
 
 
 def verify(token: str) -> Optional[dict]:

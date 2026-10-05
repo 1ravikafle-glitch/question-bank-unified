@@ -802,6 +802,29 @@ def sso_status():
     return {"enabled": sso.sso_enabled()}
 
 
+@router.get("/sso/handoff")
+def sso_handoff(caller: Tuple[str, bool] = Depends(session.require_user)):
+    """
+    Mint a short-lived token for handing this session to the sibling site.
+
+    Session-authenticated on purpose: the browser already holds a session, so
+    asking for a password again would be theatre, and requiring one would mean
+    the cross-site link could only be built at login time - which is exactly
+    what made it go stale.
+
+    The token lives ~5 minutes, which is all a click needs. The sibling site
+    turns it into its own long-lived cookie once it verifies it.
+    """
+    if not sso.sso_enabled():
+        return {"enabled": False, "token": None}
+    username, is_admin = caller
+    return {
+        "enabled": True,
+        "token": sso.mint_handoff(username, is_admin=is_admin),
+        "expires_in": sso.HANDOFF_TTL_SECONDS,
+    }
+
+
 @router.post("/sso/refresh")
 def sso_refresh(req: AuthRequest, db: Session = Depends(database.get_db)):
     """
