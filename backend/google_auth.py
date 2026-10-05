@@ -14,6 +14,7 @@ before and the login screen simply hides the Google button.
 import os
 import sys
 import threading
+from collections import deque
 import time
 from typing import Optional
 
@@ -72,6 +73,22 @@ def _http_get_json(url: str, timeout: int = 10):
         return _json.loads(resp.read().decode("utf-8"))
 
 
+# Why the last few verifications failed, newest last. The reason used to go
+# only to stderr, where the operator cannot see it: the API answers a flat
+# 401 "Google sign-in failed" (deliberately, so a bad audience and a bad
+# signature look alike to an attacker) which left no way to tell an
+# unauthorized origin from a clock problem from a rotated key. Admin-only.
+_verify_failures: "deque[str]" = deque(maxlen=10)
+
+
+def recent_verify_failures() -> list:
+    return list(_verify_failures)
+
+
+def _record_failure(reason: str) -> None:
+    _verify_failures.append(reason)
+
+
 def verify_id_token(token: str) -> dict:
     """Verify a Google ID token's signature and claims. Raises on any problem.
 
@@ -105,5 +122,7 @@ def verify_id_token(token: str) -> dict:
             )
         except Exception as e:  # try the next key
             last_error = e
-    print(f"[GOOGLE] id token rejected: {last_error}", file=sys.stderr)
+    reason = f"{type(last_error).__name__}: {last_error}" if last_error else "no key verified"
+    _record_failure(reason)
+    print(f"[GOOGLE] id token rejected: {reason}", file=sys.stderr)
     raise ValueError("Invalid Google token")

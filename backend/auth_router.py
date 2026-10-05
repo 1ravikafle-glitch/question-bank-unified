@@ -369,6 +369,12 @@ def outbound_diagnostics(
     except Exception as e:
         out["google_jwks"] = {"ok": False, "error": f"{type(e).__name__}: {str(e)[:100]}"}
 
+    # 2b. Why the last few sign-in attempts were rejected. Fetching the JWKS
+    # succeeding only proves the keys are reachable, not that a real token
+    # verified: a wrong audience or a stale-clock token fails here while the
+    # check above stays green.
+    out["google_recent_failures"] = google_auth.recent_verify_failures()
+
     # 3. Mail transport. Which probe runs depends on how the mailer is
     #    configured: an SMTP host gets connect+login, an HTTPS send API gets a
     #    real authenticated send to a probe address. Probing the wrong one is
