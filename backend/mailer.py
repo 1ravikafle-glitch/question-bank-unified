@@ -164,9 +164,22 @@ def _open(host: str, port: int):
 _last_error = None
 
 
-def _remember(exc) -> None:
+def _remember(exc, detail: str | None = None) -> None:
+    """Record the last failure for the diagnostic endpoint.
+
+    `detail` carries the provider's own response body. An HTTPError's str() is
+    just "HTTP Error 401: Unauthorized" and says nothing about *why*, so a
+    wrong key and a revoked key and an unapproved account were indistinguishable
+    from the outside. Never include credentials here.
+    """
     global _last_error
-    _last_error = f"{type(exc).__name__}: {exc}" if exc else None
+    if not exc:
+        _last_error = None
+        return
+    base = f"{type(exc).__name__}: {exc}"
+    if detail:
+        base = f"{base} | {detail}"
+    _last_error = base
 
 
 def last_error() -> str | None:
@@ -271,10 +284,10 @@ def _send_via_api(to: str, subject: str, body: str) -> bool:
     except _err.HTTPError as e:
         detail = ""
         try:
-            detail = e.read().decode("utf-8", "replace")[:300]
+            detail = e.read().decode("utf-8", "replace")[:400]
         except Exception:
             pass
-        _remember(e)
+        _remember(e, detail)
         print(f"[MAIL] api REJECTED {e.code} {url} :: {detail}", file=sys.stderr)
         return False
     except Exception as e:

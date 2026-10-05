@@ -393,6 +393,9 @@ def outbound_diagnostics(
                 "ok": bool(ok),
                 "ms": int((_time.time() - t0) * 1000),
                 "to": probe_to,
+                # Includes the provider's response body, which is the only
+                # thing that distinguishes a bad key from a revoked one from
+                # an account not yet approved for sending.
                 "error": None if ok else (mailer.last_error() or "send returned False"),
             }
         return out
