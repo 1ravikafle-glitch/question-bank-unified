@@ -1109,7 +1109,7 @@ const QuestionsBank: React.FC = () => {
       {filtered.length > 0 && isRawMode && (
         <div style={{ textAlign: 'center', paddingBottom: '16px' }}>
           <p style={{ fontSize: '0.625rem', color: 'hsl(var(--muted-foreground) / 0.5)' }}>
-            ← → arrows: pages · Swipe: pages · Space/Enter: check answer · M: bookmark · N: note
+            ← → arrows: pages · Swipe: pages · Space/Enter: check answer · M: bookmark · N: note · P: peek note
           </p>
         </div>
       )}
