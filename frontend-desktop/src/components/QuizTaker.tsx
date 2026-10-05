@@ -400,7 +400,14 @@ const QuizTaker: React.FC = () => {
             questionsData = await fetchRandomQuestions({ count, category: categoryParam || undefined });
           }
         }
-        setQuestions(shuffleArray(questionsData));
+        // A "practice this question" deep link has to actually start on that
+        // question. Shuffling the whole set moved it to a random slot, so the
+        // button promised one question and delivered any of the ten. Keep the
+        // requested question first and shuffle only the rest.
+        const ordered = questionIdFromUrl
+          ? [questionsData[0], ...shuffleArray(questionsData.slice(1))]
+          : shuffleArray(questionsData);
+        setQuestions(ordered);
         setSelected({});
         setCurrentIndex(0);
         setAnnouncement(`Quiz started with ${questionsData.length} questions.`);
