@@ -164,3 +164,31 @@ export const deleteAttempt = async (attemptId: number) => {
 };
 
 /** Fetch all approved past papers for public viewing/downloading. */
+
+/* Weekly global ranking. Names arrive already masked from the server, so this
+   type can never hold a real one. */
+export interface LeaderboardRow {
+  rank: number;
+  name: string;
+  is_you: boolean;
+  questions: number;
+  answered: number;
+  correct: number;
+  accuracy: number;
+  score: number;
+  breakdown: string;
+}
+
+export interface Leaderboard {
+  window: { start: string; end: string; timezone: string; label: string };
+  eligibility: { min_distinct_questions: number };
+  formula: string;
+  rows: LeaderboardRow[];
+  eligible_count: number;
+  you: LeaderboardRow | null;
+}
+
+export const fetchLeaderboard = async (): Promise<Leaderboard> => {
+  const response = await api.get('/quiz/leaderboard');
+  return response.data;
+};

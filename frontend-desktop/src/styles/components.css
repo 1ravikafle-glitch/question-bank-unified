@@ -1629,6 +1629,89 @@
   font-weight: var(--font-weight-medium);
 }
 
+/* ---- Home stat hierarchy --------------------------------------------
+   The bank total and the reader's own progress are different kinds of
+   number, so they must not be drawn the same way: the total is a fact
+   about the app and stays muted, the attempted count is the reader's own
+   figure and takes the brand colour. Two identical numbers side by side
+   read as a mistake whichever one is which. */
+.stat-tile--context {
+  background: hsl(var(--muted) / 0.55);
+}
+.stat-tile--context .stat-tile-value {
+  color: hsl(var(--muted-foreground));
+}
+
+.stat-tile--hero {
+  background: hsl(var(--primary) / 0.06);
+  border-color: hsl(var(--primary) / 0.28);
+}
+.stat-tile--hero .stat-tile-value {
+  color: hsl(var(--primary));
+}
+/* The hero tile's sub carries the longest string of the three ("48% of the
+   bank"). At the shared sub size it wrapped to two lines while its
+   neighbours stayed on one, which read as a layout accident rather than a
+   hierarchy. A step smaller keeps all three subs on one line. */
+.stat-tile--hero .stat-tile-sub {
+  font-size: 0.625rem;
+}
+.stat-tile--hero:hover {
+  border-color: hsl(var(--primary) / 0.45);
+}
+
+.stat-tile-sub {
+  display: block;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: hsl(var(--muted-foreground) / 0.85);
+}
+
+/* ---- Coverage rail --------------------------------------------------
+   Attempted against the bank total is one proportion, not two unrelated
+   numbers, so it gets a rail rather than leaving the reader to divide in
+   their head. */
+.stat-coverage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.stat-coverage-rail {
+  height: 6px;
+  border-radius: var(--apple-radius-full);
+  background: hsl(var(--muted));
+  overflow: hidden;
+}
+
+.stat-coverage-fill {
+  height: 100%;
+  border-radius: var(--apple-radius-full);
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--tone-study)));
+  transition: width var(--dur-standard) var(--ease-standard);
+}
+
+.stat-coverage-caption {
+  /* Two spans on one line. Without the gap they render as
+     "attempted0% covered", which is what they did. */
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  /* ~20% below the surrounding label size, and italic so it reads as a
+     caption under the rail rather than as another statistic. */
+  font-size: 0.75rem;
+  font-style: italic;
+  color: hsl(var(--muted-foreground) / 0.9);
+  line-height: 1.35;
+}
+.stat-coverage-caption strong {
+  font-weight: var(--font-weight-bold);
+  font-style: normal;
+  color: hsl(var(--foreground));
+}
+
 /* =============================================================
    Tables
    ============================================================= */
@@ -2989,6 +3072,11 @@
    colour of its own. */
 .setup-action {
   --sa: var(--bookmark);
+  --sa-bg: hsl(var(--card));
+  --sa-hover-bg: hsl(var(--card));
+  --sa-weave: none;
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -2996,17 +3084,54 @@
   padding: 0.625rem 0.75rem;
   text-align: left;
   border-radius: var(--apple-radius-md);
-  background: hsl(var(--card));
+  background: var(--sa-weave), var(--sa-bg);
   border: 1px solid hsl(var(--border));
   cursor: pointer;
   transition: background-color 150ms ease, border-color 150ms ease;
 }
-.setup-action--bookmark { --sa: var(--bookmark); }
-.setup-action--review { --sa: var(--tone-review); }
+.setup-action--bookmark {
+  --sa: var(--bookmark);
+  --sa-bg: hsl(var(--bookmark) / 0.05);
+  --sa-hover-bg: hsl(var(--bookmark) / 0.1);
+  border-color: hsl(var(--bookmark) / 0.22);
+}
+
+/* The mistake queue is the one row on this screen that means "you got this
+   wrong", so it gets its own surface rather than only a differently coloured
+   icon chip: a cool tint, a fine diagonal weave and a solid rail down the
+   leading edge. The hue stays --tone-review and deliberately is not
+   --wrong-600, because Accuracy on this same screen already wears red and a
+   second red would read as a different measurement.
+
+   --sa-weave is a separate layer so hover and press can deepen the tint
+   without flattening the weave back to a plain fill. */
+.setup-action--review {
+  --sa: var(--tone-review);
+  --sa-bg: hsl(var(--tone-review) / 0.07);
+  --sa-hover-bg: hsl(var(--tone-review) / 0.12);
+  --sa-weave: repeating-linear-gradient(
+    135deg,
+    hsl(var(--tone-review) / 0.07) 0 5px,
+    hsl(var(--tone-review) / 0) 5px 11px
+  );
+  border-color: hsl(var(--tone-review) / 0.3);
+}
+.setup-action--review::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: hsl(var(--tone-review));
+}
 
 .setup-action:hover {
-  background: hsl(var(--sa) / 0.05);
+  background: var(--sa-weave), var(--sa-hover-bg);
   border-color: hsl(var(--sa) / 0.32);
+}
+.setup-action:active {
+  background: var(--sa-weave), var(--sa-hover-bg);
 }
 .setup-action:active {
   background: hsl(var(--sa) / 0.09);

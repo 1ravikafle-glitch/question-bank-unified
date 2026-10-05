@@ -8,6 +8,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useLang } from '@/context/LanguageContext';
 import { getRandomScoreMessages } from '@/utils/scoreMessages';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import Leaderboard from './Leaderboard';
 
 interface CategoryStat {
   category: string;
@@ -84,7 +85,7 @@ const ProgressTracker: React.FC = () => {
   const { num } = useLang();
   const [data, setData] = useState<ProgressData | null>(() => readPage<ProgressData>('progress-data'));
   const [loading, setLoading] = useState(() => !readPage('progress-data'));
-  const [view, setView] = useState<'weekly' | 'lifetime'>('weekly');
+  const [view, setView] = useState<'weekly' | 'lifetime' | 'ranking'>('weekly');
   const [wrongQueueCount, setWrongQueueCount] = useState(() => readPage<number>('progress-wrong') ?? 0);
 
   useEffect(() => {
@@ -244,6 +245,18 @@ const ProgressTracker: React.FC = () => {
           >
             Lifetime
           </motion.button>
+          <motion.button
+            onClick={() => setView('ranking')}
+            className="btn btn-ghost btn-sm"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            style={{
+              borderRadius: 0,
+              ...(view === 'ranking' ? { background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' } : {}),
+            }}
+          >
+            Top ranking
+          </motion.button>
         </div>
       </div>
 
@@ -256,11 +269,18 @@ const ProgressTracker: React.FC = () => {
           transition={{ duration: 0.2 }}
           style={{ textAlign: 'center', fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}
         >
-          {view === 'weekly' ? `Week of ${weekStartStr} · Resets every Monday` : 'All-time statistics'}
+          {view === 'weekly'
+            ? `Week of ${weekStartStr} · Resets every Monday`
+            : view === 'ranking'
+              ? 'Every account, ranked. Names are masked.'
+              : 'All-time statistics'}
         </motion.p>
       </AnimatePresence>
 
       {/* ── Two-column layout: Stats left, Category breakdown right ── */}
+      {view === 'ranking' && <Leaderboard />}
+      {view !== 'ranking' && (
+      <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-visible" style={{ padding: '2px', margin: '-2px' }}
       >
         {/* Left column: Overview Stats */}
@@ -528,6 +548,8 @@ const ProgressTracker: React.FC = () => {
           </motion.button>
         </motion.div>
       </motion.div>
+      </>
+      )}
     </motion.div>
   );
 };

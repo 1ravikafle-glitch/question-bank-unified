@@ -56,7 +56,10 @@ const STRINGS: Record<string, { en: string; ne: string }> = {
   // login
   'login.title': { en: 'Forestry PSC', ne: 'फरेष्ट्री पिएससी' },
   'login.subtitle': { en: 'Prepare with confidence', ne: 'आत्मविश्वासका साथ तयारी' },
-  'login.username': { en: 'Username', ne: 'प्रयोगकर्ता नाम' },
+  'login.username': { en: 'Username, Member ID or Gmail', ne: 'प्रयोगकर्ता नाम, सदस्य ID वा Gmail' },
+  // An example, not a format rule: people are not sure which of the three
+  // they have, and "you@gmail.com" implied the address was the only way in.
+  'login.username.example': { en: 'e.g. your username', ne: 'जस्तै: तपाईंको प्रयोगकर्ता नाम' },
   'login.password': { en: 'Password', ne: 'पासवर्ड' },
   'login.signin': { en: 'Sign in', ne: 'साइन इन' },
   'login.signing': { en: 'Signing in…', ne: 'साइन इन हुँदै…' },

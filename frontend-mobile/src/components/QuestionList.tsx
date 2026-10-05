@@ -1316,12 +1316,12 @@ const Dashboard: React.FC = () => {
 
         .stats-row-grid {
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 0.625rem;
         }
         @media (min-width: 480px) {
           .stats-row-grid {
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
         .stats-row {

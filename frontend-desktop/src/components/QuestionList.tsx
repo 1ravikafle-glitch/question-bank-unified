@@ -207,7 +207,10 @@ const Dashboard: React.FC = () => {
         if (progressResp) {
           setAttempted(progressResp.attempted || 0);
           setCorrect(progressResp.correct || 0);
-          setAccuracy(progressResp.accuracy || 0);
+          // `|| 0` here used to flatten a null accuracy to 0, which made
+          // "No attempts yet" unreachable: the tile always had a number to
+          // colour. Null means "never attempted" and has to survive.
+          setAccuracy(progressResp.accuracy ?? null);
           setCatStats(progressResp.category_breakdown || []);
           setWrongCount(progressResp.wrong_count || 0);
           setRecentAttempts(progressResp.recent_attempts || []);
@@ -477,7 +480,14 @@ const Dashboard: React.FC = () => {
             >
               Your progress
             </h2>
-            <div className="stats-row-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            {/* minmax(0, 1fr), not 1fr. A bare 1fr is minmax(auto, 1fr),
+                so each column refuses to shrink below the min-content width of
+                its number ("2,162" in mono at 1.375rem plus padding) and the
+                three columns together overflowed the card by ~33px, pushing
+                Accuracy past the panel edge. Also pinned to 3 because this
+                inline value was overriding the responsive rules below, which
+                asked for 2 columns and then 4. */}
+            <div className="stats-row-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
               {/* Bank fact, not an achievement: recedes so the user's own
                   number is the one that reads first. */}
               <motion.div className="stat-tile stat-tile--context" variants={itemVariants} role="figure" aria-label={`Total questions: ${total.toLocaleString()}`}>
@@ -1034,12 +1044,12 @@ const Dashboard: React.FC = () => {
 
         .stats-row-grid {
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 0.625rem;
         }
         @media (min-width: 480px) {
           .stats-row-grid {
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
         .stats-row {

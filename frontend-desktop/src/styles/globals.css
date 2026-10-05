@@ -110,6 +110,65 @@ body {
 	text-rendering: optimizeLegibility;
 }
 
+/* --- App-wide colour wash + film grain (texture trial) ----------------
+   Two very soft canopy/moss washes fixed behind the page, and a single
+   monochrome grain sheet over everything. Neither touches layout, neither
+   intercepts a click, and both collapse to nothing at
+   --texture-strength: 0 (see variables.css).
+
+   The grain is a fixed overlay rather than a background on each surface so
+   it reaches the sidebar, header and modals too, which is what makes the
+   app read as one material instead of a stack of flat panels. `pointer-
+   events: none` keeps every control underneath it fully clickable. */
+body {
+	background-image:
+		radial-gradient(
+			1100px 620px at 10% -10%,
+			hsl(var(--canopy-700) / calc(var(--texture-wash-a) * var(--texture-strength))),
+			transparent 62%
+		),
+		radial-gradient(
+			980px 560px at 94% 2%,
+			hsl(var(--moss-200) / calc(var(--texture-wash-b) * var(--texture-strength))),
+			transparent 60%
+		);
+	background-attachment: fixed;
+}
+
+body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	z-index: 2147483000;
+	pointer-events: none;
+	opacity: calc(var(--texture-grain) * var(--texture-strength));
+	mix-blend-mode: overlay;
+	background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23g)'/></svg>");
+	background-repeat: repeat;
+}
+
+/* Dark mode gets a deeper wash and half the grain: an overlay blends against
+   whatever is underneath it, and the same opacity that reads as paper on a
+   light surface reads as haze on a dark one. The theme class lands on
+   <html>, so these are scoped to `.dark body` / `.dark body::after`. */
+.dark body {
+	background-image:
+		radial-gradient(
+			1100px 620px at 10% -10%,
+			hsl(var(--moss-600) / calc(var(--texture-wash-a) * 0.55 * var(--texture-strength))),
+			transparent 62%
+		),
+		radial-gradient(
+			980px 560px at 94% 2%,
+			hsl(var(--canopy-800) / calc(var(--texture-wash-b) * 1.6 * var(--texture-strength))),
+			transparent 60%
+		);
+}
+.dark body::after {
+	opacity: calc(var(--texture-grain) * 0.4 * var(--texture-strength));
+	mix-blend-mode: soft-light;
+}
+
 /* --- Headings --- */
 h1, h2, h3, h4, h5, h6 {
 	font-family: var(--font-display);

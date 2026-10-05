@@ -8,7 +8,10 @@
  * kept in sync: two workers for one job is how the mobile copy silently aged
  * six weeks behind the real one.
  */
-const CACHE = 'forestry-v8';
+// Bumped to v9 when /quiz/dashboard stopped being cached: v8 had already
+// stored per-account bodies under this origin-wide name, and renaming the
+// cache is the only way to evict them.
+const CACHE = 'forestry-v9';
 // Only paths that genuinely resolve. /forestry-logo.png was listed here and
 // never did: the SPA catch-all answers every unmatched path with index.html and
 // a 200, so the fetch "succeeded" and cached an HTML body under a .png URL.
@@ -193,6 +196,19 @@ self.addEventListener('fetch', (event) => {
   }
 
   // API reads: stale-while-revalidate. The cached answer returns
+  // /quiz/dashboard carries its identity in the Authorization header, NOT in
+  // the path, so this cache cannot tell one account's copy from another's.
+  // Caching it served whoever logged in last the previous account's numbers,
+  // and it made a quiz you had just finished look un-finished until the visit
+  // after this one. Network-first with nothing written: the app already paints
+  // from its own in-memory snapshot, so this costs no perceived speed, and the
+  // cache name bump that shipped with this fix cleared the entries that the
+  // old branch had already stored.
+  if (path === '/quiz/dashboard') {
+    event.respondWith(fetch(req).catch(() => caches.match(req)));
+    return;
+  }
+
   // IMMEDIATELY (no network wait) while a background fetch refreshes the
   // entry for next time. Repeat visits therefore render from cache in
   // milliseconds; first-ever visits have no entry and simply wait like before.

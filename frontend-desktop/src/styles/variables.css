@@ -5,6 +5,19 @@
 */
 
 :root {
+  /* --- Texture trial -------------------------------------------------
+     One knob for the app-wide grain and colour wash defined in
+     globals.css. Set this to 0 and every textured surface in both apps
+     goes flat with no other edit; raise it toward 1 to make the grain
+     more present. Kept low on purpose: Apple's own materials get their
+     depth from translucency and spacing, and grain turns into dirt very
+     quickly above about 0.6. */
+  --texture-strength: 0.45;
+  --texture-grain: 0.5;
+  --texture-wash-a: 0.1;
+  --texture-wash-b: 0.08;
+
+  /* --- Core palette (named) --- */
   /* --- Core palette (named) --- */
   --canopy-950: 240 6% 10%;
   --canopy-800: 240 6% 14%;

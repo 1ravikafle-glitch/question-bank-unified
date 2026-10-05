@@ -302,6 +302,20 @@ def _calc_stats(progress_rows, questions_by_id: Dict[int, models.Question]):
     return {"attempted": attempted, "correct": correct, "accuracy": accuracy, "categories": categories}
 
 
+@router.get("/leaderboard")
+def get_leaderboard(caller: Tuple[str, bool] = Depends(session.require_user)):
+    """Weekly global ranking, Sunday to Sunday.
+
+    Every account is rolled up server-side and the names are masked before the
+    response is built, so the client never holds a real name. `caller[0]` may be
+    falsy for an anonymous session; the board still renders, just without a
+    "you" row.
+    """
+    import leaderboard as _leaderboard
+
+    return _leaderboard.compute(viewer=caller[0] or None)
+
+
 @router.get("/progress/{user_identifier}")
 def get_user_progress(
     user_identifier: str,

@@ -261,7 +261,7 @@ const Login: React.FC = () => {
               label={t('login.username')}
               value={username}
               onChange={(v) => { setUsername(v); setError(''); }}
-              placeholder="you@gmail.com"
+              placeholder={t('login.username.example')}
               autoFocus
               autoComplete="username"
               required

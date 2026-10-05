@@ -19,7 +19,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { userId, setUserId, setSessionToken } = useContext(AuthContext);
-  const { lang, setLang } = useLang();
+  const { lang, t, setLang } = useLang();
 
   // 'login' | 'register' | 'forgot'
   const [view, setView] = useState<'login' | 'register' | 'forgot'>('login');
@@ -275,10 +275,10 @@ const Login: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AInput
               id="login-username"
-              label="Gmail, username or member ID"
+              label={t('login.username')}
               value={username}
               onChange={(v) => { setUsername(v); setError(''); }}
-              placeholder="you@gmail.com"
+              placeholder={t('login.username.example')}
               autoFocus
               autoComplete="username"
               required
