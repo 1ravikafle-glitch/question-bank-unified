@@ -1,25 +1,71 @@
 """Outbound email for password resets. Free forever at the tiers we target.
 
-SMTP is configured purely through the environment, so there is no vendor
-lock-in and no code change to switch provider:
+Two transports, chosen by MAIL_TRANSPORT, both configured purely through the
+environment so there is no vendor lock-in and no code change to switch.
 
+SMTP, which works anywhere including a laptop:
+
+    MAIL_TRANSPORT=smtp
     SMTP_HOST=smtp.gmail.com
     SMTP_PORT=587
     SMTP_USER=you@gmail.com
     SMTP_PASS=<Google app password>
     SMTP_FROM=you@gmail.com
 
-A Gmail app password with an @gmail.com account covers 500 messages a day at
-no cost, which is far beyond a reset-email workload. When SMTP is unset the
-mailer stays disabled and ``send`` returns False; callers still write the reset
-link to the server log so an operator can complete a reset manually instead of
-failing the request.
+HTTPS send API, required on hosts that block outbound SMTP:
+
+    MAIL_TRANSPORT=api
+    MAIL_API_URL=https://api.brevo.com/v3/smtp/email
+    MAIL_API_KEY=<provider api key>
+    SMTP_FROM=you@yourdomain
+
+Render's free tier blocks outbound TCP to ports 25, 465 and 587 on every web
+service, so no SMTP relay can be reached from there at all: the connect sits
+until it times out, identically for every provider, which looks like a
+credentials problem and is not one. Port 443 is not blocked, so an HTTPS send
+API is the only transport that works on that host.
+
+When nothing is configured the mailer stays disabled and ``send`` returns
+False; callers still write the reset link to the server log so an operator can
+complete a reset manually instead of failing the request.
 """
 
 import os
 import smtplib
 import sys
 from email.message import EmailMessage
+
+
+def transport() -> str:
+    """Which transport to use. Explicit wins; otherwise infer.
+
+    An SMTP_HOST alone still selects SMTP so existing deployments keep working
+    untouched. An API URL with no SMTP_HOST selects the API path.
+    """
+    explicit = (os.getenv("MAIL_TRANSPORT") or "").strip().lower()
+    if explicit in ("api", "http", "https"):
+        return "api"
+    if explicit == "smtp":
+        return "smtp"
+    if (os.getenv("MAIL_API_URL") or "").strip() and not (os.getenv("SMTP_HOST") or "").strip():
+        return "api"
+    return "smtp"
+
+
+def _api_ready() -> tuple[bool, str]:
+    """Whether the HTTPS transport has everything it needs, plus why not."""
+    url = (os.getenv("MAIL_API_URL") or "").strip()
+    key = (os.getenv("MAIL_API_KEY") or "").strip()
+    sender = (os.getenv("SMTP_FROM") or "").strip()
+    if not url:
+        return False, "MAIL_API_URL not set"
+    if not key:
+        return False, "MAIL_API_KEY not set"
+    if not sender:
+        return False, "SMTP_FROM not set"
+    if not url.lower().startswith("https://"):
+        return False, "MAIL_API_URL must be https"
+    return True, ""
 
 
 def configured() -> bool:
@@ -31,9 +77,14 @@ def configured() -> bool:
     the user a code was on its way. Credentials are now required for any host
     that is not local, which is every real SMTP relay.
     """
-    host = (os.getenv("SMTP_HOST") or "").strip()
     sender = (os.getenv("SMTP_FROM") or "").strip()
-    if not host or not sender:
+    if not sender:
+        return False
+    if transport() == "api":
+        ready, _ = _api_ready()
+        return ready
+    host = (os.getenv("SMTP_HOST") or "").strip()
+    if not host:
         return False
     if _is_local(host):
         return True
@@ -48,14 +99,27 @@ def _is_local(host: str) -> bool:
 def status() -> dict:
     """Operator-facing summary. Never includes the password."""
     host = (os.getenv("SMTP_HOST") or "").strip()
+    sender = (os.getenv("SMTP_FROM") or "").strip()
+    if transport() == "api":
+        ready, why = _api_ready()
+        return {
+            "configured": bool(sender) and ready,
+            "transport": "api",
+            "host": (os.getenv("MAIL_API_URL") or "").strip() or None,
+            "port": "443",
+            "user": None,
+            "from": sender or None,
+            "reason": None if (sender and ready) else (why or "SMTP_FROM not set"),
+        }
     return {
         "configured": configured(),
+        "transport": "smtp",
         "host": host or None,
         "port": (os.getenv("SMTP_PORT") or "587").strip(),
         "user": (os.getenv("SMTP_USER") or "").strip() or None,
-        "from": (os.getenv("SMTP_FROM") or "").strip() or None,
+        "from": sender or None,
         "reason": None if configured() else (
-            "SMTP_HOST/SMTP_FROM not set" if not (host and (os.getenv("SMTP_FROM") or "").strip())
+            "SMTP_HOST/SMTP_FROM not set" if not (host and sender)
             else "SMTP_USER/SMTP_PASS not set (the host needs credentials)"
         ),
     }
@@ -122,6 +186,14 @@ def selftest() -> bool:
     if not st["configured"]:
         print(f"[MAIL] disabled: {st['reason']} (reset codes go to the log instead)", file=sys.stderr)
         return False
+    if st.get("transport") == "api":
+        ready, why = _api_ready()
+        _remember(None)
+        if ready:
+            print(f"[MAIL] ready: api via {st['host']} as {st['from']}", file=sys.stderr)
+        else:
+            print(f"[MAIL] NOT READY: api transport incomplete -> {why}", file=sys.stderr)
+        return ready
     port = int(st["port"])
     user = (os.getenv("SMTP_USER") or "").strip()
     pw = (os.getenv("SMTP_PASS") or "").strip()
@@ -146,6 +218,71 @@ def selftest() -> bool:
         return False
 
 
+def _send_via_api(to: str, subject: str, body: str) -> bool:
+    """POST the message to an HTTPS send API.
+
+    Exists because SMTP is unreachable on hosts that block ports 25/465/587,
+    which includes Render's free tier. Port 443 is open, so this is the only
+    transport that works there.
+
+    The request shape is the near-universal transactional-send API used by
+    Brevo, Mailjet, SendGrid v3 and Postmark's JSON mode: a sender, a single
+    recipient list, a subject and both text bodies. The auth header is
+    configurable because providers disagree on its shape - Brevo wants a bare
+    api-key header, everyone else wants Authorization: Bearer.
+    """
+    import json as _json
+    import urllib.request as _req
+    import urllib.error as _err
+
+    url = (os.getenv("MAIL_API_URL") or "").strip()
+    key = (os.getenv("MAIL_API_KEY") or "").strip()
+    header = (os.getenv("MAIL_API_KEY_HEADER") or "api-key").strip()
+    scheme = (os.getenv("MAIL_API_KEY_SCHEME") or "").strip()
+    sender = (os.getenv("SMTP_FROM") or "").strip()
+    name = (os.getenv("MAIL_FROM_NAME") or "").strip()
+
+    payload = {
+        "sender": {"email": sender, "name": name} if name else {"email": sender},
+        "to": [{"email": to}],
+        "subject": subject,
+        "textContent": body,
+        "htmlContent": f"<p>{body.replace(chr(10), '<br/>')}</p>",
+    }
+    if (os.getenv("MAIL_FROM_NAME") or "").strip():
+        payload["sender"] = {"email": sender, "name": (os.getenv("MAIL_FROM_NAME") or "").strip()}
+
+    req = _req.Request(
+        url,
+        data=_json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            header: f"{scheme}{key}".strip(),
+        },
+        method="POST",
+    )
+    try:
+        with _req.urlopen(req, timeout=_timeout()) as resp:
+            code = resp.getcode()
+            _remember(None)
+            print(f"[MAIL] api accepted ({code}) via {url}", file=sys.stderr)
+            return 200 <= int(code) < 300
+    except _err.HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", "replace")[:300]
+        except Exception:
+            pass
+        _remember(e)
+        print(f"[MAIL] api REJECTED {e.code} {url} :: {detail}", file=sys.stderr)
+        return False
+    except Exception as e:
+        _remember(e)
+        print(f"[MAIL] api FAILED {url} -> {type(e).__name__}: {e}", file=sys.stderr)
+        return False
+
+
 def send(to: str, subject: str, body: str) -> bool:
     """Send a message. Never raises: a mail outage must not 500 the API.
 
@@ -154,8 +291,11 @@ def send(to: str, subject: str, body: str) -> bool:
     """
     if not configured():
         _remember(None)
-        print("[MAIL] SMTP not configured, skipping send", file=sys.stderr)
+        st = status()
+        print(f"[MAIL] not configured ({st.get('reason')}), skipping send", file=sys.stderr)
         return False
+    if transport() == "api":
+        return _send_via_api(to, subject, body)
     host = (os.getenv("SMTP_HOST") or "").strip()
     port = int((os.getenv("SMTP_PORT") or "587").strip())
     user = (os.getenv("SMTP_USER") or "").strip()

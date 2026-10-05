@@ -367,8 +367,35 @@ def outbound_diagnostics(
     except Exception as e:
         out["google_jwks"] = {"ok": False, "error": f"{type(e).__name__}: {str(e)[:100]}"}
 
-    # 3. SMTP connect only (no login, no send): separates network from auth.
+    # 3. Mail transport. Which probe runs depends on how the mailer is
+    #    configured: an SMTP host gets connect+login, an HTTPS send API gets a
+    #    real authenticated send to a probe address. Probing the wrong one is
+    #    how a deployment looks healthy while every mail silently fails.
     import os as _os
+
+    out["mail"] = {"transport": mailer.transport(), **{
+        k: v for k, v in mailer.status().items() if k != "configured"
+    }}
+
+    if mailer.transport() == "api":
+        # A real send: the only way to prove the key works and the provider
+        # accepts the payload. Sent to the operator's own configured sender
+        # address so it cannot reach a stranger.
+        t0 = _time.time()
+        probe_to = (_os.getenv("MAIL_DIAG_TO") or _os.getenv("SMTP_FROM") or "").strip()
+        if not probe_to:
+            out["mail_api_send"] = {"ok": False, "error": "no probe address (set MAIL_DIAG_TO)"}
+        elif not mailer.configured():
+            out["mail_api_send"] = {"ok": False, "error": mailer.status().get("reason") or "not configured"}
+        else:
+            ok = mailer.send(probe_to, "Forestry PSC mail check", "This is a delivery check. No action needed.")
+            out["mail_api_send"] = {
+                "ok": bool(ok),
+                "ms": int((_time.time() - t0) * 1000),
+                "to": probe_to,
+                "error": None if ok else (mailer.last_error() or "send returned False"),
+            }
+        return out
 
     host = (_os.getenv("SMTP_HOST") or "").strip()
     try:
