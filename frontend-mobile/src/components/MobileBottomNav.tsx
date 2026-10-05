@@ -6,6 +6,7 @@ import { useLang } from '@/context/LanguageContext';
 import { useSound } from '@/context/SoundContext';
 import { gisHref, openGisStudio } from '@/components/DesktopSidebar';
 import { authMe, authUpdateEmail, authSendVerification, authConfirmEmail } from '@/services/api';
+import { isAdmin } from '@/config/admin';
 import toast from 'react-hot-toast';
 
 /* ── Haptic feedback ─────────────────────────────────────────── */
@@ -24,6 +25,63 @@ function useReducedMotion() {
     return () => mq.removeEventListener('change', handler);
   }, []);
   return reduced;
+}
+
+/* One row in the More sheet.
+
+   Six near-identical button blocks used to live inline here, each repeating
+   the same padding, radius, icon column and chevron; adding more destinations
+   meant copying that block again. One component keeps the rows honest and
+   makes the sheet a list to read rather than a wall to scan. */
+function SheetRow({
+  icon,
+  label,
+  onClick,
+  tone = 'plain',
+  last = false,
+}: {
+  icon: string;
+  label: string;
+  onClick: () => void;
+  /** 'plain' matches the old rows; 'accent' is for primary destinations. */
+  tone?: 'plain' | 'accent' | 'danger';
+  last?: boolean;
+}) {
+  const bg =
+    tone === 'accent'
+      ? 'hsl(var(--primary) / 0.08)'
+      : tone === 'danger'
+        ? 'transparent'
+        : 'hsl(var(--muted))';
+  return (
+    <div className="p-3" style={last ? { paddingBottom: 0 } : undefined}>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
+        style={{
+          color:
+            tone === 'danger'
+              ? 'hsl(var(--destructive))'
+              : tone === 'accent'
+                ? 'hsl(var(--primary))'
+                : 'hsl(var(--foreground))',
+          background: bg,
+          ...(tone === 'accent'
+            ? { border: '1px dashed hsl(var(--primary) / 0.45)' }
+            : {}),
+        }}
+      >
+        <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">
+          {icon}
+        </span>
+        <span className="flex-1 text-left">{label}</span>
+        {tone !== 'danger' && (
+          <span style={{ fontSize: '11px', opacity: 0.6 }}>&#8594;</span>
+        )}
+      </button>
+    </div>
+  );
 }
 
 /* `tone` mirrors the desktop sidebar's three groups so the mobile bar and the
@@ -51,7 +109,17 @@ const navItems: { to: string; label: string; end: boolean; tone: Tone; icon: Rea
 
 const MobileBottomNav: React.FC = () => {
   const navigate = useNavigate();
-  const { logout } = useContext(AuthContext);
+  const { logout, userId } = useContext(AuthContext);
+
+  /** Close the sheet and navigate. Every row used to repeat this pair. */
+  const go = useCallback(
+    (to: string) => {
+      haptic(8);
+      setShowSheet(false);
+      navigate(to);
+    },
+    [navigate]
+  );
   const { mode, setMode } = useTheme();
   const { lang, setLang, t } = useLang();
   const { enabled: sfxEnabled, toggle: toggleSfx } = useSound();
@@ -527,106 +595,28 @@ const MobileBottomNav: React.FC = () => {
               </a>
             </div>
 
-            {/* Mock Exam */}
-            <div className="p-3" style={{ paddingBottom: 0 }}>
-              <button
-                onClick={() => { haptic(8); setShowSheet(false); navigate('/mock'); }}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
-                style={{
-                  color: 'hsl(var(--foreground))',
-                  background: 'hsl(var(--muted))',
-                }}
-              >
-                <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">📝</span>
-                <span className="flex-1 text-left">{t('nav.mock')}</span>
-                <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
-              </button>
-            </div>
-
-            {/* Bookmarks */}
-            <div className="p-3">
-              <button
-                onClick={() => { haptic(8); setShowSheet(false); navigate('/bookmarks'); }}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
-                style={{
-                  color: 'hsl(var(--primary))',
-                  background: 'hsl(var(--primary) / 0.08)',
-                  border: '1px dashed hsl(var(--primary) / 0.45)',
-                }}
-              >
-                <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">🔖</span>
-                <span className="flex-1 text-left">{t('nav.bookmarks')}</span>
-                <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
-              </button>
-            </div>
-
-            {/* Notes */}
-            <div className="p-3">
-              <button
-                onClick={() => { haptic(8); setShowSheet(false); navigate('/notes'); }}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
-                style={{
-                  color: 'hsl(var(--primary))',
-                  background: 'hsl(var(--primary) / 0.08)',
-                  border: '1px dashed hsl(var(--primary) / 0.45)',
-                }}
-              >
-                <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">📝</span>
-                <span className="flex-1 text-left">{t('nav.notes')}</span>
-                <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
-              </button>
-            </div>
-
-            {/* Feedback */}
-            <div className="p-3">
-              <button
-                onClick={() => { haptic(8); setShowSheet(false); navigate('/feedback'); }}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
-                style={{
-                  color: 'hsl(var(--foreground))',
-                  background: 'hsl(var(--muted))',
-                }}
-              >
-                <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">💬</span>
-                <span className="flex-1 text-left">Feedback</span>
-                <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
-              </button>
-            </div>
-
-            {/* Contribute papers */}
-            <div className="p-3">
-              <button
-                onClick={() => { haptic(8); setShowSheet(false); navigate('/contribute'); }}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.97]"
-                style={{
-                  color: 'hsl(var(--foreground))',
-                  background: 'hsl(var(--muted))',
-                }}
-              >
-                <span aria-hidden="true" style={{ fontSize: '1.1rem' }} className="w-8 flex-shrink-0 text-center">📤</span>
-                <span className="flex-1 text-left">{t('nav.contribute')}</span>
-                <span style={{ fontSize: '11px', opacity: 0.6 }}>→</span>
-              </button>
-            </div>
+            <SheetRow icon="📝" label={t('nav.mock')} onClick={() => go('/mock')} />
+            {/* Wrong Questions had no mobile entry point at all: the route
+                existed, but nothing in the sheet or the tab bar linked to it. */}
+            <SheetRow icon="🔄" label={t('nav.wrong')} onClick={() => go('/quiz/practice-wrong')} />
+            <SheetRow icon="🔖" label={t('nav.bookmarks')} tone="accent" onClick={() => go('/bookmarks')} />
+            <SheetRow icon="📝" label={t('nav.notes')} tone="accent" onClick={() => go('/notes')} />
+            {/* About is public and was only reachable by typing the URL on mobile. */}
+            <SheetRow icon="ℹ️" label={t('nav.about')} onClick={() => go('/about')} />
+            <SheetRow icon="📤" label={t('nav.contribute')} onClick={() => go('/contribute')} />
+            <SheetRow icon="💬" label="Feedback" onClick={() => go('/feedback')} />
+            {/* Admin, gated exactly like the desktop sidebar's adminOnly item. */}
+            {isAdmin(userId) && (
+              <SheetRow icon="⚙️" label={t('nav.admin')} tone="accent" onClick={() => go('/admin')} />
+            )}
 
             {/* Divider */}
             <div className="h-px mx-5" style={{ background: 'hsl(var(--border))' }} />
 
-            {/* Logout */}
-            <div className="p-3">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-medium transition-all active:scale-[0.97]"
-                style={{
-                  color: 'hsl(var(--destructive))',
-                  transition: 'transform 80ms ease-out, background 150ms ease',
-                }}
-              >
-                <span className="text-xl w-8 text-center">🚪</span>
-                <span className="flex-1 text-left">Log out</span>
-              </button>
-            </div>
-
+            {/* Logout, then Settings last: the sheet is titled "Settings" and
+                the final thing in it now actually opens one. */}
+            <SheetRow icon="🚪" label="Log out" tone="danger" onClick={handleLogout} />
+            <SheetRow icon="⚙️" label={t('nav.settings')} onClick={() => go('/settings')} last />
             </div>
             {/* Safe area bottom padding */}
             <div style={{ height: 'env(safe-area-inset-bottom, 0px)', flexShrink: 0 }} />

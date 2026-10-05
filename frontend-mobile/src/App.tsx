@@ -37,6 +37,7 @@ const ResultsScreen = lazy(() => import('./components/ResultsScreen'));
 const ProgressTracker = lazy(() => import('./components/ProgressTracker'));
 const AdminUpload = lazy(() => import('./components/AdminUpload'));
 const About = lazy(() => import('./components/About'));
+const Settings = lazy(() => import('./components/Settings'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./components/TermsOfService'));
 const CookiePolicy = lazy(() => import('./components/CookiePolicy'));
@@ -245,6 +246,9 @@ function AppShell() {
               <Route path="/results" element={userId ? <ResultsScreen /> : <Navigate to="/login" replace />} />
               <Route path="/progress" element={userId ? <ProgressTracker /> : <Navigate to="/login" replace />} />
               <Route path="/admin" element={userId && isAdmin(userId) ? <AdminUpload /> : <Navigate to="/" replace />} />
+              {/* Settings was desktop-only: the mobile More sheet is titled
+                  "Settings" but nothing in it ever opened a settings screen. */}
+              <Route path="/settings" element={userId ? <Settings /> : <Navigate to="/login" replace />} />
               <Route path="/about" element={<About />} />
               {/* Legal pages: public, lazy, and outside auth like /about. */}
               <Route path="/privacy" element={<PrivacyPolicy />} />

@@ -1,0 +1,528 @@
+import { useContext, useEffect, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { AuthContext } from '@/context/AuthContext';
+import { useTheme, type ThemeMode } from '@/context/ThemeContext';
+import { useSound } from '@/context/SoundContext';
+import { useSfx } from '@/hooks/useSfx';
+import { useLang, type Lang } from '@/context/LanguageContext';
+import { useQuizPrefs } from '@/quizPrefs';
+import { staggerParent, sectionRise, useReducedMotion } from '@/motion';
+import { authMe, authUpdateEmail, authSendVerification, authConfirmEmail, fetchMyFeedback, sendFeedback } from '@/services/api';
+
+const row: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  width: '100%',
+  padding: '14px 16px',
+  borderRadius: 12,
+  border: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--card))',
+};
+
+function Toggle({
+  on,
+  onFlip,
+  label,
+}: {
+  on: boolean;
+  onFlip: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onFlip}
+      style={{
+        width: 46,
+        height: 27,
+        borderRadius: 999,
+        background: on ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+        border: `1px solid ${on ? 'transparent' : 'hsl(var(--border))'}`,
+        transition: 'background 0.25s cubic-bezier(.22,1,.36,1)',
+        cursor: 'pointer',
+        padding: 0,
+        position: 'relative',
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          position: 'absolute',
+          top: 2,
+          left: on ? 23 : 3,
+          width: 21,
+          height: 21,
+          borderRadius: '50%',
+          background: '#fff',
+          transition: 'left 0.25s cubic-bezier(.22,1,.36,1)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+        }}
+      />
+    </button>
+  );
+}
+
+const Settings: React.FC = () => {
+  const { userId, logout } = useContext(AuthContext);
+  const { mode, setMode } = useTheme();
+  const { enabled: sfxEnabled, toggle: toggleSfx } = useSound();
+  const { sfxClick } = useSfx();
+  const [quizPrefs, setQuizPrefs] = useQuizPrefs();
+  const navigate = useNavigate();
+  const reduced = useReducedMotion();
+
+  const themes: { value: ThemeMode; label: string; hint: string }[] = [
+    { value: 'light', label: 'Light', hint: 'Bright paper surfaces' },
+    { value: 'dark', label: 'Dark', hint: 'Easy on the eyes at night' },
+    { value: 'auto', label: 'Auto', hint: 'Follows sunrise/sunset' },
+  ];
+
+  const card: React.CSSProperties = {
+    background: 'hsl(var(--card))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: 18,
+    padding: 8,
+  };
+
+  return (
+    <motion.div
+      variants={reduced ? undefined : staggerParent}
+      initial="initial"
+      animate="animate"
+      // Bottom padding clears the mobile tab bar, which floats over the
+      // content; 48px was enough on desktop where nothing is pinned.
+      style={{ maxWidth: 640, margin: '0 auto', paddingBottom: 108 }}
+    >
+      <motion.div variants={reduced ? undefined : sectionRise} style={{ marginBottom: 20 }}>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          aria-label="Back to Home"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, margin: '0 0 10px -6px',
+            padding: '6px 10px 6px 6px', borderRadius: 999, border: '1px solid hsl(var(--border))',
+            background: 'transparent', color: 'hsl(var(--muted-foreground))', cursor: 'pointer',
+            fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <span aria-hidden="true">&#8592;</span> Back
+        </button>
+        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
+          Settings
+        </h1>
+        <p style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))', margin: '4px 0 0' }}>
+          Appearance, sound, quiz behavior and your account.
+        </p>
+      </motion.div>
+
+      {/* Appearance */}
+      <motion.section variants={reduced ? undefined : sectionRise} style={{ marginBottom: 16 }} aria-label="Appearance">
+        <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
+          Appearance
+        </h2>
+        <div style={card}>
+          {themes.map((t, i) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => { sfxClick(); setMode(t.value); }}
+              aria-pressed={mode === t.value}
+              style={{
+                ...row,
+                border: 'none',
+                borderRadius: i === 0 ? '12px 12px 0 0' : i === themes.length - 1 ? '0 0 12px 12px' : 0,
+                background: mode === t.value ? 'hsl(var(--primary) / 0.10)' : 'transparent',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  border: `2px solid ${mode === t.value ? 'hsl(var(--primary))' : 'hsl(var(--border))'}`,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {mode === t.value && (
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'hsl(var(--primary))' }} />
+                )}
+              </span>
+              <span style={{ flex: 1 }}>
+                <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>{t.label}</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>{t.hint}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </motion.section>
+
+      {/* Language */}
+      <LanguageSection />
+      {/* Anonymous suggestions live on their own page; link from here. */}
+      <div className="card" style={{ padding: '0.9rem' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'hsl(var(--foreground))', marginBottom: '0.25rem' }}>Feedback</h2>
+        <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
+          Private, anonymous suggestions with admin replies.
+        </p>
+        <Link to="/feedback" className="btn btn-outline btn-sm" style={{ padding: '6px 12px', textDecoration: 'none' }}>
+          Open feedback
+        </Link>
+      </div>
+      {/* Sound */}
+      <motion.section variants={reduced ? undefined : sectionRise} style={{ marginBottom: 16 }} aria-label="Sound">
+        <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
+          Sound
+        </h2>
+        <div style={card}>
+          <div style={{ ...row, border: 'none' }}>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>Sound effects</span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
+                Clicks, correct and wrong answer cues
+              </span>
+            </span>
+            <Toggle on={sfxEnabled} onFlip={toggleSfx} label="Sound effects" />
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Quiz */}
+      <motion.section variants={reduced ? undefined : sectionRise} style={{ marginBottom: 16 }} aria-label="Quiz">
+        <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
+          Quiz
+        </h2>
+        <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ ...row, border: 'none' }}>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>Question timer</span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
+                Countdown per question with auto-advance
+              </span>
+            </span>
+            <Toggle on={quizPrefs.timer} onFlip={() => setQuizPrefs({ timer: !quizPrefs.timer })} label="Question timer" />
+          </div>
+          <div style={{ ...row, border: 'none' }}>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>Resume interrupted quizzes</span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
+                Offer Continue when a quiz was left mid-way
+              </span>
+            </span>
+            <Toggle on={quizPrefs.resume} onFlip={() => setQuizPrefs({ resume: !quizPrefs.resume })} label="Resume interrupted quizzes" />
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Account */}
+      <EmailSection />
+      <motion.section variants={reduced ? undefined : sectionRise} aria-label="Account">
+        <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
+          Account
+        </h2>
+        <div style={card}>
+          <div style={{ ...row, border: 'none' }}>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                background: 'hsl(var(--primary) / 0.15)',
+                color: 'hsl(var(--primary))',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 15,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              {(userId || '?').charAt(0).toUpperCase()}
+            </span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>{userId || 'Not signed in'}</span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
+                Forestry PSC Preparation
+              </span>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => { logout(); navigate('/login'); }}
+            style={{
+              ...row,
+              border: 'none',
+              cursor: 'pointer',
+              color: 'hsl(var(--destructive))',
+              fontSize: 15,
+              fontWeight: 600,
+              justifyContent: 'center',
+              marginTop: 4,
+            }}
+          >
+            Log out
+          </button>
+        </div>
+      </motion.section>
+    </motion.div>
+  );
+};
+
+export default Settings;
+
+/* The Gmail address IS the identity now, so this is where an account that
+   signed up without one - or one created before verification existed - acquires
+   a real identity. Save the address, then confirm it with a code; only a
+   verified address earns (or keeps) the member ID. Saving a different address
+   deliberately drops the verified flag, because possession of the old inbox
+   says nothing about the new one. */
+function EmailSection() {
+  const reduced = useReducedMotion();
+  const { sfxClick } = useSfx();
+  const [current, setCurrent] = useState<string | null>(null);
+  const [value, setValue] = useState('');
+  const [username, setUsername] = useState('');
+  const [verified, setVerified] = useState(false);
+  const [memberId, setMemberId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [code, setCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    authMe()
+      .then((m) => {
+        setCurrent(m.email);
+        setValue(m.email || '');
+        setUsername(m.username);
+        setVerified(!!m.email_verified);
+        setMemberId(m.user_id);
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const sendCode = async () => {
+    setNotice('');
+    setBusy(true);
+    try {
+      const r = await authSendVerification(username);
+      setVerifying(true);
+      if (!r.sent) setNotice('Email delivery is not working on this server, so no code was sent.');
+    } catch (e: any) {
+      setNotice(e?.response?.data?.detail || 'Could not send a code.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirm = async () => {
+    setNotice('');
+    setBusy(true);
+    try {
+      const r = await authConfirmEmail(username, code.trim().toUpperCase());
+      setVerified(true);
+      setMemberId(r.user_id);
+      setCode('');
+      setVerifying(false);
+      toast.success(r.user_id ? `Verified. Member ID ${r.user_id}` : 'Verified', { duration: 2200 });
+    } catch (e: any) {
+      setNotice(e?.response?.data?.detail || 'That code is not correct.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = async () => {
+    const next = value.trim();
+    if (next === (current || '')) return;
+    if (next && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(next)) {
+      toast.error('That does not look like an email address.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await authUpdateEmail(next);
+      setCurrent(r.email);
+      setValue(r.email || '');
+      // A changed address is unverified until a code arrives, so the UI drops
+      // straight back to the confirm step rather than implying it still counts.
+      setVerified(!!r.email_verified);
+      setMemberId(r.user_id);
+      setVerifying(!!r.email && !r.email_verified);
+      toast.success(r.email ? 'Email saved - confirm it to finish' : 'Email removed', { duration: 2600 });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Could not save the email.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const card: React.CSSProperties = {
+    background: 'hsl(var(--card))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: 18,
+    padding: 8,
+  };
+
+  return (
+    <motion.section variants={reduced ? undefined : sectionRise} style={{ marginBottom: 16 }} aria-label="Email">
+      <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
+        Email
+      </h2>
+      <div style={card}>
+        <div style={{ ...row, border: 'none', flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+          <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>
+            {current ? 'Gmail address' : 'Add your Gmail address'}
+          </span>
+          <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
+            {loaded
+              ? (verified
+                  ? 'Verified. This is how you sign in and recover your account.'
+                  : current
+                    ? 'Not confirmed yet. Enter the code we emailed to finish.'
+                    : 'Not added yet. Without it you can only sign in with your username, and a reset code falls back to the server log.')
+              : 'Loading…'}
+          </span>
+          {loaded && memberId && (
+            <span style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--muted-foreground))' }}>
+              Member ID <strong style={{ color: 'hsl(var(--foreground))' }}>{memberId}</strong>
+            </span>
+          )}
+          {loaded && current && !verified && (
+            <>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Verification code"
+                  aria-label="Verification code"
+                  maxLength={12}
+                  style={{
+                    flex: '1 1 160px', minWidth: 0, padding: '9px 12px', borderRadius: 10,
+                    border: '1px solid hsl(var(--border))', background: 'hsl(var(--background))',
+                    color: 'hsl(var(--foreground))', fontSize: 14, fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.2em', textTransform: 'uppercase',
+                  }}
+                />
+                {verifying ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => { sfxClick(); confirm(); }}
+                    disabled={busy || code.trim().length < 4}
+                    style={{ padding: '9px 16px', fontSize: 13 }}
+                  >
+                    {busy ? 'Checking…' : 'Confirm'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => { sfxClick(); sendCode(); }}
+                    disabled={busy}
+                    style={{ padding: '9px 16px', fontSize: 13 }}
+                  >
+                    {busy ? 'Sending…' : 'Send code'}
+                  </button>
+                )}
+              </div>
+              {verifying && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => { sfxClick(); sendCode(); }}
+                  disabled={busy}
+                  style={{ padding: '7px 14px', fontSize: 12.5, alignSelf: 'flex-start' }}
+                >
+                  Send a new code
+                </button>
+              )}
+              {notice && (
+                <span role="alert" style={{ display: 'block', fontSize: 12.5, color: 'hsl(var(--destructive))' }}>
+                  {notice}
+                </span>
+              )}
+            </>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="email"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onBlur={() => { if (value.trim() !== (current || '')) save(); }}
+              placeholder="you@gmail.com"
+              autoComplete="email"
+              aria-label="Gmail address"
+              style={{
+                flex: 1, minWidth: 0, padding: '9px 12px', borderRadius: 10,
+                border: '1px solid hsl(var(--border))', background: 'hsl(var(--background))',
+                color: 'hsl(var(--foreground))', fontSize: 14, fontFamily: 'inherit',
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => { sfxClick(); save(); }}
+              disabled={busy || !loaded || value.trim() === (current || '')}
+              style={{ padding: '9px 16px', fontSize: 13 }}
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function LanguageSection() {
+  const { lang, setLang, t } = useLang();
+  const { sfxClick } = useSfx();
+  const opts: { value: Lang; label: string }[] = [
+    { value: 'en', label: 'English' },
+    { value: 'ne', label: 'नेपाली' },
+  ];
+  return (
+    <div style={{ marginBottom: 16 }} aria-label={t('language')}>
+      <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'hsl(var(--muted-foreground))', margin: '0 0 8px 4px' }}>
+        {t('language')}
+      </h2>
+      <div style={{ display: 'flex', background: 'hsl(var(--muted))', borderRadius: 12, padding: 3, gap: 2 }}>
+        {opts.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => { sfxClick(); setLang(o.value); }}
+            aria-pressed={lang === o.value}
+            style={{
+              flex: 1, padding: '8px 4px', borderRadius: 9, border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: lang === o.value ? 700 : 500,
+              color: lang === o.value ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+              background: lang === o.value ? 'hsl(var(--card))' : 'transparent',
+              boxShadow: lang === o.value ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+            }}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <p style={{ fontSize: 12.5, color: 'hsl(var(--muted-foreground))', margin: '6px 4px 0' }}>
+        {t('language.hint')}
+      </p>
+    </div>
+  );
+}

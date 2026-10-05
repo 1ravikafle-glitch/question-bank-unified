@@ -4,6 +4,7 @@
  * PREMIUM QUIZ MOTION PASS (lead design engineer). Compact, spring-physical,
  * reduced-motion safe (root MotionConfig). Do not revert.
  */
+import { useEffect, useState } from 'react';
 import type { Variants } from 'framer-motion';
 
 export const MOTION = {
@@ -36,4 +37,40 @@ export const quizOptionItem: Variants = {
       opacity: { duration: 0.25, delay: (c.i ?? 0) * 0.055 },
     },
   }),
+};
+
+/* Page-section motion. Added with the mobile Settings page, which is the first
+   mobile screen built from whole sections rather than the quiz. Values follow
+   this module's own MOTION block rather than desktop motion.ts, so the spring
+   curve matches what a phone already uses everywhere else. */
+
+export function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const fn = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, []);
+  return reduced;
+}
+
+/** Stagger container for page sections. */
+export const staggerParent: Variants = {
+  initial: {},
+  animate: { transition: { staggerChildren: 0.05, delayChildren: 0.02 } },
+};
+
+/** One page section: short rise on the module's existing spring. */
+export const sectionRise: Variants = {
+  initial: { opacity: 0, y: 12 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.28, ease: MOTION.easeSpring },
+  },
 };
