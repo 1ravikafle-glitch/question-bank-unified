@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
 const API = '';
 const MAX_BYTES = 10 * 1024 * 1024;
 
-type ContribKind = 'past_paper' | 'questions';
+type ContribKind = 'pdf' | 'past_paper' | 'questions';
 
 interface FileResult {
   filename?: string;
@@ -39,15 +39,23 @@ interface MyRequest {
 interface PastPaper {
   id: number;
   filename: string;
+  /** Admin-set display title. Only meaningful for kind === 'pdf'. */
+  title?: string;
   category?: string;
   kind: ContribKind;
   question_count: number;
   with_answer: number;
+  /** Whole-PDF metadata. Null for a parsed paper. */
+  pages?: number | null;
+  size_bytes?: number | null;
   approved_at?: string | null;
-  payload: { question_number?: number; question_text?: string; options?: Record<string, string>; correct_answer?: string }[];
+  /** Null for a whole PDF: it has no parsed questions, and its bytes are
+   *  served from /uploads/past-papers/{id}/file instead. */
+  payload: { question_number?: number; question_text?: string; options?: Record<string, string>; correct_answer?: string }[] | null;
 }
 
 const KIND_LABEL: Record<ContribKind, string> = {
+  pdf: 'Whole PDF',
   past_paper: 'Past paper',
   questions: 'Questions',
 };
@@ -66,9 +74,10 @@ const tabBtn = (active: boolean): React.CSSProperties => ({
   transition: 'background 180ms ease, color 180ms ease',
 });
 
-/* Past question papers (public list: view + download) plus the existing
-   contribute flow, which now says whether the file is a whole past paper or a
-   loose set of questions. Admin review is identical for both kinds. */
+/* Past question papers (public list: view + download) plus the contribute
+   flow, which says what the file IS: a whole PDF to read as-is, a complete
+   paper whose questions go into the bank, or a loose set of MCQs. All three
+   wait for admin approval; only the last two add questions. */
 const Contribute: React.FC = () => {
   const { userId } = useContext(AuthContext);
   const { sfxClick } = useSfx();
@@ -220,11 +229,19 @@ const Contribute: React.FC = () => {
     sfxClick();
     setDownloading(p.id);
     try {
-      const blob = await downloadPastPaper(p.id);
+      // A whole PDF is served as its own bytes; a parsed paper is re-rendered
+      // as DOCX. Downloading a PDF and saving it as .docx would produce a file
+      // Word cannot open, so the extension follows the kind.
+      const isPdf = p.kind === 'pdf';
+      const blob = isPdf ? await fetch(`${API}/uploads/past-papers/${p.id}/file`).then((r) => {
+        if (!r.ok) throw new Error('bad response');
+        return r.blob();
+      }) : await downloadPastPaper(p.id);
       const url = URL.createObjectURL(blob);
+      const base = (p.filename || `past-paper-${p.id}`).replace(/\.[^.]+$/, '');
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${(p.filename || `past-paper-${p.id}`).replace(/\.[^.]+$/, '')}.docx`;
+      a.download = isPdf ? `${p.title || base}.pdf` : `${base}.docx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -244,7 +261,7 @@ const Contribute: React.FC = () => {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-      style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '100%' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 720 }}
     >
       <div>
         <h1 style={{ fontFamily: 'var(--font-display)', color: 'hsl(var(--foreground))', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
@@ -319,11 +336,21 @@ const Contribute: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 220px', minWidth: 0 }}>
                     <p style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'hsl(var(--foreground))', margin: 0, lineHeight: 1.4, wordBreak: 'break-word' }}>
-                      {p.filename}
+                      {/* Admin-set title for a whole PDF, else the filename. */}
+                      {(p.kind === 'pdf' ? p.title : null) || p.filename}
                     </p>
                     <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '0.3rem 0 0' }}>
-                      {num(p.question_count)} questions · {num(p.with_answer)} with answers
-                      {p.category ? ` · ${p.category}` : ''}
+                      {p.kind === 'pdf' ? (
+                        <>
+                          {p.pages ? `${num(p.pages)} pages` : 'PDF'}
+                          {p.category ? ` · ${p.category}` : ''}
+                        </>
+                      ) : (
+                        <>
+                          {num(p.question_count)} questions · {num(p.with_answer)} with answers
+                          {p.category ? ` · ${p.category}` : ''}
+                        </>
+                      )}
                       {p.approved_at ? ` · ${new Date(p.approved_at).toLocaleDateString()}` : ''}
                     </p>
                   </div>
@@ -370,6 +397,37 @@ const Contribute: React.FC = () => {
                           paddingRight: 4,
                         }}
                       >
+                        {/* A whole PDF has no parsed payload to list. Render the
+                            actual document in the browser's own viewer instead
+                            of an empty "no question text" message. */}
+                        {p.kind === 'pdf' ? (
+                          <>
+                          {/* iframe, not <object type="application/pdf">.
+                              An object/embed relies on a plugin, and Chromium
+                              renders one at 0x0 with no error: the element
+                              collapses and the fallback fires, so the document
+                              never appears. An iframe routes through the
+                              browser's built-in viewer, which is present in
+                              Chrome, Safari and Firefox alike. Measured: object
+                              0x0, iframe 800x600. The visible link stays below
+                              it either way, so a browser with no PDF viewer at
+                              all still has a way out. */}
+                          <iframe
+                            src={`${API}/uploads/past-papers/${p.id}/file`}
+                            title={[p.title || p.filename, p.pages ? `${p.pages} pages` : '']
+                              .filter(Boolean)
+                              .join(', ')}
+                            style={{ width: '100%', height: 520, border: 0, borderRadius: 'var(--apple-radius-md)', background: 'hsl(var(--muted))' }}
+                          />
+                          <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '0.5rem 0 0', textAlign: 'center' }}>
+                            Nothing showing?{' '}
+                            <a href={`${API}/uploads/past-papers/${p.id}/file`} target="_blank" rel="noreferrer" style={{ color: 'hsl(var(--primary))' }}>
+                              Open the PDF in a new tab →
+                            </a>
+                          </p>
+                          </>
+                        ) : (
+                        <>
                         {(p.payload || []).map((q, i) => {
                           const opts = q.options || {};
                           const ans = (q.correct_answer || '').toString().trim().toLowerCase();
@@ -413,6 +471,8 @@ const Contribute: React.FC = () => {
                           <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
                             No question text stored for this paper.
                           </p>
+                        )}
+                        </>
                         )}
                       </div>
                     </motion.div>
@@ -463,8 +523,8 @@ const Contribute: React.FC = () => {
               <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>
                 What are you contributing?
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
-                {(['past_paper', 'questions'] as ContribKind[]).map((k) => {
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                {(['pdf', 'past_paper', 'questions'] as ContribKind[]).map((k) => {
                   const active = kind === k;
                   return (
                     <button
@@ -484,12 +544,14 @@ const Contribute: React.FC = () => {
                       }}
                     >
                       <span style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'hsl(var(--foreground))' }}>
-                        {k === 'past_paper' ? '📄 Past question paper' : '❓ Questions'}
+                        {k === 'pdf' ? '📕 Whole PDF' : k === 'past_paper' ? '📄 Past question paper' : '❓ Questions'}
                       </span>
                       <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: 2, lineHeight: 1.45 }}>
-                        {k === 'past_paper'
-                          ? 'A complete paper, kept for the archive.'
-                          : 'Loose MCQs to add to the bank.'}
+                        {k === 'pdf'
+                          ? 'The file as it is. Everyone can read it in the browser.'
+                          : k === 'past_paper'
+                            ? 'A complete paper, kept for the archive.'
+                            : 'Loose MCQs to add to the bank.'}
                       </span>
                     </button>
                   );

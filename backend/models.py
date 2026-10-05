@@ -1,4 +1,15 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, Index, Float
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Boolean,
+    DateTime,
+    Text,
+    JSON,
+    Index,
+    Float,
+    LargeBinary,
+)
 from sqlalchemy.sql import func
 import database
 import json as _json
@@ -311,6 +322,24 @@ class ContributionRequest(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_identifier = Column(String(100), nullable=False, index=True)
     filename = Column(String(255), nullable=False)
+    # Display title for the Past Papers list. Admin-editable, and separate from
+    # `filename` because "IMG_4471.pdf" is a filename, not a title. NULL falls
+    # back to the filename with its extension stripped.
+    title = Column(String(300), nullable=True)
+    # The uploaded file itself, byte for byte, for kind == "pdf".
+    #
+    # Only whole-PDF contributions keep their original bytes. Everything else is
+    # parsed into `payload` and the original is discarded, so that approving a
+    # contribution inserts exactly what the admin reviewed rather than replaying
+    # something that was still on disk. A whole PDF has no reviewable question
+    # list at all, so there is nothing to parse and nothing to insert: the file
+    # IS the deliverable, and it has to be stored to be served.
+    #
+    # LargeBinary rather than a filesystem path: Render's disk is ephemeral, so
+    # an uploaded file written to /tmp is gone on the next deploy.
+    pdf_bytes = Column(LargeBinary, nullable=True)
+    pdf_pages = Column(Integer, nullable=True)
+    pdf_size = Column(Integer, nullable=True)
     category = Column(String(100), nullable=True)
     # pending | approved | rejected
     status = Column(String(20), nullable=False, default="pending", index=True)

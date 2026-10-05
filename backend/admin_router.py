@@ -560,6 +560,14 @@ def _serialize_request(r: models.ContributionRequest, include_payload: bool = Fa
         # NULL for rows written before the column existed; the UI treats that
         # as the older default rather than failing to render.
         "kind": r.kind,
+        # Display title. Admin-editable for a whole-PDF paper; falls back to the
+        # filename for every other kind, which has never had a title.
+        "title": r.title or (r.filename or "").rsplit(".", 1)[0] or None,
+        # Page/byte counts let the review queue show what a PDF is WITHOUT
+        # serving the document to the admin panel. The bytes themselves are
+        # deliberately absent from every admin response.
+        "pdf_pages": r.pdf_pages,
+        "pdf_size": r.pdf_size,
         "admin_note": r.admin_note,
         "created_at": r.created_at.isoformat() if r.created_at else None,
         "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
@@ -626,6 +634,22 @@ def approve_contribution(
         raise HTTPException(status_code=404, detail="Request not found")
     if row.status != "pending":
         raise HTTPException(status_code=409, detail=f"Already {row.status}")
+
+    # A whole-PDF contribution has no parsed questions and must not have any
+    # invented: approving it publishes the stored file and nothing else. Bailing
+    # out here also keeps the payload-clearing UPDATE below from touching this
+    # row, because the bytes are the deliverable and must survive.
+    if (row.kind or "questions") == "pdf":
+        row.status = "approved"
+        row.admin_note = body.note or None
+        row.reviewed_by = admin_user
+        row.reviewed_at = func.now()
+        if not row.title:
+            row.title = (row.filename or "Untitled paper").rsplit(".", 1)[0][:300]
+        db.commit()
+        # No q: cache bust: nothing about the question bank changed.
+        return {"imported": 0, "skipped_duplicate": 0, "skipped_no_answer": 0,
+                "skipped_unusable": 0, "status": "approved", "kind": "pdf"}
 
     imported = skipped_dup = skipped_no_answer = skipped_unusable = 0
     for q in row.payload or []:

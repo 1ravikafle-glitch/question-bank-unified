@@ -7,12 +7,17 @@ interface Contribution {
   id: number;
   user_identifier: string;
   filename: string;
+  /** Admin-editable display title. Set for whole PDFs. */
+  title?: string | null;
   category?: string;
   /** What the contributor said the file is. Null on older rows. */
-  kind?: 'past_paper' | 'questions' | null;
+  kind?: 'pdf' | 'past_paper' | 'questions' | null;
   status: 'pending' | 'approved' | 'rejected';
   question_count: number;
   with_answer: number;
+  /** Whole-PDF metadata; null for parsed papers. */
+  pdf_pages?: number | null;
+  pdf_size?: number | null;
   admin_note?: string | null;
   created_at?: string | null;
   reviewed_at?: string | null;
@@ -38,6 +43,9 @@ const AdminReviewQueue: React.FC = () => {
   const [preview, setPreview] = useState<Record<number, Preview[]>>({});
   // Per-row rejection note, kept locally so a cancel discards it.
   const [notes, setNotes] = useState<Record<number, string>>({});
+  /** Draft titles for whole-PDF papers, keyed by contribution id. */
+  const [titles, setTitles] = useState<Record<number, string>>({});
+  const [savingTitle, setSavingTitle] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +63,54 @@ const AdminReviewQueue: React.FC = () => {
     load();
   }, [load]);
 
+  /* A pending paper is admin-only, and an <iframe src> cannot prove that: it is
+   * a bare navigation, so it carries no Authorization header, and this app's
+   * session is a Bearer token added by the axios interceptor rather than a
+   * cookie. The iframe therefore got a 404 and rendered the JSON error as
+   * "the document". Fetch the bytes with auth instead and hand the frame a blob
+   * URL, which is same-origin so X-Frame-Options does not block it. */
+  const [previewUrl, setPreviewUrl] = useState<Record<number, string>>({});
+
+  const loadPdfPreview = async (r: Contribution) => {
+    if (previewUrl[r.id]) return;
+    try {
+      const { data } = await api.get(`/uploads/past-papers/${r.id}/file`, {
+        responseType: 'blob',
+      });
+      setPreviewUrl((u) => ({ ...u, [r.id]: URL.createObjectURL(data) }));
+    } catch {
+      toast.error('Could not load that PDF');
+    }
+  };
+
+  // Blob URLs are not garbage collected with the component, so release them.
+  useEffect(() => {
+    const urls = Object.values(previewUrl);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [previewUrl]);
+
+  const saveTitle = async (r: Contribution) => {
+    const title = (titles[r.id] ?? '').trim();
+    if (!title) {
+      toast.error('The title cannot be empty');
+      return;
+    }
+    setSavingTitle(r.id);
+    try {
+      await api.put(`/uploads/past-papers/${r.id}/title`, { title });
+      // Keep the row's own copy in step, or the input would snap back to the
+      // old title the moment the queue refetches.
+      setItems((list) =>
+        list.map((x) => (x.id === r.id ? { ...x, title } : x)),
+      );
+      toast.success('Title saved', { duration: 1600 });
+    } catch {
+      toast.error('Could not save the title');
+    } finally {
+      setSavingTitle(null);
+    }
+  };
+
   const openDetail = async (id: number) => {
     if (expanded === id) {
       setExpanded(null);
@@ -62,6 +118,13 @@ const AdminReviewQueue: React.FC = () => {
     }
     setExpanded(id);
     if (preview[id]) return;
+    // A whole PDF has no question preview to fetch; asking for one would 200
+    // with an empty list and leave the panel spinning on "Loading preview…".
+    const row = items.find((x) => x.id === id);
+    if (row?.kind === 'pdf') {
+      void loadPdfPreview(row);
+      return;
+    }
     try {
       const { data } = await api.get(`/admin/contributions/${id}`);
       setPreview((p) => ({ ...p, [id]: data.preview || [] }));
@@ -171,11 +234,17 @@ const AdminReviewQueue: React.FC = () => {
                   {r.filename}
                 </p>
                 <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: '0.15rem 0 0' }}>
-                  {r.user_identifier} · {r.question_count} questions · {r.with_answer} with answers
+                  {r.user_identifier}
+                  {' · '}
+                  {/* A whole PDF has no question count, so showing one would be
+                      a lie. Pages are the meaningful number for it. */}
+                  {r.kind === 'pdf'
+                    ? `${r.pdf_pages ?? '?'} pages · PDF, kept as uploaded`
+                    : `${r.question_count} questions · ${r.with_answer} with answers`}
                   {r.category ? ` · ${r.category}` : ''}
                   {' · '}
                   <span style={{ color: 'hsl(var(--foreground))' }}>
-                    {r.kind === 'past_paper' ? '📄 past paper' : '❓ questions'}
+                    {r.kind === 'pdf' ? '📕 whole PDF' : r.kind === 'past_paper' ? '📄 past paper' : '❓ questions'}
                   </span>
                 </p>
               </div>
@@ -197,6 +266,56 @@ const AdminReviewQueue: React.FC = () => {
                 style={{ overflow: 'hidden' }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {/* A whole PDF has no parsed questions, so the question list
+                      would be empty and "Loading preview…" would never resolve.
+                      Render the document instead, plus a retitle field. */}
+                  {r.kind === 'pdf' ? (
+                    <>
+                      {/* iframe, not <object type="application/pdf">: a plugin
+                          based object collapses to 0x0 in Chromium with no
+                          error, so the preview would silently show nothing.
+                          src is a blob URL because this paper is still pending
+                          and only an authenticated request may read it. */}
+                      {previewUrl[r.id] ? (
+                        <iframe
+                          src={previewUrl[r.id]}
+                          title={`Preview of ${r.title || r.filename}`}
+                          style={{ width: '100%', height: 460, border: 0, borderRadius: 8, background: 'hsl(var(--muted))' }}
+                        />
+                      ) : (
+                        <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+                          Loading the document…
+                        </p>
+                      )}
+                      <label style={{ display: 'block', marginTop: '0.5rem' }}>
+                        <span style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: '0.3rem' }}>
+                          Title shown to everyone
+                        </span>
+                        <input
+                          value={titles[r.id] ?? (r.title || r.filename.replace(/\.[^.]+$/, ''))}
+                          onChange={(e) => setTitles((t) => ({ ...t, [r.id]: e.target.value }))}
+                          placeholder="e.g. Loksewa Aa level 2078 — full paper"
+                          style={{
+                            width: '100%', padding: '0.5rem 0.6rem', fontSize: '0.8125rem',
+                            borderRadius: 'var(--apple-radius-sm, 8px)',
+                            border: '1px solid hsl(var(--border))',
+                            background: 'hsl(var(--background))', color: 'hsl(var(--foreground))',
+                            fontFamily: 'inherit',
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ alignSelf: 'flex-start', marginTop: '0.4rem', fontSize: '0.75rem', padding: '0.35rem 0.6rem' }}
+                        disabled={savingTitle === r.id}
+                        onClick={() => saveTitle(r)}
+                      >
+                        {savingTitle === r.id ? 'Saving…' : 'Save title'}
+                      </button>
+                    </>
+                  ) : (
+                  <>
                   {(preview[r.id] || []).map((q, i) => (
                     <div
                       key={i}
@@ -222,6 +341,8 @@ const AdminReviewQueue: React.FC = () => {
                     <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
                       Loading preview…
                     </p>
+                  )}
+                  </>
                   )}
                 </div>
               </motion.div>

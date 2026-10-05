@@ -1,21 +1,32 @@
-"""User uploads: signed-in users contribute PDF/DOCX question papers.
+"""User uploads: signed-in users contribute PDF/DOCX material.
 
 Contributor flow (non-admin): /uploads/parse previews what was found (no
-writes), then /uploads/requests parks the parsed questions as a PENDING
-request. Nothing reaches the question bank until an admin approves it via
-/admin/contributions/{id}/approve. A contributor may hold at most
-MAX_PENDING_CONTRIBUTIONS (5) awaiting review; each accept or reject frees a
-slot, and a rejection carries a reason back to the contributor.
+writes), then /uploads/requests parks it as a PENDING request. Nothing becomes
+public until an admin approves it via /admin/contributions/{id}/approve. A
+contributor may hold at most MAX_PENDING_CONTRIBUTIONS (5) awaiting review;
+each accept or reject frees a slot, and a rejection carries a reason back.
+
+Three kinds, and the difference is what the thing IS, not what is inside it:
+
+  kind="pdf"        the document itself. No parsing, no question extraction,
+                    nothing ever enters the question bank. The original bytes
+                    are kept and the approved paper is listed, readable in the
+                    browser and downloadable, exactly as uploaded. For a past
+                    paper people want to READ rather than answer.
+  kind="past_paper" parsed into questions; approval inserts them into the bank.
+  kind="questions"  the same, for a loose set of MCQs.
 
 Admin flow: /uploads/import commits straight into the bank (unlimited, no
 queue), tagged source=user:<admin> so admin content stays distinguishable
 from the curated bank. Same dedupe rules for both paths.
 """
 import io
+import re
 import sys
+import urllib.parse
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Tuple
@@ -73,7 +84,71 @@ _ensure_contrib_kind_column()
 # The two things a contributor can send. Anything else is coerced to the
 # default so a hand-crafted request can't smuggle an unknown value into the
 # admin review list.
-CONTRIB_KINDS = ("past_paper", "questions")
+# The three things a contributor can send. Anything else is coerced to the
+# default so a hand-crafted request can't smuggle an unknown value into the
+# admin review list.
+#
+#   pdf        the file as-is. Nothing is parsed, nothing enters the question
+#              bank, and the original bytes are stored so the Past Papers page
+#              can show the real document.
+#   past_paper parsed into questions that admin approval inserts into the bank.
+#   questions  the same, for a loose set of MCQs.
+#
+# "pdf" and "past_paper" are not synonyms: one is a document to read, the other
+# is a source of questions. A contributor uploading a whole paper as a document
+# should not have its pages shredded into MCQs.
+CONTRIB_KINDS = ("pdf", "past_paper", "questions")
+
+# Whole-PDF uploads are served from the database, so the 10MB per-file ceiling
+# above is the real limit and a PDF is already the largest thing accepted.
+PDF_KIND = "pdf"
+
+
+def _pdf_page_count(raw: bytes) -> Optional[int]:
+    """Page count for the list. Best-effort: a PDF we cannot count pages in is
+    still perfectly servable, so this returns None rather than failing."""
+    try:
+        from pypdf import PdfReader
+        import io
+
+        return len(PdfReader(io.BytesIO(raw)).pages)
+    except Exception:
+        return None
+
+
+def _ensure_contrib_pdf_columns():
+    """ADD COLUMN migration for the whole-PDF columns (idempotent).
+
+    Same reasoning as _ensure_contrib_kind_column: create_all() only builds
+    missing tables, so an existing contribution_requests never gains a column.
+    """
+    wanted = {
+        "title": "VARCHAR(300)",
+        "pdf_bytes": "BLOB",
+        "pdf_pages": "INTEGER",
+        "pdf_size": "INTEGER",
+    }
+    try:
+        from sqlalchemy import inspect, text as _text
+
+        insp = inspect(database.engine)
+        try:
+            cols = {c["name"] for c in insp.get_columns("contribution_requests")}
+        except Exception:
+            return  # table doesn't exist yet — create_all covers it
+        for name, ddl in wanted.items():
+            if name in cols:
+                continue
+            with database.engine.begin() as conn:
+                conn.execute(
+                    _text(f"ALTER TABLE contribution_requests ADD COLUMN {name} {ddl}")
+                )
+            print(f"[UPLOAD] contribution_requests (+1 col: {name})", file=sys.stderr)
+    except Exception as e:
+        print(f"[UPLOAD] pdf-column migration skipped: {e}", file=sys.stderr)
+
+
+_ensure_contrib_pdf_columns()
 
 
 def _parse_upload(filename: str, raw: bytes, category: Optional[str]):
@@ -289,13 +364,22 @@ def list_past_papers(
         "papers": [
             {
                 "id": r.id,
+                # Title is admin-editable; filename is what was uploaded. Both
+                # are returned so the UI can show the display title and fall
+                # back sensibly on rows written before the column existed.
+                "title": (r.title or (r.filename or "").rsplit(".", 1)[0] or "Untitled paper"),
                 "filename": r.filename,
                 "category": r.category,
                 "kind": r.kind or "questions",
                 "question_count": r.question_count,
                 "with_answer": r.with_answer,
+                "pages": r.pdf_pages,
+                "size_bytes": r.pdf_size,
                 "approved_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
-                "payload": r.payload,  # Full parsed questions for viewing
+                # Only the parsed kind carries questions. A whole PDF's payload
+                # is NULL and its bytes are served from a separate endpoint, so
+                # the list never ships a document it does not need to.
+                "payload": r.payload,
             }
             for r in rows
         ],
@@ -358,6 +442,87 @@ def _paper_docx(r: models.ContributionRequest) -> bytes:
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+@router.get("/past-papers/{paper_id}/file")
+def get_past_paper_file(
+    paper_id: int,
+    db: Session = Depends(database.get_db),
+    caller: Optional[Tuple[str, bool]] = Depends(session.current_user),
+):
+    """Serve a whole-PDF contribution's original bytes.
+
+    An APPROVED paper is public, because it is published to be read: anyone,
+    signed in or not, may view and download it.
+
+    A PENDING paper is admin-only. The review queue has to show the admin the
+    actual document, and it cannot go through the public path: `current_user`
+    never raises, so an anonymous caller arrives here as falsy rather than being
+    rejected, and the fallback branch below turns that into a 404 instead of
+    exposing an unreviewed upload.
+
+    `Content-Disposition: inline` with a CSP that pins plugins to the same
+    origin. The inline disposition is what makes Chrome's and Safari's built-in
+    PDF viewer render the document in a tab instead of downloading it, which is
+    the entire point of the feature. Without the CSP a PDF could not embed
+    anything cross-origin, and without `nosniff` a browser would be free to
+    treat the bytes as HTML.
+    """
+    row = db.query(models.ContributionRequest).filter(
+        models.ContributionRequest.id == paper_id
+    ).first()
+    if not row or not row.pdf_bytes:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    if row.status != "approved" and not (caller and caller[1]):
+        # Same 404 as a nonexistent paper: a pending document must not be
+        # distinguishable from one that does not exist.
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    # RFC 5987 form so non-ASCII titles survive; the ASCII fallback is quoted
+    # and stripped of anything that could break out of the header.
+    safe_ascii = re.sub(r'[^A-Za-z0-9._ -]', "_", row.filename or "paper.pdf") or "paper.pdf"
+    name = row.title or row.filename or "paper.pdf"
+    quoted = urllib.parse.quote(f"{name}.pdf", safe="")
+    return Response(
+        content=bytes(row.pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{safe_ascii}"; filename*=UTF-8\'\'{quoted}',
+            "Content-Security-Policy": "plugin-types application/pdf; object-src 'none'",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
+
+
+@router.put("/past-papers/{paper_id}/title")
+def set_past_paper_title(
+    paper_id: int,
+    body: dict,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_admin),
+):
+    """Rename a paper's display title. Admin only.
+
+    A dictionary rather than a Pydantic model because this is the only endpoint
+    here taking a body and a model for one optional string would be ceremony.
+    """
+    row = db.query(models.ContributionRequest).filter(
+        models.ContributionRequest.id == paper_id
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    title = str(body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title cannot be empty.")
+    if len(title) > 300:
+        raise HTTPException(status_code=400, detail="Title too long (max 300).")
+
+    row.title = title
+    db.commit()
+    # q: cache busts are for the question bank; the paper list is read live.
+    return {"ok": True, "id": row.id, "title": row.title}
 
 
 @router.get("/past-papers/{paper_id}/download")
@@ -450,10 +615,51 @@ async def submit_request(
     created = []
     rejected: List[dict] = []
     for upload in files:
+        name = upload.filename or "upload"
         raw = await upload.read()
         if len(raw) > MAX_BYTES:
-            rejected.append({"filename": upload.filename or "", "error": "File over 10MB"})
+            rejected.append({"filename": name, "error": "File over 10MB"})
             continue
+
+        # ── Whole PDF: stored as uploaded, never parsed ──────────────
+        # This branch deliberately does no parsing, sets no question count and
+        # skips the "no answers found" rejection below, which would otherwise
+        # reject every ordinary document. Nothing here reaches the question bank
+        # on approval: the file is the deliverable.
+        if contrib_kind == PDF_KIND:
+            if not name.lower().endswith(".pdf") or not raw.startswith(b"%PDF"):
+                rejected.append({
+                    "filename": name,
+                    "error": "Whole-PDF upload must be a PDF file.",
+                })
+                continue
+            row = models.ContributionRequest(
+                user_identifier=username,
+                filename=name[:255],
+                # A filename is not a title. Default to the name without its
+                # extension so the list reads sensibly; admin can retitle.
+                title=(name.rsplit(".", 1)[0] or "Untitled paper")[:300],
+                category=category,
+                status="pending",
+                kind=PDF_KIND,
+                question_count=0,
+                with_answer=0,
+                payload=None,
+                pdf_bytes=raw,
+                pdf_pages=_pdf_page_count(raw),
+                pdf_size=len(raw),
+            )
+            db.add(row)
+            db.flush()
+            # Append the ORM row, not a dict: the tail of this function calls
+            # db.refresh(row) on every entry in `created` and then reads row.id,
+            # so a dict here is an AttributeError at commit time and the whole
+            # upload reports a generic 500.
+            created.append(row)
+            if pending_count() + len(created) >= MAX_PENDING_CONTRIBUTIONS:
+                break
+            continue
+
         try:
             parsed, cat = _parse_upload(upload.filename or "", raw, category)
         except HTTPException as e:

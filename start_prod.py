@@ -200,11 +200,26 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CacheControlMiddleware)
 
+# Paths the Past Papers page embeds in an <iframe> to show a whole paper.
+# Every other response gets X-Frame-Options: DENY below.
+FRAMEABLE_PATHS = ("/uploads/past-papers/",)
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    # DENY everywhere except the PDF viewer endpoints. Clickjacking protection
+    # works by forbidding framing, so applying it to the PDF itself defeats
+    # the only way a paper can be read on the page: the browser refuses the
+    # frame and shows "refused to connect" inside an otherwise normal-looking
+    # card. SAMEORIGIN is the correct value here rather than removing the
+    # header, because the paper endpoint is same-origin by construction and
+    # nothing third-party gains anything.
+    is_frameable = request.url.path.startswith(FRAMEABLE_PATHS) and request.url.path.endswith(
+        "/file"
+    )
+    response.headers["X-Frame-Options"] = "SAMEORIGIN" if is_frameable else "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
@@ -213,7 +228,7 @@ async def security_headers(request: Request, call_next):
         response.headers["Pragma"] = "no-cache"
     if request.url.path.startswith(seo_pages.NOINDEX_PREFIXES):
         # Private app/API routes must never be indexed.
-        response.headers["X-Robots-Tag"] = "noindex, follow"
+        response.headers["X-robots-Tag"] = "noindex, follow"
     return response
 
 # ── Global exception handler ───────────────────────────────────────────────────
