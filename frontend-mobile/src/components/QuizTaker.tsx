@@ -617,7 +617,7 @@ const QuizTaker: React.FC = () => {
     prevLockedRef.current = isLocked;
   }, [isLocked, isCorrect, sfxCorrect, sfxIncorrect]);
 
-  const [quizPrefs] = useQuizPrefs();
+  const [quizPrefs, setQuizPrefs] = useQuizPrefs();
   const [timeLeft, setTimeLeft] = useState(SECONDS_PER_QUESTION);
   // Exam mode: one countdown for the whole paper, auto-submit at zero.
   //
@@ -1135,6 +1135,38 @@ const QuizTaker: React.FC = () => {
             <p style={{ fontSize: 13, color: T.textSecondary, margin: '0 0 18px 0', lineHeight: 1.5, fontFamily: T.font }}>
               {setupTotal.toLocaleString()} questions across {setupCategories.length} categories
             </p>
+
+            {/* Timer / Resume. Desktop has these in Settings; mobile has no
+                Settings page, so without them here the preferences were
+                honoured but impossible to change. */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              {([['timer', 'Timer'], ['resume', 'Resume']] as const).map(([k, label]) => {
+                const on = !!quizPrefs[k];
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => { try { navigator.vibrate?.(8); } catch {} setQuizPrefs({ [k]: !on } as any); }}
+                    aria-pressed={on}
+                    aria-label={`${label} ${on ? 'on' : 'off'}`}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      border: `1px solid ${on ? T.accent : T.border}`,
+                      background: on ? `${T.accent}14` : 'transparent',
+                      color: on ? T.textPrimary : T.textSecondary,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      fontFamily: T.font,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {label} {on ? 'on' : 'off'}
+                  </button>
+                );
+              })}
+            </div>
 
             {/* Resume banner — only when a quiz was left mid-way */}
             {resumeInfo && (

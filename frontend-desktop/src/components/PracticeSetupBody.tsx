@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { sortCategories } from '@/utils/categorySort';
+import { useQuizPrefs } from '@/quizPrefs';
 import { useLang } from '@/context/LanguageContext';
 
 /**
@@ -30,6 +31,8 @@ export interface PracticeSetupBodyProps {
   trail?: ReactNode;
   bookmarkCount?: number;
   onPracticeBookmarks?: () => void;
+  /** Mobile has no Settings page, so these live here instead. */
+  showPrefs?: boolean;
 }
 
 const labelStyle: React.CSSProperties = {
@@ -59,8 +62,10 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
   lead,
   trail,
   bookmarkCount,
+  showPrefs,
   onPracticeBookmarks,
 }) => {
+  const [quizPrefs, setQuizPrefs] = useQuizPrefs();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const { t } = useLang();
@@ -105,6 +110,36 @@ const PracticeSetupBody: React.FC<PracticeSetupBodyProps> = ({
       </p>
 
       {lead}
+
+      {showPrefs && (
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+          marginBottom: '1rem',
+        }}>
+          <motion.button
+            type="button"
+            onClick={() => { ping(); setQuizPrefs({ timer: !quizPrefs.timer }); }}
+            whileTap={{ scale: 0.96 }}
+            aria-pressed={quizPrefs.timer}
+            className={'qpill' + (quizPrefs.timer ? ' is-on' : '')}
+            style={{ fontSize: '0.75rem', padding: '0.4rem 0.7rem' }}
+          >
+            Timer {quizPrefs.timer ? 'on' : 'off'}
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={() => { ping(); setQuizPrefs({ resume: !quizPrefs.resume }); }}
+            whileTap={{ scale: 0.96 }}
+            aria-pressed={quizPrefs.resume}
+            className={'qpill' + (quizPrefs.resume ? ' is-on' : '')}
+            style={{ fontSize: '0.75rem', padding: '0.4rem 0.7rem' }}
+          >
+            Resume {quizPrefs.resume ? 'on' : 'off'}
+          </motion.button>
+        </div>
+      )}
 
       {/* Question count tiers: 10 calm → 100 hot → BEAST max */}
       <div style={{ marginBottom: '1rem' }}>

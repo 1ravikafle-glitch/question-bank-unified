@@ -1278,6 +1278,7 @@ const QuizTaker: React.FC = () => {
               startLabel={t('btn.startQuiz')}
               ping={() => { try { navigator.vibrate?.(8); } catch {} }}
               bookmarkCount={setupBmIds.length}
+              showPrefs
               onPracticeBookmarks={startBookmarksQuiz}
               lead={
               <>
