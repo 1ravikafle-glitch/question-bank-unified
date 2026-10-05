@@ -1,4 +1,6 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text as sql_text
 from pydantic import BaseModel, Field
@@ -823,6 +825,49 @@ def sso_handoff(caller: Tuple[str, bool] = Depends(session.require_user)):
         "token": sso.mint_handoff(username, is_admin=is_admin),
         "expires_in": sso.HANDOFF_TTL_SECONDS,
     }
+
+
+@router.get("/sso/exchange")
+def sso_exchange_inbound(t: str = "", request: Request = None):
+    """
+    Accept a handoff token from the sibling site and land the user signed in.
+
+    This is the reverse direction: someone already signed in to GIS opens Prep
+    from there. Prep keeps its session in localStorage rather than a cookie, so
+    a bare redirect cannot establish one. Instead this returns a tiny
+    same-origin page that writes the session and navigates on.
+
+    The token is short-lived and audience-scoped, so a token minted for the
+    other direction is refused rather than silently accepted.
+    """
+    payload = sso.verify_inbound((t or "").strip())
+    if not payload:
+        # Fail to the normal login rather than an error page: SSO being
+        # unavailable must look exactly like signing in normally.
+        return RedirectResponse(url=f"{request.url.scheme}://{request.url.netloc}/desktop/login")
+
+    username = str(payload.get("u") or "").strip()
+    if not username:
+        return RedirectResponse(url=f"{request.url.scheme}://{request.url.netloc}/desktop/login")
+
+    is_admin = bool(payload.get("a"))
+    token = session.mint_session(username, is_admin=is_admin)
+    target = f"{request.url.scheme}://{request.url.netloc}/desktop/"
+    # JSON-encoded so the token can never terminate the script early.
+    boot = json.dumps({"token": token, "userId": username, "target": target})
+    html = (
+        "<!doctype html><html><head><meta charset=\"utf-8\">"
+        "<title>Signing you in</title>"
+        "<style>body{font-family:system-ui,sans-serif;background:#0b0b0d;color:#e4e4e7;"
+        "display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style>"
+        "</head><body><p>Signing you in…</p><script>"
+        f"var b={boot};"
+        "try{localStorage.setItem('fpsc-session',b.token);"
+        "localStorage.setItem('userId',b.userId);}catch(e){}"
+        "location.replace(b.target);"
+        "</script></body></html>"
+    )
+    return HTMLResponse(content=html, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/sso/refresh")

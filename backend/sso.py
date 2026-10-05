@@ -47,6 +47,12 @@ HANDOFF_TTL_SECONDS = max(30, int((os.getenv("SSO_HANDOFF_TTL") or "300").strip(
 
 AUDIENCE = os.getenv("SSO_AUDIENCE") or "elfakgisstudio"
 
+# Audience for the reverse handoff. The sibling app signs a token naming this
+# app so a signed-in GIS session can open Prep already authenticated. Kept
+# distinct from AUDIENCE so a token minted for one direction can never be
+# replayed as the other.
+AUDIENCE_INBOUND = os.getenv("SSO_AUDIENCE_INBOUND") or "forestrypscprep"
+
 
 def _secret() -> Optional[bytes]:
     """Return the shared secret, or None when SSO is not configured."""
@@ -122,6 +128,25 @@ def mint_handoff(username: str, is_admin: bool = False) -> Optional[str]:
     if not username:
         return None
     return mint_for(username, is_admin=is_admin, audience=AUDIENCE, ttl=HANDOFF_TTL_SECONDS)
+
+
+def mint_inbound(username: str, is_admin: bool = False) -> Optional[str]:
+    """
+    Mint a token that lets the sibling site open *this* app signed in.
+
+    Used by the reverse direction (GIS -> Prep). Short-lived like every other
+    handoff token, because it also travels in a URL.
+    """
+    if not username:
+        return None
+    return mint_for(
+        username, is_admin=is_admin, audience=AUDIENCE_INBOUND, ttl=HANDOFF_TTL_SECONDS
+    )
+
+
+def verify_inbound(token: str) -> Optional[dict]:
+    """Validate a token minted by the sibling site for this app."""
+    return verify_for(token, audience=AUDIENCE_INBOUND)
 
 
 def verify(token: str) -> Optional[dict]:
