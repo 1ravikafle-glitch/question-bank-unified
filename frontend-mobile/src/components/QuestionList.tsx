@@ -745,23 +745,26 @@ const Dashboard: React.FC = () => {
               Start Quiz
             </motion.button>
 
-            {/* Wrong questions queue. Same row as the bookmarks path, in the
-                Review tone, so the two secondary actions read as a pair. */}
+            {/* Wrong questions queue. A tinted card with its own gradient call
+                to action, not another flat row beside the bookmarks path. */}
             {wrongCount > 0 && (
               <div style={{ marginTop: '1rem' }}>
-                <motion.button
-                  type="button"
-                  onClick={() => { sfxClick(); navigate('/quiz/practice-wrong', { state: { source: 'queue' } }); }}
-                  whileTap={{ scale: 0.99 }}
-                  className="setup-action setup-action--review"
-                >
-                  <span className="setup-action__chip" aria-hidden="true">🔁</span>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span className="setup-action__title">Practise wrong questions</span>
-                    <span className="setup-action__sub">{wrongCount} to review · ~{wrongCount * 2} min</span>
-                  </span>
-                  <span className="setup-action__chevron" aria-hidden="true">→</span>
-                </motion.button>
+                <div className="wrong-cta">
+                  <div className="wrong-cta__head">
+                    <span className="wrong-cta__chip" aria-hidden="true">🔁</span>
+                    <span className="wrong-cta__count">{wrongCount} wrong to review</span>
+                    <span className="wrong-cta__time">~{wrongCount * 2} min</span>
+                  </div>
+                  <motion.button
+                    type="button"
+                    onClick={() => { sfxClick(); navigate('/quiz/practice-wrong', { state: { source: 'queue' } }); }}
+                    whileTap={{ scale: 0.99 }}
+                    className="wrong-cta__btn"
+                  >
+                    <span aria-hidden="true">⚡</span>
+                    Practice Wrong Questions
+                  </motion.button>
+                </div>
               </div>
             )}
           </motion.section>

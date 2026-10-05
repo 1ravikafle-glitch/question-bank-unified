@@ -175,13 +175,43 @@
    Cards
    ============================================================= */
 
+/* Soft tinted surface.
+ *
+ * Cards were flat hsl(var(--card)) everywhere, which on a near-white page
+ * reads as plain paper: no separation without a border doing all the work,
+ * and 35 call sites tinting themselves individually is not maintainable.
+ *
+ * --surface-tint is the whole mechanism. It is a very low-alpha wash of the
+ * page background laid OVER the card, so a card is always a shade warmer or
+ * deeper than the page behind it without anyone choosing a colour. Set it to
+ * transparent to get the old flat cards back, globally, in one edit. */
 .card {
   background-color: hsl(var(--card));
+  background-image: linear-gradient(
+    180deg,
+    hsl(var(--surface-tint) / var(--surface-tint-strength)),
+    hsl(var(--surface-tint) / calc(var(--surface-tint-strength) * 0.55))
+  );
   color: hsl(var(--card-foreground));
   border: 1px solid hsl(var(--border));
   border-radius: var(--apple-radius-lg);
   box-shadow: var(--shadow-sm);
   transition: box-shadow 200ms, transform 200ms;
+}
+
+/* Nested surfaces need to step back up, not down, or a card inside a card
+ * looks like a hole. This also covers the inline-style call sites that build
+ * their own background instead of using .card. */
+.stat-tile,
+.subject-card,
+.empty-state,
+.specimen-card,
+.pagination {
+  background-image: linear-gradient(
+    180deg,
+    hsl(var(--surface-tint) / var(--surface-tint-strength)),
+    hsl(var(--surface-tint) / calc(var(--surface-tint-strength) * 0.55))
+  );
 }
 
 /* card hover moved to consolidated Hover Shadows section */
@@ -917,12 +947,38 @@
 }
 
 /* ── Dashboard hero: quiet layered surface, deep forest tint in dark ── */
+/* The welcome panel carries the day's greeting and the rotating quote, so it
+   gets more tint than an ordinary card: two overlapping washes (a corner
+   glow and a broad base) over the shared surface tint. Reads as a distinct
+   panel rather than as the first card on the page. */
 .hero-card {
   background:
-    radial-gradient(120% 140% at 100% 0%, hsl(var(--primary) / 0.12), transparent 55%),
+    radial-gradient(120% 140% at 100% 0%, hsl(var(--primary) / 0.14), transparent 55%),
+    radial-gradient(90% 120% at 0% 100%, hsl(var(--tone-study) / 0.1), transparent 60%),
+    linear-gradient(
+      170deg,
+      hsl(var(--surface-tint) / calc(var(--surface-tint-strength) * 2.2)),
+      hsl(var(--surface-tint) / calc(var(--surface-tint-strength) * 0.8))
+    ),
     hsl(var(--card));
-  border: 1px solid hsl(var(--border));
+  border: 1px solid hsl(var(--primary) / 0.16);
 }
+.dark .hero-card {
+  background:
+    radial-gradient(120% 140% at 100% 0%, hsl(142 45% 30% / 0.24), transparent 55%),
+    radial-gradient(90% 120% at 0% 100%, hsl(var(--tone-study) / 0.12), transparent 60%),
+    linear-gradient(
+      170deg,
+      hsl(var(--surface-tint) / calc(var(--surface-tint-strength) * 1.8)),
+      hsl(var(--surface-tint) / calc(var(--surface-tint-strength) * 0.7))
+    ),
+    hsl(var(--card));
+  border-color: hsl(var(--primary) / 0.24);
+}
+/* Removed: a duplicate .hero-card that overrode the tinted version above
+ * with a flat card + plain border. Same selector, later in the file, so it
+ * won and the tint never applied on mobile. The tinted block is now the only
+ * definition. */
 .dark .hero-card {
   background:
     radial-gradient(120% 140% at 100% 0%, hsl(142 45% 30% / 0.22), transparent 55%),
@@ -1004,7 +1060,7 @@
   padding: 1rem 1.125rem;
   border-radius: var(--apple-radius-lg);
   border: 1px solid hsl(var(--border));
-  background: hsl(var(--card));
+  background-color: hsl(var(--card));
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
@@ -2966,6 +3022,116 @@
   --sa-bg: hsl(var(--bookmark) / 0.05);
   --sa-hover-bg: hsl(var(--bookmark) / 0.1);
   border-color: hsl(var(--bookmark) / 0.22);
+}
+
+/* ---- Wrong-questions practice: a card, not a row --------------------
+   This is the app's one action that means "you got these wrong", so it is
+   given a full tinted card with a gradient call to action rather than one
+   more flat row in the secondary-action list. Warm red, matching the error
+   language users already read in the answer feedback.
+
+   Earlier this was a sky-blue row (--tone-review) on the reasoning that
+   Accuracy on the practice screen already wore red. That was the wrong
+   trade: Accuracy is a measurement, this is an instruction, and they never
+   appear at the same size or in the same shape. Red here reads as "act on
+   your mistakes", which is what it is.
+
+   The card is a two-part layout: a tinted header carrying the count and the
+   time estimate, then a full-width gradient button. The header is a surface;
+   the button is the only real call to action, so it is the only thing with
+   full-strength colour. */
+.wrong-cta {
+  --wc: var(--wrong-600);
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--apple-radius-lg);
+  border: 1px solid hsl(var(--wc) / 0.28);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      hsl(var(--wc) / 0.05) 0 6px,
+      hsl(var(--wc) / 0) 6px 13px
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--wc) / 0.09),
+      hsl(var(--wc) / 0.04)
+    );
+  padding: 0.85rem 0.9rem;
+}
+
+.wrong-cta__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.wrong-cta__chip {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex-shrink: 0;
+  border-radius: 0.55rem;
+  font-size: 0.8125rem;
+  color: hsl(var(--wc));
+  background: hsl(var(--wc) / 0.14);
+  border: 1px solid hsl(var(--wc) / 0.26);
+}
+
+.wrong-cta__count {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(var(--wc));
+}
+
+.wrong-cta__time {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: hsl(var(--muted-foreground));
+}
+
+/* The gradient, not a flat fill: it is the only full-strength colour on the
+   card, so a lit top edge and a deeper base are what make it read as the
+   primary action rather than another button. */
+.wrong-cta__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 0;
+  border-radius: var(--apple-radius-md);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(180deg, hsl(var(--wc) / 0.95), hsl(var(--wc)));
+  box-shadow: 0 1px 2px hsl(var(--wc) / 0.28);
+  transition: filter 150ms ease, transform 150ms ease;
+}
+.wrong-cta__btn:hover {
+  filter: brightness(1.06);
+}
+.wrong-cta__btn:active {
+  transform: scale(0.99);
+}
+.wrong-cta__btn:focus-visible {
+  outline: 2px solid hsl(var(--wc) / 0.6);
+  outline-offset: 2px;
+}
+.dark .wrong-cta__btn {
+  /* White on the light-mode red fails contrast on a dark surface. Lifting
+     the lightness and dropping opacity keeps the button readable without
+     introducing a second red token. */
+  background: linear-gradient(180deg, hsl(var(--wc) / 0.82), hsl(var(--wc) / 0.72));
+  box-shadow: none;
 }
 
 /* The mistake queue is the one row on this screen that means "you got this

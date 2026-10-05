@@ -548,16 +548,14 @@ const Dashboard: React.FC = () => {
             <motion.section
               variants={itemVariants}
               aria-label="Review wrong questions"
+              className="wrong-cta"
               style={{
-                background: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: 'var(--apple-radius-lg)',
-                padding: '1.25rem',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '1rem',
                 flexWrap: 'wrap',
+                padding: '1.1rem 1.15rem',
               }}
             >
               <div>
@@ -566,23 +564,26 @@ const Dashboard: React.FC = () => {
                     fontFamily: 'var(--font-display)',
                     fontSize: '1.125rem',
                     fontWeight: 'var(--font-weight-semibold)',
-                    color: 'hsl(var(--foreground))',
+                    color: 'hsl(var(--wrong-600))',
                     margin: '0 0 0.25rem 0',
                   }}
                 >
-                  Review
+                  {wrongCount} {wrongCount === 1 ? 'question' : 'questions'} wrong to review
                 </h2>
                 <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
-                  {wrongCount} {wrongCount === 1 ? 'question needs' : 'questions need'} another look
+                  Worth another look · about {wrongCount * 2} minutes
                 </p>
               </div>
+              {/* Same tinted card the practice setup screen uses, so the
+                  mistake queue looks identical wherever it is offered. */}
               <motion.button
                 onClick={() => { sfxClick(); navigate('/quiz/practice-wrong', { state: { source: 'queue' } }); }}
-                className="btn btn-outline"
-                whileTap={{ scale: 0.98 }}
-                style={{ fontSize: '0.8125rem', flexShrink: 0 }}
+                whileTap={{ scale: 0.99 }}
+                className="wrong-cta__btn"
+                style={{ fontSize: '0.875rem', flexShrink: 0, minWidth: '16rem', marginTop: '0.9rem' }}
               >
-                Review Wrong Questions →
+                <span aria-hidden="true">⚡</span>
+                Practice Wrong Questions
               </motion.button>
             </motion.section>
           )}

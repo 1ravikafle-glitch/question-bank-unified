@@ -12,10 +12,19 @@
      more present. Kept low on purpose: Apple's own materials get their
      depth from translucency and spacing, and grain turns into dirt very
      quickly above about 0.6. */
-  --texture-strength: 0.45;
-  --texture-grain: 0.5;
-  --texture-wash-a: 0.1;
-  --texture-wash-b: 0.08;
+  --texture-strength: 0.62;
+  --texture-grain: 0.55;
+  --texture-wash-a: 0.14;
+  --texture-wash-b: 0.12;
+
+  /* --- Soft tinted surfaces -----------------------------------------
+     The wash laid over every card so nothing sits on flat white. Kept very
+     low: it should register as warmth rather than as a colour, and anything
+     above about 0.6 starts to look like a deliberate background choice,
+     which then has to be justified per component. Set to transparent (or
+     strength 0) to return every surface to flat --card in one edit. */
+  --surface-tint: var(--canopy-700);
+  --surface-tint-strength: 0.05;
 
   /* --- Core palette (named) --- */
   /* --- Core palette (named) --- */
@@ -259,6 +268,12 @@
   /* --- Dark Mode: deep forest-night foundation.
      Green-tinted surfaces (not neutral gray), softened brights so nothing
      glares. Light mode is untouched — every rule here is .dark-scoped. --- */
+
+  /* Cards are already a deep green here, so the wash lifts them instead of
+     darkening: a cool near-black over a 11% surface would only mud it. */
+  --surface-tint: var(--moss-600);
+  --surface-tint-strength: 0.045;
+
   --background: 150 22% 7%;
   --foreground: 0 0% 90%;
 

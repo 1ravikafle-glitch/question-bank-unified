@@ -1453,22 +1453,29 @@ const QuizTaker: React.FC = () => {
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
-                <motion.button
-                  type="button"
-                  onClick={() => { try { navigator.vibrate?.(10); } catch {} startWrongFromSetup(); }}
-                  whileTap={{ scale: 0.99 }}
-                  className="setup-action setup-action--review"
-                  style={{ fontFamily: T.font }}
-                >
-                  <span className="setup-action__chip" aria-hidden="true" style={{ fontSize: 14 }}>🔁</span>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span className="setup-action__title" style={{ fontFamily: T.font }}>Practise wrong questions</span>
-                    <span className="setup-action__sub" style={{ fontFamily: T.font }}>
-                      {setupWrongCount} to review · ~{setupWrongCount * 2} min
+                {/* A tinted card with its own gradient call to action, not
+                    another flat row. This is the one action on the screen that
+                    means "you got these wrong", and it earns a full card. */}
+                <div className="wrong-cta" style={{ fontFamily: T.font }}>
+                  <div className="wrong-cta__head">
+                    <span className="wrong-cta__chip" aria-hidden="true" style={{ fontSize: 14 }}>🔁</span>
+                    <span className="wrong-cta__count">
+                      {setupWrongCount} wrong to review
                     </span>
-                  </span>
-                  <span className="setup-action__chevron" aria-hidden="true">→</span>
-                </motion.button>
+                    <span className="wrong-cta__time">
+                      ~{setupWrongCount * 2} min
+                    </span>
+                  </div>
+                  <motion.button
+                    type="button"
+                    onClick={() => { try { navigator.vibrate?.(10); } catch {} startWrongFromSetup(); }}
+                    whileTap={{ scale: 0.99 }}
+                    className="wrong-cta__btn"
+                  >
+                    <span aria-hidden="true">⚡</span>
+                    Practice Wrong Questions
+                  </motion.button>
+                </div>
               </div>
             )}
           </div>

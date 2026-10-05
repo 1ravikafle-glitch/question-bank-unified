@@ -15,8 +15,8 @@ Four rules, all deliberate:
    two used to be the same window, which meant a strong all-time user who
    skipped a week vanished from the board entirely and re-entered cold.
 
-   The threshold is strictly greater than MIN_DISTINCT_QUESTIONS, so 501
-   lifetime distinct questions qualifies and exactly 500 does not.
+   The threshold is strictly greater than MIN_DISTINCT_QUESTIONS, so 101
+   lifetime distinct questions qualifies and exactly 100 does not.
 
 2. The rank is weekly. Score uses only the current Sunday-to-Sunday window,
    so the board genuinely resets once a week and last month's effort cannot
@@ -53,7 +53,7 @@ try:
 except Exception:  # no tzdata on this host: Nepal is a fixed +05:45
     _TZ = timezone(timedelta(hours=5, minutes=45))
 
-MIN_DISTINCT_QUESTIONS = 500
+MIN_DISTINCT_QUESTIONS = 100
 LEADERBOARD_TTL_SECONDS = 300
 TOP_N = 100
 
