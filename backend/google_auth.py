@@ -112,14 +112,31 @@ def verify_id_token(token: str) -> dict:
     last_error: Optional[Exception] = None
     for jwk in candidates:
         try:
-            return jwt.decode(
+            # PyJWT's decode() takes a PEM string or a prepared key object, not
+            # a JWK mapping: handed the dict it raises "Expecting a PEM-formatted
+            # key" before it ever looks at the signature. PyJWK is the supported
+            # way in, and constructing it here is what made every Google sign-in
+            # fail while the JWKS fetch stayed green.
+            key = jwt.PyJWK.from_dict(jwk, algorithm="RS256").key
+            # PyJWT 2.x compares the issuer with `payload["iss"] != issuer`, a
+            # strict string equality. Passing a list - the idiom PyJWT 1.x
+            # accepted - therefore never matches and rejects every token with
+            # InvalidIssuerError. Signature, audience and expiry are checked by
+            # the library; the issuer is checked here so both forms Google
+            # emits stay acceptable.
+            claims = jwt.decode(
                 token,
-                jwk,
+                key,
                 algorithms=["RS256"],
                 audience=cid,
-                issuer=list(GOOGLE_ISSUERS),
-                options={"require": ["exp", "iat", "aud", "iss"]},
+                options={
+                    "require": ["exp", "iat", "aud", "iss"],
+                    "verify_iss": False,
+                },
             )
+            if claims.get("iss") not in GOOGLE_ISSUERS:
+                raise jwt.InvalidIssuerError("Invalid issuer")
+            return claims
         except Exception as e:  # try the next key
             last_error = e
     reason = f"{type(last_error).__name__}: {last_error}" if last_error else "no key verified"
