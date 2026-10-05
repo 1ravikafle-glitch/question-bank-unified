@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { uploadQuestionBankDocx, fetchQuestions, fetchQuestionsCount, fetchCategories, updateQuestion, fetchAdminCategories, renameCategory, deleteCategory, fetchCategoryMeta, setCategoryEmoji, fetchAdminUsers, fetchAdminUserProgress, deleteAdminUser, fetchAdminReferences, addReference, updateReference, deleteReference, fetchAdminFeedback, replyFeedback } from '../services/api';
+import { uploadQuestionBankDocx, fetchQuestions, fetchQuestionsCount, fetchCategories, updateQuestion, fetchAdminCategories, renameCategory, deleteCategory, fetchCategoryMeta, setCategoryEmoji, fetchAdminUsers, fetchAdminUserProgress, deleteAdminUser, fetchAdminReferences, addReference, updateReference, deleteReference, fetchAdminContributors, addContributor, updateContributor, deleteContributor, fetchAdminFeedback, replyFeedback } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { type Question } from '@/shared/types';
 import { sortCategories } from '@/utils/categorySort';
 import { motion } from 'framer-motion';
 import AdminReviewQueue from './AdminReviewQueue';
 import ReferencesManager from './ReferencesManager';
+import ContributorsManager from './ContributorsManager';
 import FeedbackInbox from './FeedbackInbox';
 
 interface FileResult {
@@ -772,6 +773,14 @@ Answer key:
           add={addReference}
           update={updateReference}
           remove={deleteReference}
+        />
+      </div>
+      <div style={{ marginTop: '1rem' }}>
+        <ContributorsManager
+          list={fetchAdminContributors}
+          add={addContributor}
+          update={updateContributor}
+          remove={deleteContributor}
         />
       </div>
       <div style={{ marginTop: '1rem' }}>

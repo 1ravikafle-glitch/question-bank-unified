@@ -137,10 +137,12 @@ export function warmSession(userId: string): void {
           api.fetchQuestionsCount().catch(() => null),
           api.fetchCategories().catch(() => null),
           api.fetchReferences().catch(() => null),
-        ]).then(([total, cats, refs]) => {
+          api.fetchContributors().catch(() => null),
+        ]).then(([total, cats, refs, contribs]) => {
           if (total) store.savePage('about-stats-q', (total as any).count);
           if (cats) store.savePage('about-stats-c', (cats as any).length);
           if (refs) store.savePage('about-refs', (refs as any).references || []);
+          if (contribs) store.savePage('about-contribs', (contribs as any).contributors || []);
         })
       );
 

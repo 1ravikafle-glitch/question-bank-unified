@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { fetchQuestionsCount, fetchCategories, fetchReferences } from '../services/api';
+import { fetchQuestionsCount, fetchCategories, fetchReferences, fetchContributors } from '../services/api';
 import { savePage, readPage } from '@/utils/pageStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -166,6 +166,7 @@ const About: React.FC = () => {
   const [totalQuestions, setTotalQuestions] = useState<number>(() => readPage<number>('about-stats-q') ?? 0);
   const [totalCategories, setTotalCategories] = useState<number>(() => readPage<number>('about-stats-c') ?? 0);
   const [references, setReferences] = useState<{ id: number; title: string; author?: string | null; detail?: string | null; url?: string | null }[]>(() => readPage<any[]>('about-refs') ?? []);
+  const [contributors, setContributors] = useState<{ id: number; name: string; role?: string | null }[]>(() => readPage<any[]>('about-contribs') ?? []);
 
   useEffect(() => {
     if (!readPage('about-stats-q')) {
@@ -178,6 +179,11 @@ const About: React.FC = () => {
       setReferences(readPage('about-refs') as any);
     } else {
       fetchReferences().then((r) => { setReferences(r.references || []); savePage('about-refs', r.references || []); }).catch(() => {});
+    }
+    if (readPage('about-contribs')) {
+      setContributors(readPage('about-contribs') as any);
+    } else {
+      fetchContributors().then((r) => { setContributors(r.contributors || []); savePage('about-contribs', r.contributors || []); }).catch(() => {});
     }
   }, []);
 
@@ -463,6 +469,29 @@ const About: React.FC = () => {
                 </div>
               ))}
             </motion.div>
+
+            {contributors.length > 0 && (
+              <div
+                className="rounded-xl border mt-4"
+                style={{ background: 'hsl(var(--muted))', borderColor: 'hsl(var(--border))', padding: '1rem 1.1rem' }}
+              >
+                <h3
+                  className="text-sm font-bold text-foreground mb-3 flex items-center gap-2"
+                  style={{ fontFamily: 'var(--font-display)' }}
+                >
+                  <span aria-hidden="true">🤝</span>
+                  Special Contribution
+                </h3>
+                <ul className="flex flex-col gap-2 m-0" style={{ paddingLeft: '1.1rem', listStyle: 'disc' }}>
+                  {contributors.map((c) => (
+                    <li key={c.id} className="text-[0.8rem] text-muted-foreground leading-relaxed">
+                      <span className="font-semibold text-foreground">{c.name}</span>
+                      {c.role && <>, {c.role}</>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div
               className="rounded-xl border mt-4"

@@ -217,6 +217,25 @@ class Reference(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class Contributor(Base):
+    """People credited under "Special Contribution" in the About section.
+
+    A table rather than a hardcoded list so the credits can grow, be
+    reordered or be withdrawn by the admin without a deploy. role is a short
+    optional note ("Question curation", "Design") and stays empty for a plain
+    credit. create_all() creates the table on boot; the founding entries are
+    seeded only while it is empty.
+    """
+
+    __tablename__ = "contributors"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    role = Column(String(200), nullable=True)
+    position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Feedback(Base):
     """User suggestions, anonymous to everyone except the author.
 

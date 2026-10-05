@@ -19,6 +19,12 @@ import uploads_router
 # Create database tables
 models.Base.metadata.create_all(bind=database.engine)
 
+
+# Content the app ships with (see backend/content_seed.py).
+import content_seed  # noqa: E402
+
+content_seed.seed_contributors(database.engine)
+
 app = FastAPI(
     title="Question Bank API",
     description="API for Question Bank/MCQ Practice Application",

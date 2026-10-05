@@ -1,6 +1,6 @@
 import type { Question, QuestionCreate, QuizSubmission, QuizResult, UserProgress, QuizAttempt, PaginatedResponse, QuestionsFilterParams, QuizParams } from '@/shared/types';
 import { api } from './client';
-import type { ReferenceItem } from './questions';
+import type { ReferenceItem, ContributorItem } from './questions';
 export const uploadQuestionBankDocx = async (files: File[], category?: string) => {
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file));
@@ -203,5 +203,26 @@ export const downloadPastPaper = async (paperId: number): Promise<Blob> => {
   const response = await api.get(`/uploads/past-papers/${paperId}/download`, {
     responseType: 'blob',
   });
+  return response.data;
+};
+
+
+export const fetchAdminContributors = async (): Promise<{ contributors: ContributorItem[] }> => {
+  const response = await api.get('/admin/contributors');
+  return response.data;
+};
+
+export const addContributor = async (c: { name: string; role: string; position: number }) => {
+  const response = await api.post('/admin/contributors', c);
+  return response.data;
+};
+
+export const updateContributor = async (id: number, c: { name: string; role: string; position: number }) => {
+  const response = await api.put(`/admin/contributors/${id}`, c);
+  return response.data;
+};
+
+export const deleteContributor = async (id: number) => {
+  const response = await api.delete(`/admin/contributors/${id}`);
   return response.data;
 };

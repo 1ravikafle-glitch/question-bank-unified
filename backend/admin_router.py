@@ -53,6 +53,12 @@ class ReferenceRequest(BaseModel):
     position: int = 0
 
 
+class ContributorRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    role: Optional[str] = Field(default=None, max_length=200)
+    position: int = 0
+
+
 @router.get("/references")
 def admin_list_references(db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
     rows = db.query(models.Reference).order_by(models.Reference.position, models.Reference.id).all()
@@ -462,6 +468,74 @@ def update_question(payload: dict, question_id: int = Path(..., ge=1, le=9223372
         raise HTTPException(status_code=500, detail="Failed to update question")
 
     return question
+
+
+@router.get("/contributors")
+def admin_list_contributors(db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
+    rows = db.query(models.Contributor).order_by(models.Contributor.position, models.Contributor.id).all()
+    return {"contributors": [
+        {"id": c.id, "name": c.name, "role": c.role, "position": c.position} for c in rows
+    ]}
+
+
+@router.post("/contributors")
+def admin_add_contributor(payload: ContributorRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    try:
+        row = models.Contributor(
+            name=name,
+            role=(payload.role or "").strip() or None,
+            position=int(payload.position or 0),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        app_cache.delete("q:contributors")
+        return {"id": row.id}
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to add contributor")
+
+
+@router.put("/contributors/{contrib_id}")
+def admin_update_contributor(contrib_id: int, payload: ContributorRequest, db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    try:
+        row = db.query(models.Contributor).filter(models.Contributor.id == contrib_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Contributor not found")
+        row.name = name
+        row.role = (payload.role or "").strip() or None
+        row.position = int(payload.position or 0)
+        db.commit()
+        app_cache.delete("q:contributors")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update contributor")
+
+
+@router.delete("/contributors/{contrib_id}")
+def admin_delete_contributor(contrib_id: int = Path(...), db: Session = Depends(database.get_db), admin_user: str = Depends(session.require_admin)):
+    try:
+        row = db.query(models.Contributor).filter(models.Contributor.id == contrib_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Contributor not found")
+        db.delete(row)
+        db.commit()
+        app_cache.delete("q:contributors")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete contributor")
 
 
 # ── Contributor review queue ────────────────────────────────────────────────

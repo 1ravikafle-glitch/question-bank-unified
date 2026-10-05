@@ -148,3 +148,18 @@ export const getCachedStats = (): { count: number; cats: number } | null => {
     return null;
   }
 };
+
+
+export interface ContributorItem {
+  id: number;
+  name: string;
+  role?: string | null;
+  position?: number;
+}
+
+/** Public "Special Contribution" credits for the About page. Same for every user. */
+
+export const fetchContributors = async (): Promise<{ contributors: ContributorItem[] }> => {
+  const response = await api.get('/questions/contributors/');
+  return response.data;
+};

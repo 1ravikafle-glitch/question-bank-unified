@@ -33,6 +33,12 @@ import database
 # ── Create tables ──────────────────────────────────────────────────────────────
 Base.metadata.create_all(bind=engine)
 
+# Content the app ships with. Defined in a shared module because main.py and
+# this file each build their own app and neither imports the other.
+import content_seed  # noqa: E402
+
+content_seed.seed_contributors(engine)
+
 # ── Seed database if empty ─────────────────────────────────────────────────────
 def seed_database():
     db = SessionLocal()

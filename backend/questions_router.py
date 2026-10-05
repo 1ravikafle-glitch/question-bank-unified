@@ -185,7 +185,15 @@ def get_random_quote(db: Session = Depends(database.get_db)):
     return {"text": row.text}
 
 
-@router.get("/references")
+# NOTE the trailing slash on the two credit routes below. The SPA catch-all in
+# start_prod.py answers any path it recognises before FastAPI can redirect a
+# slashless request, so a route declared "/references" is unreachable via
+# "/references/" - the client gets index.html back, axios fails to parse it,
+# and the .catch() swallows it. That is why the working routes here
+# ("/count/", "/categories/", "/category-counts/") all carry a slash.
+
+
+@router.get("/references/")
 def get_references(db: Session = Depends(database.get_db)):
     """Book/source credits for the About section. Same for every user and
     changed only by admin writes (which bust the key), so it is cached like
@@ -208,6 +216,33 @@ def get_references(db: Session = Depends(database.get_db)):
         # request can arrive first): empty list, not a 500.
         result = {"references": []}
     _set_cached("references", result)
+    return result
+
+
+@router.get("/contributors/")
+def get_contributors(db: Session = Depends(database.get_db)):
+    """Special-contribution credits for the About section.
+
+    Identical for every user and changed only by admin writes (which bust the
+    key), so it is cached exactly like the other bank facts.
+    """
+    cached = _get_cached("contributors")
+    if cached is not None:
+        return cached
+    try:
+        rows = (
+            db.query(models.Contributor)
+            .order_by(models.Contributor.position, models.Contributor.id)
+            .all()
+        )
+        result = {"contributors": [
+            {"id": c.id, "name": c.name, "role": c.role} for c in rows
+        ]}
+    except Exception:
+        # A request can beat create_all() on a brand-new deploy; an empty
+        # list, not a 500.
+        result = {"contributors": []}
+    _set_cached("contributors", result)
     return result
 
 
