@@ -1412,18 +1412,27 @@ const QuizTaker: React.FC = () => {
             {/* Wrong questions queue */}
             {setupWrongCount > 0 && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 16 }} aria-hidden="true">🔁</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, fontFamily: T.font, color: T.textPrimary }}>
-                      {setupWrongCount} wrong to review
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 12, color: T.textSecondary, fontFamily: T.font }}>
-                    ~{setupWrongCount * 2} min
-                  </span>
-                </div>
+                {/* The row below carries the count and the estimate, so this
+                    block used to state them twice. All that is left here is the
+                    category filter, which now gets a visible label of its own
+                    rather than borrowing the count line as its heading. */}
+                <label
+                  htmlFor="wrong-category"
+                  style={{
+                    display: 'block',
+                    fontSize: '0.6875rem',
+                    fontWeight: 'var(--font-weight-semibold)',
+                    textTransform: 'uppercase' as const,
+                    letterSpacing: '0.05em',
+                    color: 'hsl(var(--muted-foreground))',
+                    fontFamily: T.font,
+                    marginBottom: '0.5rem',
+                  }}
+                >
+                  Category
+                </label>
                 <select
+                  id="wrong-category"
                   value={wrongCategory}
                   onChange={(e) => setWrongCategory(e.target.value)}
                   aria-label="Review wrong questions in a category"
