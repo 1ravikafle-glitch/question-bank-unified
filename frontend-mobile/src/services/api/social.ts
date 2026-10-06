@@ -118,6 +118,13 @@ export const toggleBookmark = async (
     if (typeof data?.bookmarked === 'boolean' && data.bookmarked !== optimistic.marked) {
       bookmarkToast(data.bookmarked);
     }
+    // Every bookmark change funnels through here, so this is the one place that
+    // must know a bookmark moved. List snapshots are refilled by
+    // refreshBookmarksSnapshot; `home-data` is not, and it carries bmIds.
+    try {
+      const { invalidateBookmarks } = await import('@/utils/snapshotInvalidation');
+      invalidateBookmarks();
+    } catch { /* snapshots refresh next visit */ }
     return data;
   } catch (e) {
     if (!isNetworkError(e)) {

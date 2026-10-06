@@ -25,7 +25,15 @@ const OfflineBanner: React.FC = () => {
       if (n === 0) return;
       try {
         const synced = await syncOutbox(submitQuiz, clearWrongQueue);
-        if (synced > 0) toast.success(`Synced ${synced} offline quiz${synced > 1 ? 'zes' : ''}`);
+        if (synced > 0) {
+          toast.success(`Synced ${synced} offline quiz${synced > 1 ? 'zes' : ''}`);
+          // A synced offline quiz is a real submission: progress, results, the
+          // wrong queue and the home stats all just moved on the server.
+          try {
+            const { invalidateAfterSubmit } = await import('@/utils/snapshotInvalidation');
+            invalidateAfterSubmit();
+          } catch { /* snapshots refresh next visit */ }
+        }
       } catch {
         toast.error('Some offline results could not sync yet. Will retry.');
       }
@@ -113,7 +121,13 @@ const OfflineBanner: React.FC = () => {
   const doSyncNow = async () => {
     try {
       const n = await syncOutbox(submitQuiz, clearWrongQueue);
-      if (n > 0) toast.success(`Synced ${n} offline quiz${n > 1 ? 'zes' : ''}`);
+      if (n > 0) {
+        toast.success(`Synced ${n} offline quiz${n > 1 ? 'zes' : ''}`);
+          try {
+            const { invalidateAfterSubmit } = await import('@/utils/snapshotInvalidation');
+            invalidateAfterSubmit();
+          } catch { /* snapshots refresh next visit */ }
+      }
       setPending(await pendingCount());
     } catch {
       toast.error('Sync failed. Will retry automatically.');

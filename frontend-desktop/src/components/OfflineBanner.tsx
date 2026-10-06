@@ -24,7 +24,18 @@ const OfflineBanner: React.FC = () => {
       if (n === 0) return;
       try {
         const synced = await syncOutbox(submitQuiz, clearWrongQueue);
-        if (synced > 0) toast.success(`Synced ${synced} offline quiz${synced > 1 ? 'zes' : ''}`);
+        if (synced > 0) {
+          toast.success(`Synced ${synced} offline quiz${synced > 1 ? 'zes' : ''}`);
+          // A synced offline quiz is a real submission: progress, results, the
+          // wrong-answer queue and the home stats all just moved on the server.
+          // Nothing invalidated them here, so the user kept seeing the numbers
+          // from BEFORE they went offline until a full reload. The banner's own
+          // refresh() below only re-renders the banner.
+          try {
+            const { invalidateAfterSubmit } = await import('@/utils/snapshotInvalidation');
+            invalidateAfterSubmit();
+          } catch { /* snapshots simply refresh next visit */ }
+        }
       } catch {
         toast.error('Some offline results could not sync yet. Will retry.');
       }
@@ -111,7 +122,15 @@ const OfflineBanner: React.FC = () => {
   const doSyncNow = async () => {
     try {
       const n = await syncOutbox(submitQuiz, clearWrongQueue);
-      if (n > 0) toast.success(`Synced ${n} offline quiz${n > 1 ? 'zes' : ''}`);
+      if (n > 0) {
+        toast.success(`Synced ${n} offline quiz${n > 1 ? 'zes' : ''}`);
+        // Same reason as the automatic sync above: a manual "sync now" that
+        // lands real submissions must drop the snapshots they invalidated.
+        try {
+          const { invalidateAfterSubmit } = await import('@/utils/snapshotInvalidation');
+          invalidateAfterSubmit();
+        } catch { /* snapshots simply refresh next visit */ }
+      }
       setPending(await pendingCount());
     } catch {
       toast.error('Sync failed. Will retry automatically.');

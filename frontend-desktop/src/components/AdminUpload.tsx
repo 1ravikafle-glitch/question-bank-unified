@@ -227,6 +227,10 @@ const AdminUpload: React.FC = () => {
     }
     setSaving(true);
     try {
+      try {
+        const { invalidateBankEdits } = await import('@/utils/snapshotInvalidation');
+        invalidateBankEdits();
+      } catch { /* snapshots refresh next visit */ }
       const updated = await updateQuestion(id, {
         question_text: editForm.question_text.trim(),
         options: cleanedOptions,
@@ -259,6 +263,10 @@ const AdminUpload: React.FC = () => {
     if (trimmed === oldName) { setRenamingCategory(null); return; }
     setRenaming(true);
     try {
+      try {
+        const { invalidateBankEdits } = await import('@/utils/snapshotInvalidation');
+        invalidateBankEdits();
+      } catch { /* snapshots refresh next visit */ }
       await renameCategory(oldName, trimmed);
       toast.success(`Renamed "${oldName}" to "${trimmed}"`);
       setRenamingCategory(null);
@@ -292,6 +300,10 @@ const AdminUpload: React.FC = () => {
     setDeletingCategory(categoryName);
     setDeleting(true);
     try {
+      try {
+        const { invalidateBankEdits } = await import('@/utils/snapshotInvalidation');
+        invalidateBankEdits();
+      } catch { /* snapshots refresh next visit */ }
       const result = await deleteCategory(categoryName);
       toast.success(`Deleted category "${categoryName}" and ${result.questions_deleted || 0} questions`);
       loadManageData();

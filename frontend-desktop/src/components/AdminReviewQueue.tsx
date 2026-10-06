@@ -140,6 +140,12 @@ const AdminReviewQueue: React.FC = () => {
     }
     setBusyId(id);
     try {
+      // Approving or rejecting changes what is published, so the counts the
+      // About page and the home dashboard show have moved.
+      try {
+        const { invalidateContributions } = await import('@/utils/snapshotInvalidation');
+        invalidateContributions();
+      } catch { /* snapshots refresh next visit */ }
       const { data } = await api.post(`/admin/contributions/${id}/${action}`, {
         note: (notes[id] || '').trim() || null,
       });

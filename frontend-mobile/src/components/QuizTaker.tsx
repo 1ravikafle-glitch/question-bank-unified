@@ -398,7 +398,11 @@ const QuizTaker: React.FC = () => {
         }
         if (isPracticeWrongMode && userId) {
           const practisedIds = questions.map((q) => q.id);
-          clearWrongQueue(userId, practisedIds).catch(() => {});
+          // Awaited, and before the snapshot refresh below. This used to be
+          // fired and forgotten with the refresh fired right after it, so the
+          // wrong-queue read could resolve before the DELETE landed and save a
+          // stale count.
+          await clearWrongQueue(userId, practisedIds).catch(() => {});
         }
         localStorage.removeItem(QUIZ_STORAGE_KEY);
         // A submit changed progress, results, wrong-queue, and home stats.

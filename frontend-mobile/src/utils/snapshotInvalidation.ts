@@ -1,53 +1,39 @@
 import { markDirty as mark } from './pageStore';
 
 /* Which snapshots a mutation invalidates.
-   One place, because the answer was previously scattered and incomplete: quiz
-   submit marked three keys, `home-data` was not among them, and mock submit,
-   bookmark toggles and note saves marked nothing at all. Each of those left a
-   page showing numbers the user had just changed.
 
-   The keys are the literals passed to savePage/readPage across the app. A key
-   that is not listed here simply keeps serving its snapshot, which is the point
-   for genuinely static pages (about-*, mock/quiz setup counts). */
+   One place, because the answer was previously scattered and incomplete: quiz
+   submit marked three keys, `home-data` was not among them, and the
+   wrong-question queue and the offline outbox had no answer at all.
+
+   Only genuinely-needed functions live here. An earlier draft of this file
+   exported six; five were never called, which is the same dead-code trap as
+   writing a selector against a class that does not exist. Notes are NOT here on
+   purpose: notePeek saves `notes-map` on every write and Notes.tsx refetches
+   `notes-data` itself, and `home-data` carries no note count, so an
+   invalidation function here would have done nothing. */
+
+export { mark };
 
 /** Everything a completed practice session or mock exam changes. */
 export function invalidateAfterSubmit(): void {
-  // The attempt list and its per-question history.
-  mark('results-data');
-  // Accuracy, progress figures, the wrong-answer queue.
-  mark('progress-data');
+  mark('results-data');   // the attempt list and its per-question history
+  mark('progress-data');  // accuracy, progress figures
   mark('progress');
-  mark('progress-wrong');
-  // The dashboard tile on the home page reads HOME_KEY, and it was the one the
-  // old code forgot, so the numbers changed by a quiz did not show up there.
-  mark('home-data');
-  // Setup screens read the wrong-queue count for their "review" secondary path.
-  mark('quiz-setup-wrong');
+  mark('progress-wrong'); // the wrong-answer queue shrank: practised ones left it
+  mark('home-data');      // the dashboard tile the user just changed
 }
 
-/** A bookmark was added or removed. */
+/* A bookmark changed. The list snapshots are refilled by syncBookmarksSection
+   (which publishes both bookmarks-ids and bookmarks-data), so only `home-data`
+   needs invalidating here: it carries bmIds, which is what the 🔖 state on every
+   other surface is derived from. */
 export function invalidateBookmarks(): void {
-  mark('bookmarks-data');
-  mark('bookmarks-ids');
-  // The home page shows a bookmarked count.
   mark('home-data');
 }
 
-/** A note was written or cleared. */
-export function invalidateNotes(): void {
-  mark('notes-data');
-  mark('notes-map');
-  mark('home-data');
-}
-
-/** The wrong-answer queue was cleared, so its count changed everywhere. */
-export function invalidateWrongQueue(): void {
-  mark('progress-wrong');
-  mark('quiz-setup-wrong');
-  mark('home-data');
-}
-
-/** An admin edited the bank: counts, categories and lists all moved. */
+/* An admin edited the bank. Every count and category list derived from it moves,
+   including the two the practice and mock setup screens read on mount. */
 export function invalidateBankEdits(): void {
   mark('home-data');
   mark('about-stats-q');
@@ -60,7 +46,7 @@ export function invalidateBankEdits(): void {
   mark('mock-setup-cats');
 }
 
-/** An admin resolved a contribution: totals and lists moved. */
+/* An admin approved or rejected a contribution: the published totals move. */
 export function invalidateContributions(): void {
   mark('home-data');
   mark('about-stats-q');

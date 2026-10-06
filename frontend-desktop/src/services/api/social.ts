@@ -122,6 +122,15 @@ export const toggleBookmark = async (
     if (typeof data?.bookmarked === 'boolean' && data.bookmarked !== optimistic.marked) {
       bookmarkToast(data.bookmarked);
     }
+    // Every bookmark change in the app funnels through this one function (the
+    // 🔖 button, the quiz card, the keyboard shortcut, the Bookmarks page), so
+    // this is the only place that has to know a bookmark moved. The list
+    // snapshots are refilled by refreshBookmarksSnapshot; `home-data` is not,
+    // and it carries bmIds, which is what every 🔖 elsewhere is derived from.
+    try {
+      const { invalidateBookmarks } = await import('@/utils/snapshotInvalidation');
+      invalidateBookmarks();
+    } catch { /* snapshots simply refresh next visit */ }
     return data;
   } catch (e) {
     if (!isNetworkError(e)) {
