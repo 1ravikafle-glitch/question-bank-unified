@@ -1,6 +1,6 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchBookmarks, toggleBookmark, fetchBookmarkIds } from '../services/api';
+import { fetchBookmarks, toggleBookmark, clearBookmarks, fetchBookmarkIds } from '../services/api';
 import { syncBookmarksSection, onSection } from '@/utils/sectionSync';
 import { savePage, readPage, isDirty, clearDirty } from '@/utils/pageStore';
 import { type Question } from '@/shared/types';
@@ -19,6 +19,10 @@ const Bookmarks: React.FC = () => {
   const { t } = useLang();
   const [questions, setQuestions] = useState<Question[]>(() => readPage<Question[]>('bookmarks-data') ?? []);
   const [loading, setLoading] = useState(() => !readPage('bookmarks-data'));
+  /* Category filter and the two-step unbookmark-all, both ported from desktop
+     so the two apps stop diverging. */
+  const [catFilter, setCatFilter] = useState('');
+  const [confirmClear, setConfirmClear] = useState(false);
 
   // A bookmark toggled in the quiz, the question browser or a single question
   // refills this section in the background (utils/sectionSync). Adopt those rows
@@ -72,11 +76,44 @@ const Bookmarks: React.FC = () => {
     [userId, sfxClick]
   );
 
+  /* Two-step rather than window.confirm: the first tap arms it, the second
+     commits, and it disarms itself after 3s. Same as desktop. */
+  const handleClearAll = useCallback(async () => {
+    if (!userId) return;
+    if (!confirmClear) {
+      sfxClick();
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 3000);
+      return;
+    }
+    setConfirmClear(false);
+    const res = await clearBookmarks(userId).catch(() => null);
+    if (res) {
+      setQuestions([]);
+      setCatFilter('');
+      void syncBookmarksSection([]);
+    }
+  }, [userId, confirmClear, sfxClick]);
+
+  /* Distinct categories actually present, so the filter never offers an empty
+     choice. `cats` is recomputed from the list rather than fetched: it is
+     derived data, and a second request would be a second thing to go stale. */
+  const cats = useMemo(
+    () => Array.from(new Set(questions.map((q) => q.category || 'Uncategorized'))).sort(),
+    [questions],
+  );
+  const visible = catFilter
+    ? questions.filter((q) => (q.category || 'Uncategorized') === catFilter)
+    : questions;
+
+  /* Practise what is actually on screen, so narrowing the filter then tapping
+     Practice does not silently practise everything instead. */
   const practiceAll = useCallback(() => {
-    if (questions.length === 0) return;
+    const ids = visible.map((q) => q.id);
+    if (ids.length === 0) return;
     sfxClick();
-    navigate('/quiz', { state: { bookmarkIds: questions.map((q) => q.id) } });
-  }, [questions, navigate, sfxClick]);
+    navigate('/quiz', { state: { bookmarkIds: ids } });
+  }, [visible, navigate, sfxClick]);
 
   if (loading) {
     return (
@@ -110,16 +147,46 @@ const Bookmarks: React.FC = () => {
           </p>
         </div>
         {questions.length > 0 && (
-          <motion.button
-            onClick={practiceAll}
-            className="btn btn-primary"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            Practice all ({questions.length})
-          </motion.button>
+          /* Two stacked on a narrow phone rather than side by side. */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
+            <motion.button
+              onClick={practiceAll}
+              className="btn btn-primary"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              Practice{catFilter ? ` ${catFilter}` : ' all'} ({visible.length})
+            </motion.button>
+            <motion.button
+              onClick={handleClearAll}
+              className="btn btn-outline danger"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              style={confirmClear ? { borderColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive))' } : undefined}
+            >
+              {confirmClear ? 'Tap again to remove all' : 'Unbookmark all'}
+            </motion.button>
+          </div>
         )}
       </div>
+
+      {/* Category filter, only once there is more than one category to pick. */}
+      {questions.length > 0 && cats.length > 1 && (
+        <select
+          value={catFilter}
+          onChange={(e) => setCatFilter(e.target.value)}
+          aria-label="Filter bookmarks by category"
+          className="select"
+          style={{ width: '100%' }}
+        >
+          <option value="">All categories ({questions.length})</option>
+          {cats.map((c) => (
+            <option key={c} value={c}>
+              {c} ({questions.filter((q) => (q.category || 'Uncategorized') === c).length})
+            </option>
+          ))}
+        </select>
+      )}
 
       {questions.length === 0 ? (
         <div className="card" style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
@@ -133,7 +200,7 @@ const Bookmarks: React.FC = () => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {questions.map((q) => {
+          {visible.map((q) => {
             const opts = (q.options || {}) as Record<string, string>;
             const keys = Object.keys(opts).sort();
             // Show the answer itself, not just its letter: a saved question is

@@ -18,36 +18,70 @@
 const snapshots = new Map<string, unknown>();
 const dirty = new Set<string>();
 
-export function savePage<T>(key: string, value: T): void {
-  snapshots.set(key, value);
-  dirty.delete(key);
+/* ── Owner scoping ───────────────────────────────────────────────────────────
+   The store is a plain module-level Map, so it outlives any individual login.
+   Sign-out is supposed to call clearAllPages(), but relying on one call site for
+   a privacy boundary is how the previous leak happened: the function existed,
+   was documented "(sign-out)", and nothing called it. Anyone who then signed in
+   on a shared device saw the previous account's home stats, progress and
+   bookmarks until a reload.
+
+   So the identity is carried in the key instead. A different user cannot read a
+   previous user's entries even if some future sign-out path forgets to clear,
+   and switching owner drops the old entries so they cannot linger in memory
+   either. clearAllPages() is still called on sign-out; this is the second lock,
+   not a replacement. */
+let owner = '';
+
+/** Point the store at a user. Any change of user wipes what came before. */
+export function setSnapshotOwner(next: string): void {
+  const id = next || '';
+  if (id === owner) return;
+  owner = id;
+  snapshots.clear();
+  dirty.clear();
 }
 
-export function readPage<T>(key: string): T | null {
-  const v = snapshots.get(key);
+export function snapshotOwner(): string {
+  return owner;
+}
+
+/** Namespaced so two accounts can never collide on the same page key. */
+function key(k: string): string {
+  return owner ? `${owner}::${k}` : k;
+}
+
+export function savePage<T>(k: string, value: T): void {
+  snapshots.set(key(k), value);
+  dirty.delete(key(k));
+}
+
+export function readPage<T>(k: string): T | null {
+  const v = snapshots.get(key(k));
   return (v === undefined ? null : v) as T | null;
 }
 
-export function hasPage(key: string): boolean {
-  return snapshots.has(key);
+export function hasPage(k: string): boolean {
+  return snapshots.has(key(k));
 }
 
 /** Mark a page stale after a real change (submit, toggle, admin edit). */
-export function markDirty(key: string): void {
-  dirty.add(key);
-  snapshots.delete(key);
+export function markDirty(k: string): void {
+  dirty.add(key(k));
+  snapshots.delete(key(k));
 }
 
-export function isDirty(key: string): boolean {
-  return dirty.has(key);
+export function isDirty(k: string): boolean {
+  return dirty.has(key(k));
 }
 
-export function clearDirty(key: string): void {
-  dirty.delete(key);
+export function clearDirty(k: string): void {
+  dirty.delete(key(k));
 }
 
 /** Drop everything (sign-out). */
 export function clearAllPages(): void {
   snapshots.clear();
   dirty.clear();
+  owner = '';
 }

@@ -48,6 +48,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import OfflineBanner from './components/OfflineBanner';
 import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
+import { clearAllPages, setSnapshotOwner } from '@/utils/pageStore';
 import { AuthContext } from './context/AuthContext';
 import { authLogin } from './services/api';
 import { ThemeProvider } from './context/ThemeContext';
@@ -162,11 +163,20 @@ function AppShell() {
     localStorage.removeItem('password');
     localStorage.removeItem('fpsc-session');
     localStorage.removeItem('fpsc-sso-token');
+    // Drop every cached page before the identity goes. The store is a module
+    // level Map that outlives the login, so without this the next person to sign
+    // in on a shared device rendered the previous account's home stats,
+    // progress and bookmarks from memory until a reload. clearAllPages() existed
+    // and was documented "(sign-out)" with no caller; this is that caller.
+    clearAllPages();
     setUserId('');
     setSessionTokenState('');
   }, []);
 
   const handleSetUserId = useCallback((id: string) => {
+    // Also re-point the snapshot store at whoever is signing in. That makes the
+    // wipe independent of which sign-out path ran, so a missed one cannot leak.
+    setSnapshotOwner(id);
     setUserId(id);
     if (id) localStorage.setItem('userId', id);
     else localStorage.removeItem('userId');

@@ -52,6 +52,8 @@ const Footer = lazy(() => import('./components/Footer'));
 const Null = () => null;
 import MobileTopBar from './components/MobileTopBar';
 import RouteSkeleton from './components/RouteSkeleton';
+import ErrorBoundary from './components/ErrorBoundary';
+import { clearAllPages, setSnapshotOwner } from '@/utils/pageStore';
 import MobileBottomNav from './components/MobileBottomNav';
 import OfflineBanner from './components/OfflineBanner';
 import { AuthContext } from './context/AuthContext';
@@ -149,11 +151,18 @@ function AppShell() {
     localStorage.removeItem('password');
     localStorage.removeItem('fpsc-session');
     localStorage.removeItem('fpsc-sso-token');
+    // The snapshot store is a module-level Map that outlives the login, so
+    // without this the next person to sign in on a shared device rendered the
+    // previous account's home stats, progress and bookmarks until a reload.
+    clearAllPages();
     setUserId('');
     setSessionTokenState('');
   }, []);
 
   const handleSetUserId = useCallback((id: string) => {
+    // Re-point the snapshot store at whoever is signing in, so the wipe does
+    // not depend on which sign-out path ran.
+    setSnapshotOwner(id);
     setUserId(id);
     if (id) localStorage.setItem('userId', id);
     else localStorage.removeItem('userId');
@@ -231,6 +240,10 @@ function AppShell() {
             }
           >
             <Suspense fallback={<RouteSkeleton />}>
+              {/* key remounts on every route change, so navigating away always
+                  recovers. Mobile had no boundary at all: one render error
+                  blanked the entire app. */}
+              <ErrorBoundary key={location.pathname}>
               <RouteTransition pathname={location.pathname}>
               <Routes>
               <Route path="/login" element={<Login />} />
@@ -258,6 +271,7 @@ function AppShell() {
               <Route path="*" element={userId ? <Navigate to="/" replace /> : <Navigate to="/login" replace />} />
               </Routes>
               </RouteTransition>
+            </ErrorBoundary>
             </Suspense>
           </div>
         </main>

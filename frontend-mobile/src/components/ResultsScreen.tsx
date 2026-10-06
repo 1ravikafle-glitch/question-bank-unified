@@ -196,6 +196,14 @@ const ResultsScreen: React.FC = () => {
     >
       {/* Just-finished result (incl. offline-scored, queued for sync) */}
       {quizResult && (
+        <>
+        {/* Same eyebrow wording as desktop's hero, so both apps mark the moment
+            the same way. The desktop 140px score ring is deliberately NOT
+            ported: this is a phone, and the strip below already carries the
+            percentage, the score and the penalty breakdown. */}
+        <p style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+          Practice Complete
+        </p>
         <div
           className="card"
           style={{
@@ -240,6 +248,7 @@ const ResultsScreen: React.FC = () => {
             )}
           </div>
         </div>
+        </>
       )}
       {/* ═══════════════════════════════════════════
            STAT TILES

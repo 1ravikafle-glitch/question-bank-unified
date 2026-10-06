@@ -336,6 +336,7 @@ import admin_router
 import bookmarks_router
 import notes_router
 import uploads_router
+import feedback_router
 import seo_pages
 
 SEO_ENABLED = seo_pages.IS_LOKSEWA  # Loksewa mirror only; PSC service unchanged
@@ -359,6 +360,13 @@ app.include_router(admin_router.router)
 app.include_router(bookmarks_router.router)
 app.include_router(notes_router.router)
 app.include_router(uploads_router.router)
+# Feedback was registered in backend/main.py but never here, so every
+# /feedback/* path in production fell through to the SPA catch-all and returned
+# index.html where the client expected JSON: the whole feature was dead on the
+# live site and admin replies were unreachable. The endpoints were already
+# auth-gated (require_user to post, require_admin to read or reply), and the
+# submission limit is 2 per rolling 24h per account.
+app.include_router(feedback_router.router)
 
 # ── Health check (verifies DB connectivity) ────────────────────────────────────
 @app.get("/api/health")

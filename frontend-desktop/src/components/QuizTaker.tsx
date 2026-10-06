@@ -519,11 +519,13 @@ const QuizTaker: React.FC = () => {
         try {
           refreshAfterSubmit(userId || 'anonymous');
         } catch {
+          // refreshAfterSubmit normally rewrites every affected snapshot itself.
+          // If it cannot even be imported, invalidate centrally instead of by
+          // hand: the hand-written list here was missing 'home-data', which is
+          // why a finished quiz left the home dashboard showing the old numbers.
           try {
-            const { markDirty } = await import('@/utils/pageStore');
-            markDirty('progress-data');
-            markDirty('progress-wrong');
-            markDirty('results-data');
+            const { invalidateAfterSubmit } = await import('@/utils/snapshotInvalidation');
+            invalidateAfterSubmit();
           } catch { /* snapshots simply refresh next time */ }
         }
         try { navigator.vibrate?.([10, 30, 10]); } catch {}
