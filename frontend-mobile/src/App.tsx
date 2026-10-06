@@ -159,6 +159,23 @@ function AppShell() {
     setSessionTokenState('');
   }, []);
 
+  // Warm every section's snapshot as soon as there is an identity, wherever the
+  // user lands. It used to fire only from the home page.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { configurePrewarm } = await import('@/utils/routePrewarm');
+        configurePrewarm(() => userId);
+        const m = await import('@/utils/sessionWarm');
+        if (cancelled) return;
+        m.warmSession(userId);
+      } catch { /* warmer never blocks the app */ }
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+
   const handleSetUserId = useCallback((id: string) => {
     // Re-point the snapshot store at whoever is signing in, so the wipe does
     // not depend on which sign-out path ran.

@@ -7,6 +7,7 @@ import { useSound } from '@/context/SoundContext';
 import { gisHref, openGisStudio } from '@/components/DesktopSidebar';
 import { authMe, authUpdateEmail, authSendVerification, authConfirmEmail } from '@/services/api';
 import { isAdmin } from '@/config/admin';
+import { prefetchFor } from '@/utils/routePrewarm';
 import toast from 'react-hot-toast';
 
 /* ── Haptic feedback ─────────────────────────────────────────── */
@@ -643,6 +644,13 @@ const MobileBottomNav: React.FC = () => {
             to={item.to}
             end={item.end}
             onClick={() => haptic(8)}
+            /* A phone has no hover, so pointer intent comes from touch-down
+               and from the focus a keyboard/switch user gets. Both fire before
+               the tap completes, which is the same lead time the desktop
+               sidebar gets from a mouse. Prefetch only: the snapshot wins if it
+               is already there. */
+            onPointerDown={() => { void prefetchFor(item.to); }}
+            onFocus={() => { void prefetchFor(item.to); }}
             className="mobile-tab flex-1 flex flex-col items-center justify-center py-1.5 relative"
             style={({ isActive }) => ({
               color: isActive ? `hsl(var(--tone-${item.tone}))` : inactiveColor,

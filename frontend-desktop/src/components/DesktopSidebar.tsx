@@ -1,6 +1,7 @@
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { memo, useContext, useEffect, useState, Fragment } from 'react';
 import { AuthContext } from '@/context/AuthContext';
+import { prefetchFor } from '@/utils/routePrewarm';
 import { fetchBookmarkIds, fetchNotes } from '@/services/api';
 import { onSection } from '@/utils/sectionSync';
 import { useSfx } from '@/hooks/useSfx';
@@ -298,6 +299,14 @@ const NavRow = memo<NavRowProps>(({ item, onNavigate }) => {
       title={t(item.label)}
       className={({ isActive }) => `nav-row${isActive ? ' is-active' : ''}`}
       style={{ fontSize: '0.9375rem' }}
+      /* Pointing at a row warms whatever it still needs, so the click lands on
+         an already-snapshotted page. The session warmer covers everything on
+         login, but anything that went stale since (a submit, a bookmark, an
+         admin edit elsewhere) is re-fetched here, during the 200ms the pointer
+         is still travelling. No spinner either way: the snapshot wins if it is
+         there, this only tops it up. */
+      onMouseEnter={() => { void prefetchFor(item.to); }}
+      onFocus={() => { void prefetchFor(item.to); }}
     >
       {({ isActive }) => (
         <>

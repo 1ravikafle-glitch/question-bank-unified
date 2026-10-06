@@ -21,6 +21,17 @@ async function safe<T>(p: Promise<T>): Promise<T | null> {
   }
 }
 
+/* Every background fetch registers here. The warmer used to fire six of them
+   and set `warmed = true` in its finally block, so it reported success before
+   a single byte had landed - and a page the user reached during warm-up saw
+   empty snapshots and fetched for itself, which is the opposite of the point.
+   Awaiting these is what makes "warmed" mean warmed. */
+const pending: Promise<unknown>[] = [];
+const track = <T,>(p: Promise<T>): Promise<T | null> => {
+  pending.push(p.catch(() => null));
+  return safe(p);
+};
+
 export function warmSession(userId: string): void {
   if (warmed || warming || !userId) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
@@ -47,7 +58,7 @@ export function warmSession(userId: string): void {
       } catch {}
 
       // 2. Quiz setup numbers.
-      safe(
+      track(
         Promise.all([
           api.fetchQuestionsCount().catch(() => null),
           api.fetchCategories().catch(() => null),
@@ -59,13 +70,18 @@ export function warmSession(userId: string): void {
           if (cats) store.savePage('quiz-setup-cats', cats as any);
           const wqn = (wq as any)?.count ?? (wq as any)?.questions?.length ?? 0;
           store.savePage('quiz-setup-wrong', wqn);
+          // The Progress page reads its review-queue count from a DIFFERENT
+          // key, and the warmer only filled the setup screen's. So the Progress
+          // page always fetched on mount: the wrong-questions count was the one
+          // number on the site that was never instant. One fetch, both keys.
+          store.savePage('progress-wrong', wqn);
           store.savePage('mock-setup-total', (total as any)?.count ?? 0);
           if (cats) store.savePage('mock-setup-cats', cats as any);
         })
       );
 
       // 3. Progress + results (shared payload).
-      safe(
+      track(
         api.fetchUserProgress(userId).then((progress: any) => {
           store.savePage('progress-data', progress);
           store.clearDirty('progress-data');
@@ -100,7 +116,7 @@ export function warmSession(userId: string): void {
       );
 
       // 4. Bookmarks + notes (lists).
-      safe(
+      track(
         api.fetchBookmarks(userId).then((res: any) => {
           const rows = res.questions || [];
           store.savePage('bookmarks-data', rows);
@@ -109,7 +125,7 @@ export function warmSession(userId: string): void {
           store.savePage('bookmarks-ids', rows.map((q: any) => q.id));
         })
       );
-      safe(
+      track(
         api.fetchNotes(userId).then(async (res: any) => {
           const map = res.notes || {};
           store.savePage('notes-map', map);
@@ -132,7 +148,7 @@ export function warmSession(userId: string): void {
       );
 
       // 5. About stats + references.
-      safe(
+      track(
         Promise.all([
           api.fetchQuestionsCount().catch(() => null),
           api.fetchCategories().catch(() => null),
@@ -147,7 +163,7 @@ export function warmSession(userId: string): void {
       );
 
       // 6. Feedback threads.
-      safe(
+      track(
         api.fetchMyFeedback().then((r: any) => {
           store.savePage('feedback-data', r.feedback || []);
         }).catch(() => {})
@@ -155,6 +171,10 @@ export function warmSession(userId: string): void {
     } catch {
       /* warmer never breaks the page */
     } finally {
+      // Wait for the background fetches before declaring the session warm.
+      // Setting this in the finally block WITHOUT awaiting is what let a page
+      // reached during warm-up find every snapshot empty and fetch for itself.
+      await Promise.all(pending);
       warmed = true;
       warming = null;
     }
@@ -163,6 +183,20 @@ export function warmSession(userId: string): void {
     warmed = true;
     warming = null;
   });
+}
+
+/** Resolves once the background warm-up has actually landed.
+ *
+ *  Pages await this before deciding whether to fetch, so a page reached a
+ *  moment after login waits for the snapshot instead of racing it and
+ *  refetching what is already on its way. */
+export function whenWarmed(): Promise<void> {
+  return warming ? warming.catch(() => {}) : Promise.resolve();
+}
+
+/** True once every prewarm request has settled. */
+export function isWarmed(): boolean {
+  return warmed;
 }
 
 /** Test hook: allow re-warm. */

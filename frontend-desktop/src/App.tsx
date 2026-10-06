@@ -173,6 +173,27 @@ function AppShell() {
     setSessionTokenState('');
   }, []);
 
+  // Warm every section's snapshot as soon as there is an identity, wherever the
+  // user happens to land. It used to be fired only by the home page, so opening
+  // /progress or /quiz directly (a bookmark, a refresh, a shared link) warmed
+  // nothing and those pages fetched everything on mount.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        // The sidebar prewarms on pointer intent and must know who is signed
+        // in without reaching into context itself.
+        const { configurePrewarm } = await import('@/utils/routePrewarm');
+        configurePrewarm(() => userId);
+        const m = await import('@/utils/sessionWarm');
+        if (cancelled) return;
+        m.warmSession(userId);
+      } catch { /* warmer never blocks the app */ }
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+
   const handleSetUserId = useCallback((id: string) => {
     // Also re-point the snapshot store at whoever is signing in. That makes the
     // wipe independent of which sign-out path ran, so a missed one cannot leak.
