@@ -220,7 +220,15 @@ const QuizTaker: React.FC = () => {
               ]);
               if (totalResp) setSetupTotal(totalResp.count);
               if (categoriesResp) setSetupCategories(categoriesResp);
-              if (wrongQueueResp) setSetupWrongCount(wrongQueueResp.questions?.length || 0);
+              if (wrongQueueResp) {
+                const wq = wrongQueueResp.questions || [];
+                setSetupWrongCount(wq.length);
+                // Same snapshots the desktop writes, so both apps stay instant.
+                try {
+                  const { saveWrongQueue } = await import('@/utils/snapshotInvalidation');
+                  saveWrongQueue(wq.length, wq);
+                } catch { /* snapshots simply refresh next visit */ }
+              }
               if (!totalResp) {
                 // Offline: show downloaded pack size instead
                 try {
@@ -471,9 +479,11 @@ const QuizTaker: React.FC = () => {
       savePage('quiz-setup-total', totalResp.count);
       setSetupCategories(categoriesResp);
       savePage('quiz-setup-cats', categoriesResp);
-      const wq = wrongQueueResp.questions?.length || 0;
-      setSetupWrongCount(wq);
-      savePage('quiz-setup-wrong', wq);
+      const wq = wrongQueueResp.questions || [];
+      setSetupWrongCount(wq.length);
+      void import('@/utils/snapshotInvalidation').then((m) => {
+        try { m.saveWrongQueue(wq.length, wq); } catch { /* refresh next visit */ }
+      });
     }).catch(() => {});
   }, [userId]);
 
@@ -947,7 +957,12 @@ const QuizTaker: React.FC = () => {
     ]).then(([totalResp, categoriesResp, wrongQueueResp]) => {
       setSetupTotal(totalResp.count);
       setSetupCategories(categoriesResp);
-      setSetupWrongCount(wrongQueueResp.questions?.length || 0);
+      const wq = wrongQueueResp.questions || [];
+      setSetupWrongCount(wq.length);
+      try {
+        // Dynamic so a summary import cannot cycle back into this component.
+        void import('@/utils/snapshotInvalidation').then((m) => { try { m.saveWrongQueue(wq.length, wq); } catch {} });
+      } catch { /* snapshots simply refresh next visit */ }
     }).catch(() => {});
   };
   const restartFromCurrent = () => {

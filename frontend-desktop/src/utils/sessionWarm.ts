@@ -63,18 +63,20 @@ export function warmSession(userId: string): void {
           api.fetchQuestionsCount().catch(() => null),
           api.fetchCategories().catch(() => null),
           api.fetchWrongQueue(userId).catch(() => null),
-        ]).then(([total, cats, wq]) => {
+        ]).then(async ([total, cats, wq]) => {
           if (total) {
             store.savePage('quiz-setup-total', (total as any).count);
           }
           if (cats) store.savePage('quiz-setup-cats', cats as any);
-          const wqn = (wq as any)?.count ?? (wq as any)?.questions?.length ?? 0;
-          store.savePage('quiz-setup-wrong', wqn);
-          // The Progress page reads its review-queue count from a DIFFERENT
-          // key, and the warmer only filled the setup screen's. So the Progress
-          // page always fetched on mount: the wrong-questions count was the one
-          // number on the site that was never instant. One fetch, both keys.
-          store.savePage('progress-wrong', wqn);
+          const wqQs = (wq as any)?.questions;
+          const wqn = (wq as any)?.count ?? wqQs?.length ?? 0;
+          // One fetch fills the setup screen's count, the Progress page's
+          // count (a DIFFERENT key - missing this is why Progress always
+          // fetched on mount), and the Review screen's per-category metadata.
+          try {
+            const { saveWrongQueue } = await import('@/utils/snapshotInvalidation');
+            saveWrongQueue(wqn, Array.isArray(wqQs) ? wqQs : undefined);
+          } catch { /* snapshots simply refresh next visit */ }
           store.savePage('mock-setup-total', (total as any)?.count ?? 0);
           if (cats) store.savePage('mock-setup-cats', cats as any);
         })

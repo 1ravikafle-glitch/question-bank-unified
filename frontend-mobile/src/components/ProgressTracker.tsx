@@ -123,7 +123,13 @@ const ProgressTracker: React.FC = () => {
   useEffect(() => {
     if (!userId) return;
     if (readPage('progress-wrong') !== null) return;
-    fetchWrongQueue(userId).then(q => { setWrongQueueCount(q.count || 0); savePage('progress-wrong', q.count || 0); }).catch(() => {});
+    fetchWrongQueue(userId).then((q) => {
+      const qs = q.questions || [];
+      setWrongQueueCount(q.count || qs.length || 0);
+      void import('@/utils/snapshotInvalidation').then((m) => {
+        try { m.saveWrongQueue(q.count || qs.length || 0, qs); } catch { /* refresh next visit */ }
+      });
+    }).catch(() => {});
   }, [userId]);
 
   const currentAttempted = data ? (view === 'weekly' ? data.weekly_attempted : data.lifetime_attempted) : 0;

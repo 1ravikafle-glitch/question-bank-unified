@@ -82,7 +82,11 @@ export function refreshAfterSubmit(userIdentifier: string): void {
         // the quiz setup screen shows, so it is new-data-instant too.
         store.markDirty('progress-wrong');
         fetchWrongQueue(userIdentifier).then((q) => {
-          store.savePage('quiz-setup-wrong', q.count || q.questions?.length || 0);
+          const qs = q.questions || [];
+          // Dynamic like the store import above: same cycle concern.
+          void import('@/utils/snapshotInvalidation').then((m) => {
+            try { m.saveWrongQueue(q.count || qs.length || 0, qs); } catch { /* refresh next visit */ }
+          });
         }).catch(() => store.markDirty('quiz-setup-wrong'));
       } catch { /* next visit fetches */ }
       // Dashboard swr: trigger its background revalidation path.

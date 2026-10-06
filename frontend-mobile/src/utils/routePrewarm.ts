@@ -44,11 +44,12 @@ async function warmQuizSetup(userId: string) {
     const c = await fetchCategories().catch(() => null);
     if (c) s.savePage('quiz-setup-cats', c);
   }
-  if (!s.hasPage('quiz-setup-wrong') || !s.hasPage('progress-wrong')) {
+  if (!s.hasPage('quiz-setup-wrong') || !s.hasPage('progress-wrong') || !s.hasPage('wrong-review-meta')) {
     const w = await fetchWrongQueue(userId).catch(() => null);
-    const n = w?.count ?? w?.questions?.length ?? 0;
-    s.savePage('quiz-setup-wrong', n);
-    s.savePage('progress-wrong', n);
+    const qs = w?.questions;
+    const n = w?.count ?? qs?.length ?? 0;
+    const { saveWrongQueue } = await import('@/utils/snapshotInvalidation');
+    saveWrongQueue(n, Array.isArray(qs) ? qs : undefined);
   }
 }
 
@@ -56,11 +57,12 @@ async function warmWrongPractice(userId: string) {
   // The wrong-review screen states the queue size and offers a category
   // filter, so it needs both.
   const [{ fetchWrongQueue, fetchCategories }, s] = await Promise.all([api(), store()]);
-  if (!s.hasPage('quiz-setup-wrong') || !s.hasPage('progress-wrong')) {
+  if (!s.hasPage('quiz-setup-wrong') || !s.hasPage('progress-wrong') || !s.hasPage('wrong-review-meta')) {
     const w = await fetchWrongQueue(userId).catch(() => null);
-    const n = w?.count ?? w?.questions?.length ?? 0;
-    s.savePage('quiz-setup-wrong', n);
-    s.savePage('progress-wrong', n);
+    const qs = w?.questions;
+    const n = w?.count ?? qs?.length ?? 0;
+    const { saveWrongQueue } = await import('@/utils/snapshotInvalidation');
+    saveWrongQueue(n, Array.isArray(qs) ? qs : undefined);
   }
   if (!s.hasPage('quiz-setup-cats')) {
     const c = await fetchCategories().catch(() => null);
@@ -79,7 +81,9 @@ async function warmProgress(userId: string) {
   }
   if (!s.hasPage('progress-wrong')) {
     const w = await fetchWrongQueue(userId).catch(() => null);
-    s.savePage('progress-wrong', w?.count ?? w?.questions?.length ?? 0);
+    const qs = w?.questions;
+    const { saveWrongQueue } = await import('@/utils/snapshotInvalidation');
+    saveWrongQueue(w?.count ?? qs?.length ?? 0, Array.isArray(qs) ? qs : undefined);
   }
 }
 

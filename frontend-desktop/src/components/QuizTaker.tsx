@@ -14,6 +14,7 @@ import {
   fetchQuestions, refreshAfterSubmit } from '../services/api';
 import { ensureBank, peekBank, pickRandom, pickByIds, pickById, bankFacets, bankSize, ensureSessionBank } from '@/utils/bankStore';
 import { savePage, readPage } from '@/utils/pageStore';
+import { saveWrongQueue, type WrongReviewMeta } from '@/utils/snapshotInvalidation';
 import { sortCategories } from '@/utils/categorySort';
 import { fetchCategoryEmoji, guessEmoji } from '@/utils/categoryEmoji';
 import { type Question, type QuizResult, MIN_QUESTIONS_FOR_HISTORY } from '@/shared/types';
@@ -200,9 +201,9 @@ const QuizTaker: React.FC = () => {
   );
   // Wrong-question mode never auto-starts: the user confirms first.
   const [wrongReady, setWrongReady] = useState(false);
-  const [wrongTotal, setWrongTotal] = useState<number | null>(null);
-  const [wrongCats, setWrongCats] = useState<string[]>([]);
-  const [wrongCatCounts, setWrongCatCounts] = useState<Record<string, number>>({});
+  const [wrongTotal, setWrongTotal] = useState<number | null>(() => readPage<WrongReviewMeta>('wrong-review-meta')?.total ?? readPage<number>('quiz-setup-wrong') ?? null);
+  const [wrongCats, setWrongCats] = useState<string[]>(() => readPage<WrongReviewMeta>('wrong-review-meta')?.cats ?? []);
+  const [wrongCatCounts, setWrongCatCounts] = useState<Record<string, number>>(() => readPage<WrongReviewMeta>('wrong-review-meta')?.catCounts ?? {});
   const [wrongCategory, setWrongCategory] = useState('');
   const [wrongPool, setWrongPool] = useState<Question[]>([]);
 
@@ -260,7 +261,13 @@ const QuizTaker: React.FC = () => {
 
   useEffect(() => {
     const loadQuestions = async () => {
-      setLoading(true);
+      // The wrong-review confirm screen renders from its snapshot instantly and
+      // revalidates silently underneath: setting loading=true here would flash a
+      // skeleton over numbers we already know. Every other mode keeps the old
+      // behaviour because it has no snapshot to show.
+      const skipLoadingState =
+        isPracticeWrongMode && !wrongReady && readPage('wrong-review-meta') !== null;
+      if (!skipLoadingState) setLoading(true);
       try {
         if (isPracticeWrongMode && !wrongReady) {
           // Confirm screen: load the pool once for category counts, start
@@ -279,6 +286,9 @@ const QuizTaker: React.FC = () => {
             });
             setWrongCatCounts(counts);
             setWrongCats(sortCategories(Object.keys(counts)));
+            // Keep the snapshot warm so the next visit renders instantly from
+            // it instead of refetching the whole pool to display a count.
+            try { saveWrongQueue(pool.length, pool); } catch { /* refresh next visit */ }
             if (wrongCategory && counts[wrongCategory] == null) setWrongCategory('');
           } catch {
             setWrongTotal(0);
@@ -588,9 +598,9 @@ const QuizTaker: React.FC = () => {
       savePage('quiz-setup-total', totalResp.count);
       setSetupCategories(categoriesResp);
       savePage('quiz-setup-cats', categoriesResp);
-      const wq = wrongQueueResp.questions?.length || 0;
-      setSetupWrongCount(wq);
-      savePage('quiz-setup-wrong', wq);
+      const wq = wrongQueueResp.questions || [];
+      setSetupWrongCount(wq.length);
+      try { saveWrongQueue(wq.length, wq); } catch { /* refresh next visit */ }
     }).catch(() => {});
   }, [userId]);
 
