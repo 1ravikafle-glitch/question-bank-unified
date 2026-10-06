@@ -15,7 +15,7 @@ export const fetchMyFeedback = async (): Promise<{ feedback: FeedbackThread[] }>
   return response.data;
 };
 
-/** Submit a suggestion. Server enforces 2 per rolling 6 hours (429 beyond). */
+/** Submit a suggestion. Server enforces 2 per rolling 24h per account (429 beyond). */
 
 export const sendFeedback = async (message: string) => {
   const response = await api.post('/feedback', { message });

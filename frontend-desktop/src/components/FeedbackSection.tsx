@@ -28,7 +28,8 @@ const STATUS_LABEL: Record<string, string> = {
    The author is authenticated (rate limit + own-thread visibility need it),
    but the admin never sees who wrote what - the backend strips identity from
    admin reads structurally. Authors see only their own threads here.
-   Limit: 2 per rolling 6 hours (enforced server-side; the button explains). */
+   Limit: 2 per rolling 24 hours per ACCOUNT (enforced server-side; the text
+   below states it). */
 export default function FeedbackSection({ list, send }: Props) {
   const [threads, setThreads] = useState<FeedbackThread[]>(() => readPage<FeedbackThread[]>('feedback-data') ?? []);
   const [loading, setLoading] = useState(() => !readPage('feedback-data'));
@@ -86,7 +87,7 @@ export default function FeedbackSection({ list, send }: Props) {
       </h2>
       <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem', lineHeight: 1.5 }}>
         Private and anonymous: the admin sees what you wrote and can reply, but never who wrote it.
-        Only you and the admin can see your thread. Limit {2} per {6} hours.
+        Only you and the admin can see your thread. Limit {2} suggestions per day.
       </p>
 
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>

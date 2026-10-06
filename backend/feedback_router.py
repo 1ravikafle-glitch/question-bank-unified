@@ -6,7 +6,13 @@ Privacy design (read the model docstring too):
   exclude it structurally - not by forgetting a field, but because the admin
   serializer has no path to it.
 - Authors see only their own threads (caller-scoped, like progress).
-- 2 messages per rolling 6 hours per account. The count query is indexed.
+- 2 messages per rolling 24 hours per ACCOUNT (not per IP - the caller identity
+  comes from the session token, so one person cannot get a fresh allowance by
+  switching address, and a shared NAT cannot exhaust a stranger's quota).
+  Rolling 24h rather than a calendar day: a calendar boundary would allow 4
+  messages in two minutes across midnight, which is not what "2 per day" means
+  to the person it is meant to protect. The count query filters on the indexed
+  user_identifier first, so the created_at comparison runs on a handful of rows.
 """
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,10 +26,15 @@ import session
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
-MAX_PER_WINDOW = 2
-WINDOW_HOURS = 6
+MAX_PER_DAY = 2
+WINDOW_HOURS = 24
 MAX_LEN = 2000
 VALID_STATUSES = {"pending", "accepted", "applied", "rejected"}
+# User-facing wording, kept as one value so the API error, the UI and the
+# privacy policy cannot drift apart. All three are published text: the policy
+# states this limit to users, so changing the number here without changing it
+# there would leave a false claim published.
+LIMIT_LABEL = f"{MAX_PER_DAY} suggestions per day"
 
 
 class FeedbackCreate(BaseModel):
@@ -82,10 +93,10 @@ def submit_feedback(
         )
         .count()
     )
-    if recent >= MAX_PER_WINDOW:
+    if recent >= MAX_PER_DAY:
         raise HTTPException(
             status_code=429,
-            detail=f"Limit reached: {MAX_PER_WINDOW} suggestions per {WINDOW_HOURS} hours. Try again later.",
+            detail=f"Limit reached: {LIMIT_LABEL}. Try again later.",
         )
     try:
         row = models.Feedback(user_identifier=user, message=text[:MAX_LEN])

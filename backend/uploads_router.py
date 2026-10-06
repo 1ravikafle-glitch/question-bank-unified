@@ -541,6 +541,53 @@ def set_past_paper_title(
     return {"ok": True, "id": row.id, "title": row.title}
 
 
+@router.delete("/past-papers/{paper_id}")
+def delete_past_paper(
+    paper_id: int,
+    db: Session = Depends(database.get_db),
+    caller: Tuple[str, bool] = Depends(session.require_admin),
+):
+    """Delete a paper outright. Admin only, and deliberately irreversible.
+
+    Papers live in `contribution_requests`, the same table as the approval queue,
+    so deleting the row removes it from the public list, the admin queue and the
+    review history at once. For a whole PDF that also drops `pdf_bytes`, which is
+    the only copy - hence no soft delete and no undo here. Renaming a paper is
+    the reversible operation; this is the one that is not.
+
+    Guarded on status: a paper that is still `pending` is part of someone's
+    review queue rather than published content, and deleting it would silently
+    discard a contribution nobody has judged yet. Those get a 409 pointing at
+    approve/reject, which is the path that leaves the contributor informed.
+    """
+    row = db.query(models.ContributionRequest).filter(
+        models.ContributionRequest.id == paper_id
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    if (row.status or "") != "approved":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Only an approved paper can be deleted. This one is "
+                f"'{row.status}' - approve or reject it instead."
+            ),
+        )
+
+    title = row.title or row.filename or f"paper-{paper_id}"
+    had_bytes = bool(row.pdf_bytes)
+    size = int(row.pdf_size or 0) or len(row.pdf_bytes or b"")
+
+    db.delete(row)
+    db.commit()
+
+    freed = f", freed {size} bytes of PDF" if had_bytes else ""
+    print(f"[ADMIN] deleted past paper #{paper_id} ({title!r}{freed})", file=sys.stderr)
+    return {"ok": True, "id": paper_id, "title": title,
+            "freed_bytes": size if had_bytes else 0}
+
+
 @router.get("/past-papers/{paper_id}/download")
 def download_past_paper(
     paper_id: int,

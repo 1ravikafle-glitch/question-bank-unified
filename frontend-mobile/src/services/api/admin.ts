@@ -143,6 +143,22 @@ export const downloadPastPaper = async (paperId: number): Promise<Blob> => {
   return response.data;
 };
 
+/**
+ * Delete an approved past paper. Irreversible: for a whole PDF the stored bytes
+ * are the only copy. The backend refuses anything still `pending` with a 409, so
+ * a contribution in the review queue must be approved or rejected rather than
+ * deleted.
+ */
+export const deletePastPaper = async (paperId: number): Promise<{
+  ok: boolean;
+  id: number;
+  title: string;
+  freed_bytes: number;
+}> => {
+  const response = await api.delete(`/uploads/past-papers/${paperId}`);
+  return response.data;
+};
+
 
 export const fetchAdminContributors = async (): Promise<{ contributors: ContributorItem[] }> => {
   const response = await api.get('/admin/contributors');

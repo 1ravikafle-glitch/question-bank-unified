@@ -2847,6 +2847,28 @@
   color: hsl(var(--primary));
 }
 
+
+/* Destructive action on an outline button: admin delete of a published paper.
+   Outline rather than solid on purpose - it sits beside "Download" on the same
+   row, and a filled red button would read as the primary action there.
+   --destructive is the same token .btn-destructive uses, so the two cannot
+   drift apart. */
+.btn-outline.danger {
+  color: hsl(var(--destructive));
+  border-color: hsl(var(--destructive) / 0.4);
+}
+.btn-outline.danger:hover:not(:disabled) {
+  background-color: hsl(var(--destructive) / 0.10);
+  border-color: hsl(var(--destructive) / 0.6);
+  color: hsl(var(--destructive));
+}
+.btn-outline.danger:active:not(:disabled) {
+  background-color: hsl(var(--destructive) / 0.16);
+}
+.btn-outline.danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .btn-icon:hover:not(:disabled) {
   background-color: hsl(var(--primary) / 0.11);
   color: hsl(var(--primary));

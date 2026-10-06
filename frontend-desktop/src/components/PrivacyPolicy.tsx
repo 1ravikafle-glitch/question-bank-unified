@@ -99,7 +99,7 @@ export default function PrivacyPolicy() {
         </Section>
 
         <Section title="6. Feedback you send">
-          <p>Suggestions sent through the Feedback page are stored with your account so you can see the thread and any admin reply, and so the limit (2 per 6 hours) works. The admin sees the message and reply history only: never your username, address, or any identifier. Nobody else sees your feedback at all.</p>
+          <p>Suggestions sent through the Feedback page are stored with your account so you can see the thread and any admin reply, and so the limit (2 per day) works. The admin sees the message and reply history only: never your username, address, or any identifier. Nobody else sees your feedback at all.</p>
         </Section>
 
         <Section title="7. Children">

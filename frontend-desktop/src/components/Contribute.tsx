@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { fetchCategories, fetchPastPapers, downloadPastPaper } from '../services/api';
+import { fetchCategories, fetchPastPapers, downloadPastPaper, deletePastPaper } from '../services/api';
 import { AuthContext } from '@/context/AuthContext';
+import { isAdmin } from '@/config/admin';
 import { useSfx } from '@/hooks/useSfx';
 import { sortCategories } from '@/utils/categorySort';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -80,6 +81,8 @@ const tabBtn = (active: boolean): React.CSSProperties => ({
    wait for admin approval; only the last two add questions. */
 const Contribute: React.FC = () => {
   const { userId } = useContext(AuthContext);
+  /* Read from the signed session token's admin claim, not from a name list. */
+  const admin = isAdmin(userId ?? '');
   const { sfxClick } = useSfx();
   const { t, num } = useLang();
   const [categories, setCategories] = useState<string[]>([]);
@@ -98,6 +101,8 @@ const Contribute: React.FC = () => {
   const [tab, setTab] = useState<'papers' | 'contribute'>('papers');
   const [papers, setPapers] = useState<PastPaper[]>([]);
   const [papersLoading, setPapersLoading] = useState(true);
+  /* Which paper is mid-delete, for the row's own busy state. */
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [downloading, setDownloading] = useState<number | null>(null);
 
@@ -223,6 +228,44 @@ const Contribute: React.FC = () => {
     setError('');
     setPhase('idle');
     if (fileRef.current) fileRef.current.value = '';
+  };
+
+  /* Admin-only. Deletes the row outright, which for a whole PDF drops the only
+     copy of the bytes, so it asks first and names the paper. A `pending` paper
+     cannot be deleted (the backend answers 409): a contribution nobody has
+     judged yet must be approved or rejected so the contributor finds out. */
+  const removePaper = async (p: PastPaper) => {
+    const name = (p.kind === 'pdf' ? p.title : null) || p.filename || `paper ${p.id}`;
+    const what = p.kind === 'pdf'
+      ? `"${name}" and the stored PDF itself`
+      : `"${name}"`;
+    if (!window.confirm(
+      `Delete ${what}?\n\nThis cannot be undone. The file is removed for everyone, ` +
+      `not just hidden.`,
+    )) return;
+    sfxClick();
+    setDeleting(p.id);
+    try {
+      const r = await deletePastPaper(p.id);
+      setPapers((list) => list.filter((x) => x.id !== p.id));
+      setOpenId((cur) => (cur === p.id ? null : cur));
+      toast.success(
+        r.freed_bytes
+          ? `Deleted. Freed ${(r.freed_bytes / 1024 / 1024).toFixed(1)} MB.`
+          : 'Paper deleted.',
+        { duration: 2500 },
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '';
+      // Surface the server's own wording: the 409 explains why a pending paper
+      // cannot be removed, which is more useful than a generic failure.
+      const detail = /409|approve or reject/i.test(msg) || /pending/i.test(msg)
+        ? 'That paper is still awaiting review. Approve or reject it instead of deleting.'
+        : 'Could not delete that paper.';
+      toast.error(detail, { duration: 4000 });
+    } finally {
+      setDeleting(null);
+    }
   };
 
   const download = async (p: PastPaper) => {
@@ -374,6 +417,20 @@ const Contribute: React.FC = () => {
                     >
                       {downloading === p.id ? '…' : 'Download'}
                     </button>
+                    {/* Admin only. Everyone else sees the paper as read-only
+                        content, which is what a published paper is. */}
+                    {admin && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm danger"
+                        onClick={() => removePaper(p)}
+                        disabled={deleting === p.id}
+                        aria-label={`Delete ${(p.kind === 'pdf' ? p.title : null) || p.filename}`}
+                        title="Delete this paper for everyone. Cannot be undone."
+                      >
+                        {deleting === p.id ? '…' : 'Delete'}
+                      </button>
+                    )}
                   </div>
                 </div>
 
