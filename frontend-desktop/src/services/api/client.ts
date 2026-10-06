@@ -63,6 +63,8 @@ export const SESSION_TOKEN_KEY = 'fpsc-session';
 
 export const OFFLINE_NO_PACK = 'OFFLINE_NO_PACK';
 export const OFFLINE_QUEUED = 'OFFLINE_QUEUED';
+/** Offline AND the local queue write failed: the score is shown but cannot sync. */
+export const OFFLINE_UNSAVED = 'OFFLINE_UNSAVED';
 
 export const isNetworkError = (e: any) =>
   !e?.response && (e?.code === 'ERR_NETWORK' || e?.message === 'Network Error' || e instanceof TypeError);

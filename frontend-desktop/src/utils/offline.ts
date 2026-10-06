@@ -19,8 +19,17 @@ export interface QueuedAttempt {
   negativeMarking?: number;
 }
 
+/** A stuck open must fail fast rather than wedge the caller forever. */
+const OPEN_DB_TIMEOUT_MS = 4000;
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
+    // Without this the promise can hang FOREVER. When another connection still
+    // holds an older version, indexedDB.open fires `blocked` and then never
+    // fires success or error - so an offline submit awaiting queueAttempt()
+    // would spin forever, leaving `submitting` true and every quiz control
+    // disabled with no way out. That is exactly the "offline quiz hangs" report.
+    const timer = setTimeout(() => reject(new Error('IndexedDB open timed out')), OPEN_DB_TIMEOUT_MS);
     try {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = () => {
@@ -28,9 +37,13 @@ function openDB(): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv', { keyPath: 'k' });
         if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'id', autoIncrement: true });
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      req.onsuccess = () => { clearTimeout(timer); resolve(req.result); };
+      req.onerror = () => { clearTimeout(timer); reject(req.error); };
+      // Fired when another connection blocks the upgrade. Without a handler the
+      // promise hangs forever, so the caller falls back instead of waiting.
+      req.onblocked = () => { clearTimeout(timer); reject(new Error('IndexedDB open blocked by another connection')); };
     } catch (e) {
+      clearTimeout(timer);
       reject(e);
     }
   });

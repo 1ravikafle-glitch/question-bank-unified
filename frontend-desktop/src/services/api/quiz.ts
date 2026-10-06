@@ -1,5 +1,5 @@
 import type { Question, QuestionCreate, QuizSubmission, QuizResult, UserProgress, QuizAttempt, PaginatedResponse, QuestionsFilterParams, QuizParams } from '@/shared/types';
-import { api, swr, isNetworkError, OFFLINE_QUEUED } from './client';
+import { api, swr, isNetworkError, OFFLINE_QUEUED, OFFLINE_UNSAVED } from './client';
 export const submitQuiz = async (
   answers: Record<number, string>,
   username: string = '',
@@ -10,10 +10,19 @@ export const submitQuiz = async (
     return response.data;
   } catch (e) {
     if (!isNetworkError(e)) throw e;
-    // Offline: queue for sync, caller shows local scoring
-    const { queueAttempt } = await import('@/utils/offline');
+    // Offline: queue for sync, caller shows local scoring.
+    //
+    // The queue write is best-effort. If IndexedDB refuses it - blocked by
+    // another tab, over quota, or private browsing - the user still gets their
+    // score shown rather than an error screen, and OFFLINE_UNSAVED tells the
+    // caller to say so instead of promising a sync that will never happen.
     const total = Object.keys(answers).length;
-    await queueAttempt({ username, answers, total, negativeMarking });
+    try {
+      const { queueAttempt } = await import('@/utils/offline');
+      await queueAttempt({ username, answers, total, negativeMarking });
+    } catch {
+      throw new Error(OFFLINE_UNSAVED);
+    }
     throw new Error(OFFLINE_QUEUED);
   }
 };

@@ -501,8 +501,18 @@ const QuizTaker: React.FC = () => {
         try {
           result = await submitQuiz(answersPayload, userId || 'anonymous', examNegative);
         } catch (e: any) {
-          if (e?.message === 'OFFLINE_QUEUED') {
+          if (e?.message === 'OFFLINE_QUEUED' || e?.message === 'OFFLINE_UNSAVED') {
             result = scoreLocally(questions, finalSelected, examNegative);
+            // Say so. This used to be silent: the only signal was a line of grey
+            // text on the results screen, which most people read past. If the
+            // local queue write also failed, say THAT instead, because the
+            // result will not sync and claiming otherwise would be a lie.
+            toast(
+              e?.message === 'OFFLINE_UNSAVED'
+                ? 'Offline. Scored, but this result could not be saved on the device.'
+                : 'Offline. Result saved here and will sync when you reconnect.',
+              { icon: '📴', duration: 5000 },
+            );
           } else {
             throw e;
           }
