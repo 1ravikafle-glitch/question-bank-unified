@@ -144,11 +144,18 @@ const QuizTaker: React.FC = () => {
   const [setupWrongCount, setSetupWrongCount] = useState(() => readPage<number>('quiz-setup-wrong') ?? 0);
   const [setupQuizCount, setSetupQuizCount] = useState(10);
   const [setupBeastMode, setSetupBeastMode] = useState(false);
-  const [setupBmIds, setSetupBmIds] = useState<number[]>([]);
+  const [setupBmIds, setSetupBmIds] = useState<number[]>(() => readPage<number[]>('bookmarks-ids') ?? []);
 
+  // Reads the prewarmed `bookmarks-ids` first - the only fetch this screen used
+  // to make on mount - then revalidates silently.
   useEffect(() => {
     if (!showSetup || !userId) return;
-    fetchBookmarkIds(userId).then((r) => setSetupBmIds(r.ids)).catch(() => {});
+    const snap = readPage<number[]>('bookmarks-ids');
+    if (snap) setSetupBmIds(snap);
+    fetchBookmarkIds(userId).then((r) => {
+      setSetupBmIds(r.ids);
+      try { savePage('bookmarks-ids', r.ids); } catch { /* refresh next visit */ }
+    }).catch(() => {});
   }, [showSetup, userId]);
   const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
   const [setupCategory, setSetupCategory] = useState('');
@@ -211,7 +218,14 @@ const QuizTaker: React.FC = () => {
               }
             } catch {}
             setResumeInfo(resume);
-            // Fall through to setup screen below
+            // Fall through to setup screen below.
+            //
+            // Render FIRST from snapshot, revalidate silently after. Awaiting
+            // all three fetches - including the entire wrong-question pool -
+            // before showing anything meant 2-3s of skeleton on every visit
+            // over a real network, for numbers that had not changed.
+            setShowSetup(true);
+            setLoading(false);
             try {
               const [totalResp, categoriesResp, wrongQueueResp] = await Promise.all([
                 fetchQuestionsCount().catch(() => null),
@@ -247,8 +261,6 @@ const QuizTaker: React.FC = () => {
             } catch (err) {
               console.error('Error loading setup data:', err);
             }
-            setShowSetup(true);
-            setLoading(false);
             return;
           }
         }

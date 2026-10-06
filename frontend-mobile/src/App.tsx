@@ -161,8 +161,27 @@ function AppShell() {
 
   // Warm every section's snapshot as soon as there is an identity, wherever the
   // user lands. It used to fire only from the home page.
+  //
+  // Route code is preloaded too, not just data. Every screen is React.lazy, so
+  // the first visit to any of them downloaded its chunks before anything could
+  // mount. Prefetching at idle moves that download to the load the user is
+  // already waiting through.
   useEffect(() => {
     if (!userId) return;
+    const idle = (fn: () => void): void => {
+      try {
+        const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+        if (typeof w.requestIdleCallback === 'function') { w.requestIdleCallback(fn, { timeout: 8000 }); return; }
+      } catch { /* fall through */ }
+      setTimeout(fn, 2500);
+    };
+    idle(() => {
+      void import('./components/QuizTaker').catch(() => {});
+      void import('./components/ProgressTracker').catch(() => {});
+      void import('./components/Bookmarks').catch(() => {});
+      void import('./components/ResultsScreen').catch(() => {});
+      void import('./components/QuestionsBank').catch(() => {});
+    });
     let cancelled = false;
     void (async () => {
       try {

@@ -217,12 +217,19 @@ const QuizTaker: React.FC = () => {
   const [setupTotal, setSetupTotal] = useState(() => readPage<number>('quiz-setup-total') ?? 0);
   const [setupWrongCount, setSetupWrongCount] = useState(() => readPage<number>('quiz-setup-wrong') ?? 0);
   const [setupQuizCount, setSetupQuizCount] = useState(10);
-  const [setupBmIds, setSetupBmIds] = useState<number[]>([]);
+  const [setupBmIds, setSetupBmIds] = useState<number[]>(() => readPage<number[]>('bookmarks-ids') ?? []);
 
-  // Bookmark source for the setup card (refreshed whenever setup shows).
+  // Bookmark source for the setup card (refreshed whenever setup shows). Reads
+  // the prewarmed `bookmarks-ids` first - the only fetch this screen used to
+  // make on mount - then revalidates silently.
   useEffect(() => {
     if (!showSetup || !userId) return;
-    fetchBookmarkIds(userId).then((r) => setSetupBmIds(r.ids)).catch(() => {});
+    const snap = readPage<number[]>('bookmarks-ids');
+    if (snap) setSetupBmIds(snap);
+    fetchBookmarkIds(userId).then((r) => {
+      setSetupBmIds(r.ids);
+      try { savePage('bookmarks-ids', r.ids); } catch { /* refresh next visit */ }
+    }).catch(() => {});
   }, [showSetup, userId]);
   const [setupBeastMode, setSetupBeastMode] = useState(false);
   const [resumeInfo, setResumeInfo] = useState<{ index: number; total: number } | null>(null);
@@ -329,16 +336,36 @@ const QuizTaker: React.FC = () => {
               }
             } catch {}
             setResumeInfo(resume);
-            // Fall through to setup screen below
+            // Fall through to setup screen below.
+            //
+            // Render FIRST from snapshot, revalidate silently after. This used
+            // to await all three fetches - including the entire wrong-question
+            // pool, hundreds of kilobytes - before flipping showSetup, with
+            // `if (loading) return <QuizSkeleton />` above everything. The
+            // snapshot-initialized state underneath was invisible until the
+            // slowest fetch resolved: 2-3s of skeleton on every visit over a
+            // real network, for numbers that had not changed. Setup numbers
+            // move only when the bank grows or the wrong queue changes, both
+            // of which invalidate, so showing the stored set immediately is
+            // correct and the refresh lands silently a moment later.
+            setShowSetup(true);
+            setLoading(false);
             try {
               const [totalResp, categoriesResp, wrongQueueResp] = await Promise.all([
                 fetchQuestionsCount().catch(() => null),
                 fetchCategories().catch(() => null),
                 fetchWrongQueue(userId || 'anonymous').catch(() => null),
               ]);
-              if (totalResp) setSetupTotal(totalResp.count);
-              if (categoriesResp) setSetupCategories(categoriesResp);
-              if (wrongQueueResp) setSetupWrongCount(wrongQueueResp.questions?.length || 0);
+              if (totalResp) { setSetupTotal(totalResp.count); savePage('quiz-setup-total', totalResp.count); }
+              if (categoriesResp) { setSetupCategories(categoriesResp); savePage('quiz-setup-cats', categoriesResp); }
+              if (wrongQueueResp) {
+                const wq = wrongQueueResp.questions || [];
+                setSetupWrongCount(wq.length);
+                try {
+                  const { saveWrongQueue } = await import('@/utils/snapshotInvalidation');
+                  saveWrongQueue(wq.length, wq);
+                } catch { /* snapshots simply refresh next visit */ }
+              }
               if (!totalResp) {
                 // Offline: show downloaded pack size instead
                 try {
@@ -357,8 +384,6 @@ const QuizTaker: React.FC = () => {
             } catch (err) {
               console.error('Error loading setup data:', err);
             }
-            setShowSetup(true);
-            setLoading(false);
             return;
           }
         }

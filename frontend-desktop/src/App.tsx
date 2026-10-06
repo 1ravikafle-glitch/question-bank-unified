@@ -177,6 +177,34 @@ function AppShell() {
   // user happens to land. It used to be fired only by the home page, so opening
   // /progress or /quiz directly (a bookmark, a refresh, a shared link) warmed
   // nothing and those pages fetched everything on mount.
+  //
+  // Route code is preloaded too, not just data. Every screen below the fold is
+  // React.lazy, so the first visit to /quiz downloaded 7 chunks before anything
+  // could mount: click-to-paint measured 38ms of React with ZERO data fetches,
+  // and the rest of the user's wait was JavaScript arriving over the wire.
+  // Prefetching the chunks at idle moves that download to the home load the
+  // user is already waiting through. requestIdleCallback with a setTimeout
+  // fallback, lowest priority, never competing with interaction.
+  useEffect(() => {
+    if (!userId) return;
+    const idle = (fn: () => void): void => {
+      try {
+        const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+        if (typeof w.requestIdleCallback === 'function') { w.requestIdleCallback(fn, { timeout: 8000 }); return; }
+      } catch { /* fall through */ }
+      setTimeout(fn, 2500);
+    };
+    idle(() => {
+      // The five screens behind every daily tap. Admin + legal pages stay lazy:
+      // prefetching what the user may never open wastes their data.
+      void import('./components/QuizTaker').catch(() => {});
+      void import('./components/ProgressTracker').catch(() => {});
+      void import('./components/Bookmarks').catch(() => {});
+      void import('./components/ResultsScreen').catch(() => {});
+      void import('./components/QuestionsBank').catch(() => {});
+    });
+  }, [userId]);
+
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
