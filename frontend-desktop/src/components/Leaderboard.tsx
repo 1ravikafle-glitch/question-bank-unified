@@ -410,7 +410,41 @@ const Leaderboard: React.FC = () => {
       )}
 
       {/* Your own standing, shown even when you are outside the top slice. */}
-      {mine && !inList(mine) && (
+      {mine && !inList(mine) && mine.qualified === false ? (
+        <div
+          className="card"
+          style={{
+            padding: '0.9rem 1rem',
+            border: '1px solid hsl(var(--border))',
+          }}
+        >
+          <p
+            style={{
+              fontSize: '0.6875rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: 'var(--tracking-wide)',
+              color: 'hsl(var(--muted-foreground))',
+              margin: '0 0 0.35rem 0.2rem',
+            }}
+          >
+            Your standing
+          </p>
+          {/* Not on the board yet: the gate counts lifetime DISTINCT questions
+              while the Progress tile counts every answer including repeats, so
+              the two numbers disagree by design. State the distance in the
+              gate's own unit, or "429 attempted, why am I not ranked?" keeps
+              being asked. */}
+          <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'hsl(var(--foreground))', margin: 0 }}>
+            {mine.name}: {mine.lifetime_questions} distinct of {data.eligibility.min_distinct_questions + 1} needed
+          </p>
+          <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: '0.3rem 0 0', lineHeight: 1.5 }}>
+            {mine.needed === 0
+              ? 'One more new question puts you on the board.'
+              : `${mine.needed} more new question${mine.needed === 1 ? '' : 's'} to qualify. Retaking questions you have already answered raises your accuracy, not this count.`}
+          </p>
+        </div>
+      ) : mine && !inList(mine) ? (
         <div>
           <p
             style={{
@@ -428,7 +462,7 @@ const Leaderboard: React.FC = () => {
             <Row r={mine} delay={0} topScore={topScore} total={total} />
           </ul>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

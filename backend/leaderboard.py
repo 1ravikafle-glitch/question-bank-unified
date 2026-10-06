@@ -253,6 +253,31 @@ def compute(viewer: Optional[str] = None) -> dict:
         viewer_row["name"] = viewer_row.pop("user_identifier")
         viewer_row["breakdown"] = breakdown_for(viewer_row["accuracy"], viewer_row["questions"])
 
+    # The viewer has practised but not qualified: tell them how far away the
+    # gate is instead of showing nothing. viewer_row above only exists for
+    # qualified accounts, so an unqualified viewer got silence - which is why
+    # "I attempted 429, why am I not on the board?" kept being asked. The
+    # Progress tile counts every answer including repeats; the gate counts
+    # lifetime DISTINCT questions, so the two numbers disagree by design and
+    # the distance shown here is measured in the gate's own unit.
+    if viewer_row is None and viewer:
+        life = lifetime.get(viewer)
+        if life and (life["answered"] > 0 or life["distinct_questions"] > 0):
+            need = MIN_DISTINCT_QUESTIONS + 1 - life["distinct_questions"]
+            viewer_row = {
+                "is_you": True,
+                "name": viewer,
+                "qualified": False,
+                "lifetime_questions": life["distinct_questions"],
+                "lifetime_answered": life["answered"],
+                "lifetime_accuracy": _accuracy(life),
+                "needed": max(need, 0),
+                "breakdown": (
+                    f"{life['distinct_questions']:,} distinct of "
+                    f"{MIN_DISTINCT_QUESTIONS + 1} needed to qualify"
+                ),
+            }
+
     return {
         "window": {
             "start": start.isoformat(),

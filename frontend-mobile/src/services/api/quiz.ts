@@ -196,6 +196,14 @@ export interface LeaderboardRow {
   lifetime_correct: number;
   lifetime_accuracy: number;
   breakdown: string;
+  /**
+   * Present and false only on the viewer's own row when they have practised
+   * but not cleared the lifetime gate. Ranked rows never carry it (they are
+   * qualified by construction). `needed` is how many more distinct questions
+   * stand between the viewer and the board.
+   */
+  qualified?: boolean;
+  needed?: number;
 }
 
 export interface Leaderboard {
